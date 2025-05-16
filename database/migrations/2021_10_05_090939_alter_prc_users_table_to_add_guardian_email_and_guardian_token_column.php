@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class AlterPrcUsersTableToAddGuardianEmailAndGuardianTokenColumn extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::table('prc_users', function (Blueprint $table) {
+            $table->string('guardian_email')->nullable();
+            $table->string('guardian_token')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::table('prc_users', function (Blueprint $table) {
+            $table->dropColumn('guardian_email');
+            $table->dropColumn('guardian_token');
+        });
+    }
+}

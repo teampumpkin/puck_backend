@@ -1,0 +1,4709 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "PRC API",
+        "version": "0.1"
+    },
+    "servers": [
+        {
+            "url": "api/"
+        }
+    ],
+    "paths": {
+        "/evaluator-status-change": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "evaluator Status Change",
+                "description": "evaluator Status Change",
+                "operationId": "evaluatorStatusChange",
+                "requestBody": {
+                    "description": "Status and Evaluator Id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "evaluator_id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "evaluator_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "Active"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password reset successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/positions": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get player positions for the admin",
+                "description": "Get player positions for the admin",
+                "operationId": "positions",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Position list has been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/add-position": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Create new Player position",
+                "description": "Create new Player position",
+                "operationId": "addPosition",
+                "requestBody": {
+                    "description": "Pass position_name and short name",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "position_name, short_name"
+                                ],
+                                "properties": {
+                                    "position_name": {
+                                        "type": "text",
+                                        "example": "Left Wing"
+                                    },
+                                    "short_name": {
+                                        "type": "text",
+                                        "example": "LW"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "New position has been created."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/one-on-one-call-request": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Retrieve one on one call request list",
+                "description": "Retrieve one on one call request list",
+                "operationId": "oneOnOneCallRequest",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "One on on call reqeust has been retrieve successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/call-request-status-change": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Status change of call request",
+                "description": "Status change of call request",
+                "operationId": "callRequestStatusChange",
+                "requestBody": {
+                    "description": "Pass call request id and status",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "call_request_id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "call_request_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "Link Send"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Call request status has been updated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/scout-status-change": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "scout Status Change",
+                "description": "scout Status Change",
+                "operationId": "scoutStatusChange",
+                "requestBody": {
+                    "description": "Status and Scout Id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "scout_id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "scout_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "Active"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password reset successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-all-scouts": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get All Scouts",
+                "description": "Retrieve All Scouts",
+                "operationId": "getAllScouts",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Scout list retrieved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/convert-to-evaluator": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Convert scout into evaluator",
+                "description": "Convert scout into evaluator",
+                "operationId": "convertToEvaluator",
+                "requestBody": {
+                    "description": "Pass scout id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "scout_id"
+                                ],
+                                "properties": {
+                                    "scout_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Scout has been converted to evaluator"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-all-teams": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get All Teams",
+                "description": "Get team list",
+                "operationId": "getTeamsAdmin",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Team list have been retrieve successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/team-status-change": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "team Status Change",
+                "description": "team Status Change",
+                "operationId": "teamStatusChange",
+                "requestBody": {
+                    "description": "Status and Team Id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "team_id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "team_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "Active"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Team status updated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-all-academies": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get All Academies",
+                "description": "Get team list",
+                "operationId": "getAcademies",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Academy list have been retrieve successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/dashboard": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "dashboard",
+                "description": "dashboard",
+                "operationId": "dashboard",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Dashboard data has been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Sign in",
+                "description": "Login by email, password",
+                "operationId": "authLogin",
+                "requestBody": {
+                    "description": "Pass user credentials",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "PassWord12345"
+                                    },
+                                    "request_from": {
+                                        "type": "string",
+                                        "format": "text",
+                                        "example": "admin"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Wrong email or password."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Sign up",
+                "description": "Register with PRC",
+                "operationId": "register",
+                "requestBody": {
+                    "description": "Pass user details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "email",
+                                    "password",
+                                    "type",
+                                    "dob"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "PassWord12345"
+                                    },
+                                    "dob": {
+                                        "type": "string",
+                                        "example": "1990-04-04"
+                                    },
+                                    "guardian_email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "parent@mail.com"
+                                    },
+                                    "type": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Wrong email or password."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/forgot-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Forgot Password",
+                "description": "Get OTP on registed mail",
+                "operationId": "forgotPassword",
+                "requestBody": {
+                    "description": "Pass register email",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "OTP sent to your email, Please check."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reset-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Reset Password",
+                "description": "Reset Password using OTP",
+                "operationId": "resetPassword",
+                "requestBody": {
+                    "description": "Pass OTP and New Password",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "otp",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "otp": {
+                                        "type": "integer",
+                                        "example": "123456"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "123456"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password reset successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get-profile": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get Profile",
+                "description": "Retrieve user's profile",
+                "operationId": "getProfile",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile retrieved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/edit-profile": {
+            "put": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Edit Profile",
+                "description": "Update profile",
+                "operationId": "editProfile",
+                "requestBody": {
+                    "description": "Pass user details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+917894561230"
+                                    },
+                                    "dob": {
+                                        "type": "string",
+                                        "example": "1990-04-04"
+                                    },
+                                    "handedness": {
+                                        "type": "string",
+                                        "example": "LH"
+                                    },
+                                    "weight": {
+                                        "type": "string",
+                                        "example": "30"
+                                    },
+                                    "height": {
+                                        "type": "string",
+                                        "example": "6'5''"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "example": "base64 string of image"
+                                    },
+                                    "league": {
+                                        "type": "string",
+                                        "example": "Json string of league"
+                                    },
+                                    "position": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Ahmedabad"
+                                    },
+                                    "region": {
+                                        "type": "string",
+                                        "example": "Gujarat"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "India"
+                                    },
+                                    "country_short_name": {
+                                        "type": "string",
+                                        "example": "IN"
+                                    },
+                                    "marketplace_email_allowed": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile updated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/change-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "change Password",
+                "description": "change Password using OTP",
+                "operationId": "changePassword",
+                "requestBody": {
+                    "description": "Pass Old and New Password",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "old_password",
+                                    "new_password"
+                                ],
+                                "properties": {
+                                    "old_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "123456"
+                                    },
+                                    "new_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "123456"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password reset successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/verify-token": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify Token",
+                "description": "Check that token is valid or not",
+                "operationId": "verifyToken",
+                "parameters": [
+                    {
+                        "name": "email",
+                        "in": "query",
+                        "description": "Email",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        "example": "user1@mail.com"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Valid token!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/verify-otp": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify OTP",
+                "description": "Check that OTP is valid or not",
+                "operationId": "verifyOTP",
+                "parameters": [
+                    {
+                        "name": "email",
+                        "in": "query",
+                        "description": "Email",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        "example": "user1@mail.com"
+                    },
+                    {
+                        "name": "otp",
+                        "in": "query",
+                        "description": "OTP",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "text"
+                        },
+                        "example": "123456"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Valid OTP!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get-all-evaluators": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get All evaluators",
+                "description": "Retrieve All evaluators",
+                "operationId": "getAllEvaluators",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Evaluator list retrieved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-top-players": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Get Top Players",
+                "description": "Retrieve Top Players",
+                "operationId": "getTopPlayers",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the top players list"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-all-players": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Get All Players",
+                "description": "Retrieve All Players",
+                "operationId": "getAllPlayers",
+                "parameters": [
+                    {
+                        "name": "order_by",
+                        "in": "query",
+                        "description": "Order By",
+                        "schema": {
+                            "type": "string",
+                            "format": "text"
+                        },
+                        "example": "asc|desc"
+                    },
+                    {
+                        "name": "year",
+                        "in": "query",
+                        "description": "Year",
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1998"
+                    },
+                    {
+                        "name": "league",
+                        "in": "query",
+                        "description": "league",
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    },
+                    {
+                        "name": "team",
+                        "in": "query",
+                        "description": "team",
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Players list have been retrieve successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/save-unsave-user": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "save unsave user",
+                "description": "save unsave user using user id",
+                "operationId": "saveUnsaveUser",
+                "requestBody": {
+                    "description": "Save or Unsave user",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Player has been saved successfully!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/follow-unfollow-user": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "follow unfollow user",
+                "description": "follow unfollow user using user id",
+                "operationId": "followUnFollowUser",
+                "requestBody": {
+                    "description": "Save or Unsave user",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "You have been followed successfully!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/block-unblock-user": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "block unblock user",
+                "description": "block unblock user using user id",
+                "operationId": "blockUnBlockUser",
+                "requestBody": {
+                    "description": "Save or Unsave user",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "You block the user successfully!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/send-scout-request": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "send scouting request",
+                "description": "send scouting request",
+                "operationId": "sendScoutRequest",
+                "requestBody": {
+                    "description": "Send scout request",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "league"
+                                ],
+                                "properties": {
+                                    "league": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment request sent."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-followers": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Get All Followers",
+                "description": "Retrieve All Followers",
+                "operationId": "getFollowers",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "User id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Follower list has been retrieve successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-followings": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Get All Followings",
+                "description": "Retrieve All Followings",
+                "operationId": "getFollowings",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "User id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Following list retrieved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/cancel-scout-request": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "cancel scouting request",
+                "description": "cancel scouting request",
+                "operationId": "cancelScoutRequest",
+                "requestBody": {
+                    "description": "Request Id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "request_id"
+                                ],
+                                "properties": {
+                                    "request_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment request canceled."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/medias": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Uploaded media information",
+                "description": "Retrieve the medias uploaded by the user",
+                "operationId": "playerMedias",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "User Id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": ""
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Medias have been found!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/media-upload": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Upload media",
+                "description": "upload media by player",
+                "operationId": "playerMediaUpload",
+                "requestBody": {
+                    "description": "Media file",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "media"
+                                ],
+                                "properties": {
+                                    "media": {
+                                        "type": "file",
+                                        "example": ""
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Media upload canceled."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/media-edit": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Edit media",
+                "description": "Edit media by player",
+                "operationId": "playerMediaEdit",
+                "requestBody": {
+                    "description": "Media file",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "media"
+                                ],
+                                "properties": {
+                                    "media": {
+                                        "type": "file",
+                                        "example": ""
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Media edit canceled."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/media-download": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Download media",
+                "description": "download media by player",
+                "operationId": "playerMediaDownload",
+                "parameters": [
+                    {
+                        "name": "media_id",
+                        "in": "query",
+                        "description": "media id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "integer"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Media download canceled."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/media-delete": {
+            "delete": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Media delete",
+                "description": "remove media by player",
+                "operationId": "deleteMedia",
+                "parameters": [
+                    {
+                        "name": "media_id",
+                        "in": "query",
+                        "description": "media id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "integer"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Your media has been removed."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-positions": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Get Position",
+                "description": "Retrieve player positions",
+                "operationId": "getPositions",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Positions retrieved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/mentorship-plan-price": {
+            "get": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "Retrieve mentor ship plan price",
+                "description": "Retrieve mentor ship plan price",
+                "operationId": "mentorshipPlanPrice",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Plan price has been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-scout-requests": {
+            "get": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Get Scouting request",
+                "description": "Retrieve Scouting request",
+                "operationId": "getScoutRequest",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the assessment request list"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/request-status-update": {
+            "post": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Approve/reject scouting request",
+                "description": "status update",
+                "operationId": "requestStatusUpdate",
+                "requestBody": {
+                    "description": "request_id and status",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "request_id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "request_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment request status modified."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-skills": {
+            "get": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Get skills for scouting",
+                "description": "Retrieve Scouting skills",
+                "operationId": "getSkills",
+                "parameters": [
+                    {
+                        "name": "player_id",
+                        "in": "query",
+                        "description": "Player Id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the skills for the assessment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/submit-scouting-report": {
+            "post": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Submit player's scouting report",
+                "description": "submit report",
+                "operationId": "submitScoutingReport",
+                "requestBody": {
+                    "description": "pass player_id, game, skills, longRangePotential, scoutComment, recommendation, published, scoutRequestId",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "player_id",
+                                    "game",
+                                    "longRangePotential",
+                                    "scoutComment",
+                                    "recommendation",
+                                    "scoutRequestId"
+                                ],
+                                "properties": {
+                                    "player_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "scout_request_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "game": {
+                                        "type": "string",
+                                        "example": "hockey"
+                                    },
+                                    "skills": {
+                                        "type": "json",
+                                        "example": "{}"
+                                    },
+                                    "long_range_potential": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "scout_comment": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "recommendation": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "published": {
+                                        "type": "boolean",
+                                        "example": "false"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment report saved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/publish-scouting-report": {
+            "post": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Publish player's scouting report",
+                "description": "publish report",
+                "operationId": "publishScoutingReport",
+                "requestBody": {
+                    "description": "pass player_id, game, skills, longRangePotential, scoutComment, recommendation, published, scoutRequestId",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "report_id",
+                                    "published"
+                                ],
+                                "properties": {
+                                    "report_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "published": {
+                                        "type": "boolean",
+                                        "example": "false"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment report published."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-scout-report": {
+            "get": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Get scouting report",
+                "description": "Retrieve Scouting report",
+                "operationId": "getScoutReport",
+                "parameters": [
+                    {
+                        "name": "report_id",
+                        "in": "query",
+                        "description": "Report id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the assessment report generated by you"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/save-unsave-report": {
+            "post": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "save unsave report",
+                "description": "save unsave report using report id",
+                "operationId": "saveUnsaveReport",
+                "requestBody": {
+                    "description": "Save or Unsave report",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "report_id"
+                                ],
+                                "properties": {
+                                    "report_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Report has been saved successfully!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-reports": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get scouting reports",
+                "description": "Retrieve Scouting reports",
+                "operationId": "getReports",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here are the scouting reports"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-report": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get report",
+                "description": "Retrieve Scouting report",
+                "operationId": "getReport",
+                "parameters": [
+                    {
+                        "name": "report_id",
+                        "in": "query",
+                        "description": "Report id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the scouting report detail"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-saved-players": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get all saved players",
+                "description": "Retrieve saved player list",
+                "operationId": "getSavedPlayers",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of your saved players"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-saved-teams": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get all saved teams",
+                "description": "Retrieve saved player list",
+                "operationId": "getSavedTeams",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of your saved teams"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-saved-reports": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get all saved reports",
+                "description": "Retrieve saved player list",
+                "operationId": "getSavedReports",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of your saved reports"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/filter": {
+            "get": {
+                "tags": [
+                    "Filter"
+                ],
+                "summary": "Filter API",
+                "description": "Retrieve Common/Team based on filter",
+                "operationId": "filterUsers",
+                "parameters": [
+                    {
+                        "name": "filter",
+                        "in": "query",
+                        "description": "filter",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "text"
+                        },
+                        "example": "John Deo"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Filtered user list found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-user-profile": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get User profile API",
+                "description": "Retrieve user information",
+                "operationId": "getUserProfile",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "User id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User information found."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-filters": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get Data which are require for filters",
+                "description": "Retrieve filter data",
+                "operationId": "getFiltersData",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Filter data has been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/zoho-plans": {
+            "get": {
+                "tags": [
+                    "Zoho Subscriptions"
+                ],
+                "summary": "Get Plans from ZOHO subscription",
+                "description": "Retrieve Plans from the ZOHO subscription",
+                "operationId": "getPlans",
+                "parameters": [
+                    {
+                        "name": "player_id",
+                        "in": "query",
+                        "description": "Player id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "0"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Zoho plans have been retieve successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/generate-payment-page": {
+            "post": {
+                "tags": [
+                    "Zoho Subscriptions"
+                ],
+                "summary": "Generate Payment page for the player",
+                "description": "Generate payment page for the player",
+                "operationId": "generatePaymentPage",
+                "requestBody": {
+                    "description": "Generate Payment Page",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "plan_code",
+                                    "player_id"
+                                ],
+                                "properties": {
+                                    "plan_code": {
+                                        "type": "string",
+                                        "example": "plan_code"
+                                    },
+                                    "player_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is payment page URL!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-chat-id": {
+            "get": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Get Unique Chat Id",
+                "description": "Retrieve Chat Id",
+                "operationId": "getChatId",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "User Id",
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "ChatId has been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/recent-chats": {
+            "get": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Get recent chats of the user",
+                "description": "Recent chats of the user",
+                "operationId": "getRecentChats",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Recent chat list has been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/cancel-subscription": {
+            "post": {
+                "tags": [
+                    "Zoho Subscriptions"
+                ],
+                "summary": "Cancel the subscription",
+                "description": "Cancel the subscription",
+                "operationId": "cancelSubscription",
+                "requestBody": {
+                    "description": "Pass player_id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "player_id"
+                                ],
+                                "properties": {
+                                    "player_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Your subscription will be canceled at the end of this term."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/leagues": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Retrieve league list",
+                "description": "Retrieve league list",
+                "operationId": "getLeagues",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of league"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/countries": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get active countries",
+                "description": "Get active countries",
+                "operationId": "getCountries",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Countries have been found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/states": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Retrieve state list base on the selected country",
+                "description": "Retrieve state list base on the selected country",
+                "operationId": "getStates",
+                "parameters": [
+                    {
+                        "name": "country_id",
+                        "in": "query",
+                        "description": "Pass country id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "State list has been found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/cities": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Retrieve city list base on the selected country",
+                "description": "Retrieve city list base on the selected country",
+                "operationId": "getCities",
+                "parameters": [
+                    {
+                        "name": "state_id",
+                        "in": "query",
+                        "description": "Pass state id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "City list has been found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/popup-description": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Retrieve description of different type of alerts",
+                "description": "Retrieve description of different type of alerts",
+                "operationId": "popupDescription",
+                "parameters": [
+                    {
+                        "name": "alert_type",
+                        "in": "query",
+                        "description": "Pass alert type",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Description found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/get-profile-image": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get profile image",
+                "description": "Get profile image file instead of base64",
+                "operationId": "getProfileImage",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the image"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/team-list": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Get All Teams",
+                "description": "Get team list",
+                "operationId": "getTeams",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Team list have been retrieve successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/team": {
+            "get": {
+                "tags": [
+                    "Common"
+                ],
+                "summary": "Team Detail",
+                "description": "Get Team details based on team_id",
+                "operationId": "getTeam",
+                "parameters": [
+                    {
+                        "name": "team_id",
+                        "in": "query",
+                        "description": "Pass team id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Team detail has been retrieve successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/add-manager": {
+            "post": {
+                "tags": [
+                    "Teams"
+                ],
+                "summary": "Add Manager in team",
+                "description": "Add manager in team",
+                "operationId": "addManager",
+                "requestBody": {
+                    "description": "Pass Manager details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "email"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "example": "base64 string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Manager has been added successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/edit-team-member": {
+            "put": {
+                "tags": [
+                    "Teams"
+                ],
+                "summary": "Edit member of team",
+                "description": "Edit member of team",
+                "operationId": "editTeamMember",
+                "requestBody": {
+                    "description": "Pass Member details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "member_id",
+                                    "first_name",
+                                    "last_name"
+                                ],
+                                "properties": {
+                                    "member_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "PRC"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "example": "Base64 string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Team member update successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/remove-team-member": {
+            "delete": {
+                "tags": [
+                    "Teams"
+                ],
+                "summary": "team member delete",
+                "description": "remove team member",
+                "operationId": "removeTeamMember",
+                "parameters": [
+                    {
+                        "name": "member_id",
+                        "in": "query",
+                        "description": "member id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "integer"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The member has been removed from the team."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/add-coach": {
+            "post": {
+                "tags": [
+                    "Teams"
+                ],
+                "summary": "Add Coach in team",
+                "description": "Add coach in team",
+                "operationId": "addCoach",
+                "requestBody": {
+                    "description": "Pass Coach details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "email"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "example": "base64 string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Coach has been added successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/add-player": {
+            "post": {
+                "tags": [
+                    "Teams"
+                ],
+                "summary": "Add Player in team",
+                "description": "Add player in team",
+                "operationId": "addPlayer",
+                "requestBody": {
+                    "description": "Pass Player details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "email"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "example": "base64 string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Player has been added successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/v2/get-skills": {
+            "get": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Get skills for scouting",
+                "description": "Retrieve Scouting skills",
+                "operationId": "getSkillsList",
+                "parameters": [
+                    {
+                        "name": "player_position",
+                        "in": "query",
+                        "description": "ID of player position",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        },
+                        "example": "1"
+                    },
+                    {
+                        "name": "player_position",
+                        "in": "query",
+                        "description": "return player position info",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "text"
+                        },
+                        "example": "true"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the skills for the assessment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/assessment-categories": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get assessment categories for scouting",
+                "description": "Retrieve assessment categories",
+                "operationId": "getAssessmentCategories",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here are the categories for the advanced assessment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/assessment-category": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get assessment category based on player position",
+                "description": "Get assessment category based on player position",
+                "operationId": "getAssessmentCategory",
+                "parameters": [
+                    {
+                        "name": "player_position_id",
+                        "in": "query",
+                        "description": "ID of player position",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment categories have been retrieve"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/assessment-categories-status-change": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Assessment categories Status Change",
+                "description": "Assessment categories Status Change",
+                "operationId": "assessmentCategoriesStatusChange",
+                "requestBody": {
+                    "description": "Status and Evaluator Id",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "evaluator_id",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "evaluator_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "Active"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Status has been changed."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/add-assessment-category": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Add new assessment category",
+                "description": "Add new assessment category",
+                "operationId": "addAssessmentCategory",
+                "requestBody": {
+                    "description": "Player Position Id and Category Name",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "player_position_id",
+                                    "category_name"
+                                ],
+                                "properties": {
+                                    "player_position_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "category_name": {
+                                        "type": "string",
+                                        "example": "ABC"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "New assessment category has been added."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/assessment-skills": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get assessment skills for scouting",
+                "description": "Retrieve assessment skills",
+                "operationId": "getAssessmentSkills",
+                "parameters": [
+                    {
+                        "name": "player_position_id",
+                        "in": "query",
+                        "description": "Player Position Id",
+                        "schema": {
+                            "type": "int",
+                            "format": "int64"
+                        },
+                        "example": "0"
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "Assessment Category Id",
+                        "schema": {
+                            "type": "int",
+                            "format": "int64"
+                        },
+                        "example": "0"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here are the skills for the advanced assessment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/add-assessment-skill": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Add new assessment skill",
+                "description": "Add new assessment skill",
+                "operationId": "addAssessmentSkill",
+                "requestBody": {
+                    "description": "Pass skill name, category id and skill info",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "skill_name",
+                                    "category_id"
+                                ],
+                                "properties": {
+                                    "skill_name": {
+                                        "type": "string",
+                                        "example": "Skating"
+                                    },
+                                    "skill_info": {
+                                        "type": "string",
+                                        "example": "Skating"
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "New skill has been created."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/v2/send-scout-request": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "send scouting request",
+                "description": "send scouting request",
+                "operationId": "sendScoutRequestV2",
+                "requestBody": {
+                    "description": "Send scout request",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "league",
+                                    "media_id"
+                                ],
+                                "properties": {
+                                    "league": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "media_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment request sent."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/assessment-skill-values": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Retrieve advance assessment values",
+                "description": "Retrieve advance assessment values",
+                "operationId": "getAdvanceAssessmentSkillValues",
+                "parameters": [
+                    {
+                        "name": "player_position_id",
+                        "in": "query",
+                        "description": "Filter with player position",
+                        "required": false,
+                        "schema": {
+                            "type": "int",
+                            "format": "int64"
+                        },
+                        "example": "1"
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "Filter with assessment category",
+                        "required": false,
+                        "schema": {
+                            "type": "int",
+                            "format": "int64"
+                        },
+                        "example": "1"
+                    },
+                    {
+                        "name": "skill_id",
+                        "in": "query",
+                        "description": "Filter with skill",
+                        "required": false,
+                        "schema": {
+                            "type": "int",
+                            "format": "int64"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of assessment skill values"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/filtered-assessment-skill": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Retrieve assessment skill based on assessment category",
+                "description": "Retrieve assessment skill based on assessment category",
+                "operationId": "assessmentSkillOfCategory",
+                "parameters": [
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "pass category id",
+                        "required": true,
+                        "schema": {
+                            "type": "int",
+                            "format": "int64"
+                        },
+                        "example": "1"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of assessment skill."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/assessment-skill-values-by-rating": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get assessment values's statement of rating",
+                "description": "Get assessment values's statement of rating",
+                "operationId": "assessment-values-by-rating",
+                "parameters": [
+                    {
+                        "name": "value_id",
+                        "in": "query",
+                        "description": "Pass value id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "number"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is the list of assessment statements."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/manage-assessment-statement": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Add or Update assessment statement",
+                "description": "Add or Update assessment statement",
+                "operationId": "manageAssessmentStatement",
+                "requestBody": {
+                    "description": "pass statement_id and statement if update then pass actual statement id and for new statement pass 0",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "statement"
+                                ],
+                                "properties": {
+                                    "statement": {
+                                        "type": "string",
+                                        "example": "statement"
+                                    },
+                                    "statement_id": {
+                                        "type": "integer",
+                                        "example": "0"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Statement has been saved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/v2/submit-scouting-report": {
+            "post": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Submit player's scouting report",
+                "description": "submit report",
+                "operationId": "submitScoutingReportV2",
+                "requestBody": {
+                    "description": "pass player_id, game, skills, longRangePotential, scoutComment, recommendation, published, scoutRequestId, modified_skills",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "player_id",
+                                    "game",
+                                    "longRangePotential",
+                                    "scoutComment",
+                                    "recommendation",
+                                    "scoutRequestId",
+                                    "modified_skills"
+                                ],
+                                "properties": {
+                                    "player_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "scout_request_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "game": {
+                                        "type": "string",
+                                        "example": "hockey"
+                                    },
+                                    "skills": {
+                                        "type": "string",
+                                        "example": "[]"
+                                    },
+                                    "modified_skills": {
+                                        "type": "string",
+                                        "example": "[]"
+                                    },
+                                    "long_range_potential": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "scout_comment": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "recommendation": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "published": {
+                                        "type": "boolean",
+                                        "example": "false"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment report saved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/one-time-evaluation-payment-page": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "One time payment page url",
+                "description": "One time payment page url",
+                "operationId": "generateOneTimeEvaluationPaymentPage",
+                "requestBody": {
+                    "description": "Generate one payment page url",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "league",
+                                    "media_id"
+                                ],
+                                "properties": {
+                                    "league": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "media_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is one time payment page URL!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/one-time-payment-page": {
+            "post": {
+                "tags": [
+                    "Players"
+                ],
+                "summary": "One time payment page url",
+                "description": "One time payment page url",
+                "operationId": "generateOneTimePaymentPage",
+                "requestBody": {
+                    "description": "Generate one payment page url",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Here is one time payment page URL!"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/v2/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Sign up",
+                "description": "Register with PRC",
+                "operationId": "registerV2",
+                "requestBody": {
+                    "description": "Pass user details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "email",
+                                    "password",
+                                    "type",
+                                    "dob"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "PassWord12345"
+                                    },
+                                    "dob": {
+                                        "type": "string",
+                                        "example": "1990-04-04"
+                                    },
+                                    "guardian_first_name": {
+                                        "type": "string",
+                                        "example": "parent"
+                                    },
+                                    "guardian_email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "parent@mail.com"
+                                    },
+                                    "type": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "marketplace_email_allowed": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Wrong email or password."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v3/submit-scouting-report": {
+            "post": {
+                "tags": [
+                    "Scouts"
+                ],
+                "summary": "Submit player's scouting report",
+                "description": "submit report",
+                "operationId": "submitScoutingReportV3",
+                "requestBody": {
+                    "description": "pass player_id, game, skills, longRangePotential, scoutComment, recommendation, published, scoutRequestId, modified_skills",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "player_id",
+                                    "game",
+                                    "longRangePotential",
+                                    "scoutComment",
+                                    "recommendation",
+                                    "scoutRequestId",
+                                    "modified_skills"
+                                ],
+                                "properties": {
+                                    "player_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "scout_request_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "game": {
+                                        "type": "string",
+                                        "example": "hockey"
+                                    },
+                                    "skills": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "modified_skills": {
+                                        "type": "string",
+                                        "example": "[]"
+                                    },
+                                    "long_range_potential": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "scout_comment": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "recommendation": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "published": {
+                                        "type": "boolean",
+                                        "example": "false"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Wrong credentials response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Assessment report saved."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        },
+        "/zapier/register": {
+            "post": {
+                "tags": [
+                    "Zapier"
+                ],
+                "summary": "Register user in Zapier (Warning: this also will create a user in PUCK)",
+                "description": "Register user in Zapier and Puck",
+                "operationId": "zapierRegister",
+                "requestBody": {
+                    "description": "Pass user details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "email",
+                                    "password",
+                                    "type",
+                                    "dob"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user1@mail.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "PassWord12345"
+                                    },
+                                    "dob": {
+                                        "type": "string",
+                                        "example": "1990-04-04"
+                                    },
+                                    "type": {
+                                        "type": "integer",
+                                        "example": "2"
+                                    },
+                                    "handedness": {
+                                        "type": "string",
+                                        "example": "Left hand"
+                                    },
+                                    "weight": {
+                                        "type": "integer",
+                                        "example": "60"
+                                    },
+                                    "height": {
+                                        "type": "string",
+                                        "example": "5'6"
+                                    },
+                                    "marketplace_email_allowed": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "is_email_verified": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Wrong email or password."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/zapier/edit": {
+            "put": {
+                "tags": [
+                    "Zapier"
+                ],
+                "summary": "Edit user info (Warning: this also will update user in PUCK)",
+                "description": "This endpoint is called by Zapier when a record is update in the Zapier table. Endpoint will update user data in Puck and Zapier table",
+                "operationId": "editUserZapier",
+                "requestBody": {
+                    "description": "Pass user details",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "example": "test@email.com"
+                                    },
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Test"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "User"
+                                    },
+                                    "dob": {
+                                        "type": "string",
+                                        "example": "1990-04-04"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Miami"
+                                    },
+                                    "state": {
+                                        "type": "string",
+                                        "example": "Florida"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "United States"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "example": "Player"
+                                    },
+                                    "position": {
+                                        "type": "string",
+                                        "example": "Centre"
+                                    },
+                                    "handedness": {
+                                        "type": "string",
+                                        "example": "Left hand"
+                                    },
+                                    "weight": {
+                                        "type": "integer",
+                                        "example": "60"
+                                    },
+                                    "height": {
+                                        "type": "string",
+                                        "example": "5'6"
+                                    },
+                                    "guardian_email": {
+                                        "type": "string",
+                                        "example": ""
+                                    },
+                                    "marketplace_email_allowed": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "is_email_verified": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile updated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "apiAuth": {
+                "type": "apiKey",
+                "description": "Authentication Token",
+                "name": "Authorization",
+                "in": "header"
+            }
+        }
+    }
+}

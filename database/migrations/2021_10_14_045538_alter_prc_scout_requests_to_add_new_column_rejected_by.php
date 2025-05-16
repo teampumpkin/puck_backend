@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class AlterPrcScoutRequestsToAddNewColumnRejectedBy extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::table('prc_scout_requests', function (Blueprint $table) {
+            $table->longText('rejected_by')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::table('prc_scout_requests', function (Blueprint $table) {
+            $table->dropColumn('rejected_by');
+        });
+    }
+}
