@@ -46,6 +46,11 @@ return [
             'provider' => 'users',
             'hash' => false,
         ],
+
+        'v4api' => [
+            'driver' => 'jwt',
+            'provider' => 'v4_users',
+        ],
     ],
 
     /*
@@ -75,6 +80,11 @@ return [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
+
+        'v4_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\V4User::class,
+        ],
     ],
 
     /*

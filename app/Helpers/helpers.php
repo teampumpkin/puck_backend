@@ -16,31 +16,31 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
-if (!function_exists('prepare_response')) {
-    /**
-     * @param $code
-     * @param $status
-     * @param $message
-     * @param array $data
-     * @param array $extra_data
-     *
-     * @return JsonResponse
-     */
-    function prepare_response($code, $status, $message, $data = [], $extra_data = [], $version = "1.0")
-    {
-        if (!empty($extra_data)) {
-            $data = array_merge($data, $extra_data);
-        }
+// if (!function_exists('prepare_response')) {
+//     /**
+//      * @param $code
+//      * @param $status
+//      * @param $message
+//      * @param array $data
+//      * @param array $extra_data
+//      *
+//      * @return JsonResponse
+//      */
+//     function prepare_response($code, $status, $message, $data = [], $extra_data = [], $version = "1.0")
+//     {
+//         if (!empty($extra_data)) {
+//             $data = array_merge($data, $extra_data);
+//         }
 
-        return response()->json([
-            'code'    => $code,
-            'status'  => $status,
-            'message' => $message,
-            'data'    => $data,
-            'version' => $version
-        ]);
-    }
-}
+//         return response()->json([
+//             'code'    => $code,
+//             'status'  => $status,
+//             'message' => $message,
+//             'data'    => $data,
+//             'version' => $version
+//         ]);
+//     }
+// }
 
 if (!function_exists('checkEmpty')) {
     /**
@@ -175,6 +175,8 @@ if (!function_exists('getUserIdAndType')) {
     }
 }
 
+
+//fucntion for getting the type of user -- legacy
 if (!function_exists('getUserType')) {
     /**
      * @param $type
@@ -407,6 +409,7 @@ if (!function_exists('exceptionMessage')) {
 
         return prepare_response(500, false, 'Something went wrong. Please try again');
     }
+}
 
     if (!function_exists('checkReportSaved')) {
         /**
@@ -425,7 +428,6 @@ if (!function_exists('exceptionMessage')) {
             return true;
         }
     }
-}
 
 if (!function_exists('checkEmpty')) {
     /**
