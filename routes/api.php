@@ -22,7 +22,9 @@ use App\Http\Controllers\API\Zapier\ZapierController;
 use App\Http\Controllers\AuthController as ControllersAuthController;
 use App\Http\Controllers\GuardianController;
 use App\Http\Controllers\PlayableController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StripeController;
+use App\Http\Controllers\V4\V4AuthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -227,3 +229,19 @@ Route::get('save-mentorship-subscription', [SharedController::class, 'saveMentor
 Route::get("no-cache/verify-account/{token}", [ControllersAuthController::class, 'verifyAccount']);
 Route::get('no-cache/accept/{token}', [GuardianController::class, 'acceptRequest']);
 Route::get('no-cache/{token}', [GuardianController::class, 'rejectRequest']);
+
+
+//V4-Routes
+Route::prefix('v4')->group(function(){
+    Route::post('send-login-otp', [V4AuthController::class, 'sendLoginOtp']);
+    Route::post('verify-login-otp', [V4AuthController::class, 'verifyLoginOtp']);
+    Route::post('/child-login', [V4AuthController::class, 'childLogin']);
+
+    Route::middleware('auth:v4api')->group(function () {
+        Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
+        Route::post('/add-child', [ProfileController::class, 'addChild']);
+    });
+});
+
+// // Parent routes
+// Route::get('/children', [ParentController::class, 'listChildren']);

@@ -11,13 +11,15 @@
         "darkaonline/l5-swagger": "^8.0",
         "doctrine/dbal": "^3.1",
         "fideloper/proxy": "^4.4",
-        "fruitcake/laravel-cors": "^2.0",
+        "fruitcake/laravel-cors": "^3.0",
         "guzzlehttp/guzzle": "^7.0.1",
         "laravel/framework": "^8.40",
         "laravel/passport": "^10.1",
         "laravel/tinker": "^2.5",
         "league/flysystem-aws-s3-v3": "^1.0",
-        "stripe/stripe-php": "^10.14"
+        "php-open-source-saver/jwt-auth": "^2.2",
+        "stripe/stripe-php": "^10.14",
+        "tymon/jwt-auth": "^1.0@dev"
     },
     "require-dev": {
         "facade/ignition": "^2.5",
@@ -37,7 +39,10 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/"
-        }
+        },
+        "files": [
+            "app/Helpers/V4Helpers.php"
+        ]
     },
     "scripts": {
         "post-autoload-dump": [
