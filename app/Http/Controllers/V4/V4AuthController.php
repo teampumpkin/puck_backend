@@ -3,8 +3,6 @@
 namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\API\V4\V4SendOtpRequest;
-use App\Http\Requests\API\V4\V4VerifyOtpRequest;
 use App\Mail\SendOtpMail;
 use App\Models\V4User;
 use Carbon\Carbon;
@@ -21,7 +19,6 @@ use Illuminate\Validation\ValidationException;
 
 class V4AuthController extends Controller
 {
-
     public function sendLoginOtp(Request $request)
     {
         try {
@@ -32,11 +29,9 @@ class V4AuthController extends Controller
                 'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
             ]);
 
-            // Decide the identifier field
             $identifier = $validated['email'] ?? $validated['phone'];
             $field      = isset($validated['email']) ? 'email' : 'phone';
 
-            // Block child players from OTP flow
             if ($validated['role'] === 'player' && ($validated['is_child'] ?? false)) {
                 return response()->json([
                     'success' => false,
@@ -63,10 +58,10 @@ class V4AuthController extends Controller
                 'otp_expiry'  => now()->addMinutes(10),
             ]);
 
-//             TODO: dispatch SMS job if $field === phone
-//            if ($field === 'email') {
+                //TODO: dispatch SMS job if $field === phone
+                //if ($field === 'email') {
                 // Mail::to($user->email)->send(new SendOtpMail($otp));
-//            }
+                //}
 
             return response()->json([
                 'success' => true,
@@ -137,6 +132,9 @@ class V4AuthController extends Controller
                     'id'          => $user->id,
                     'role'        => $user->role,
                     'isOnboarded' => $user->is_onboarded,
+                    'email'       => $user->email,
+                    'phone'       => $user->phone,
+                    'is_child'    => $user->is_child,
                 ],
                 'message' => 'OTP verification successful',
             ]);
@@ -183,7 +181,10 @@ class V4AuthController extends Controller
                 'role' => $user->role,
                 'is_onboarded' => $user->is_onboarded,
                 'is_child' => $user->is_child,
-            ]
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ],
+            'message' => 'Login successful'
         ]);
     }
 };

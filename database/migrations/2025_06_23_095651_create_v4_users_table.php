@@ -44,8 +44,9 @@ return new class extends Migration
             $table->enum('handedness', ['left', 'right', 'Ambidextrous'])->nullable();
             $table->decimal('weight', 8, 2)->nullable();
             $table->decimal('height', 8, 2)->nullable();
-            $table->string('position')->nullable();
+            $table->enum('position', ['forward', 'defense', 'goalie', 'right wing', 'left wing', 'centre'])->nullable();
             $table->enum('gender', ['male', 'female', 'other'])->nullable();
+            $table->json('permissions')->nullable(); // Permissions for child accounts
             $table->timestamps();
         });
 

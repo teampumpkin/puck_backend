@@ -15,7 +15,8 @@ class V4User extends Authenticatable implements JWTSubject
         'email', 'phone', 'password', 'first_name', 'last_name',
         'date_of_birth', 'country', 'state', 'city', 'zip',
         'is_child', 'parent_id', 'username', 'enable_private_account',
-        'receive_news_offers', 'terms_accepted', 'role', 'is_onboarded', 'otp', 'otp_expiry'
+        'receive_news_offers', 'terms_accepted', 'role', 'is_onboarded', 'otp', 'otp_expiry',
+        'profile_photo'
     ];
 
     protected $hidden = [
@@ -44,7 +45,7 @@ class V4User extends Authenticatable implements JWTSubject
     // Relationships
     public function playerProfile()
     {
-        return $this->hasOne(PlayerProfile::class);
+        return $this->hasOne(PlayerProfile::class, 'v4_user_id');
     }
 
     public function coachProfile()
@@ -95,5 +96,10 @@ class V4User extends Authenticatable implements JWTSubject
     public function parent()
     {
         return $this->belongsTo(V4User::class, 'parent_id');
+    }
+
+    public function media()
+    {
+        return $this->hasMany(V4Media::class, 'v4_user_id');
     }
 }

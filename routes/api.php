@@ -22,7 +22,8 @@ use App\Http\Controllers\API\Zapier\ZapierController;
 use App\Http\Controllers\AuthController as ControllersAuthController;
 use App\Http\Controllers\GuardianController;
 use App\Http\Controllers\PlayableController;
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\V4\ProfileController;
+use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
 use Illuminate\Support\Facades\Route;
@@ -238,8 +239,16 @@ Route::prefix('v4')->group(function(){
     Route::post('/child-login', [V4AuthController::class, 'childLogin']);
 
     Route::middleware('auth:v4api')->group(function () {
+        Route::get('/profile', [ProfileController::class, 'getProfileData']);
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
+        Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
+
+        // Media routes
+        Route::post('/upload-media', [V4MediaController::class, 'uploadMedia']);
+        Route::get('/all-media', [V4MediaController::class, 'getAllMedia']);
+        Route::put('/edit-media/{id}', [V4MediaController::class, 'editMedia']);
+        Route::delete('/delete-media/{id}', [V4MediaController::class, 'deleteMedia']);
     });
 });
 
