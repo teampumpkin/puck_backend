@@ -26,6 +26,9 @@ use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
+use App\Http\Controllers\WebSocketController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -38,6 +41,7 @@ use Illuminate\Support\Facades\Route;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+
 Route::get("test", function () {
     phpinfo();
     die;
@@ -51,6 +55,20 @@ Route::get('privacy-policy', function () {
 Route::get('terms-and-conditions', function () {
     return view('terms-and-conditions');
 });
+
+// WebSocket client event webhook
+Route::post('websocket/client-events', [WebSocketController::class, 'handleClientEvent']);
+
+// Broadcasting authentication route (dev-only bypass if WS_AUTH_BYPASS=true)
+if (env('WS_AUTH_BYPASS', false)) {
+    Route::post('broadcasting/auth', function (Request $request) {
+        $channel = $request->input('channel_name');
+        $socketId = $request->input('socket_id');
+        $sig = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
+        return response()->json(['auth' => env('PUSHER_APP_KEY') . ':' . $sig]);
+    });
+}
+
 
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -217,7 +235,6 @@ Route::group(['middleware' => 'login.check'], function () {
         Route::post('confirm-payment-intent', [StripeController::class, 'confirmPaymentIntent']);
         Route::get('get-payments', [StripeController::class, 'getPayments']);
     });
-
 });
 
 Route::get('countries', [SharedController::class, 'getCountries']);
@@ -233,7 +250,7 @@ Route::get('no-cache/{token}', [GuardianController::class, 'rejectRequest']);
 
 
 //V4-Routes
-Route::prefix('v4')->group(function(){
+Route::prefix('v4')->group(function () {
     Route::post('send-login-otp', [V4AuthController::class, 'sendLoginOtp']);
     Route::post('verify-login-otp', [V4AuthController::class, 'verifyLoginOtp']);
     Route::post('/child-login', [V4AuthController::class, 'childLogin']);
@@ -243,12 +260,31 @@ Route::prefix('v4')->group(function(){
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
+        Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
+        Route::get('/search-users', [ProfileController::class, 'searchUsers']);
 
         // Media routes
         Route::post('/upload-media', [V4MediaController::class, 'uploadMedia']);
         Route::get('/all-media', [V4MediaController::class, 'getAllMedia']);
         Route::put('/edit-media/{id}', [V4MediaController::class, 'editMedia']);
         Route::delete('/delete-media/{id}', [V4MediaController::class, 'deleteMedia']);
+
+        // Chat routes
+        Route::prefix('/chat')->group(function () {
+            // Direct chat routes
+            Route::get('/get-chat-id', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getChatId']);
+            Route::get('/recent-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getRecentChats']);
+            Route::post('/send-message', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'sendMessage']);
+            Route::post('/send-media-message', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'sendMediaMessage']);
+            Route::get('/get-messages', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getMessages']);
+            Route::put('/mark-as-read', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'markAsRead']);
+
+            // Group chat routes
+            Route::post('/create-group-chat', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'createGroupChat']);
+            Route::get('/group-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getGroupChats']);
+            Route::post('/add-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'addParticipants']);
+            Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
+        });
     });
 });
 
