@@ -14,7 +14,12 @@ class BroadcastServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        Broadcast::routes();
+        if (!env('WS_AUTH_BYPASS', false)) {
+            Broadcast::routes([
+                'prefix' => 'api',
+                'middleware' => ['auth:v4api'],
+            ]);
+        }
 
         require base_path('routes/channels.php');
     }

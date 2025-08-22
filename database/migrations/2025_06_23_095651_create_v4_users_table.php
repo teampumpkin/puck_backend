@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('v4_users', function (Blueprint $table) {
             $table->id();
-            $table->string('email')->nullable()->unique();
+            $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
@@ -34,6 +34,10 @@ return new class extends Migration
             $table->string('otp')->nullable();
             $table->timestamp('otp_expiry')->nullable();
             $table->timestamps();
+
+            // Add indexes for search optimization
+            $table->index('first_name');
+            $table->index('last_name');
         });
 
         Schema::create('player_profiles', function (Blueprint $table) {

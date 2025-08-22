@@ -81,7 +81,8 @@ class SharedRepository
     /**
      * @var Country
      */
-    private $country;
+    private
+        $country;
     /**
      * @var State
      */

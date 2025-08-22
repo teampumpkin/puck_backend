@@ -40,16 +40,34 @@ class V4AuthController extends Controller
             }
 
             // Find or create user
-            $user = V4User::firstOrCreate(
-                [$field => $identifier],
-                [
-                    'role'      => $validated['role'],
-                    'is_child'  => $validated['is_child'] ?? false,
-                    // When phone is the identifier, email may be null
-                    'email'     => $validated['email'] ?? null,
-                    'phone'     => $validated['phone'] ?? null,
-                ]
-            );
+            // For email, we need to handle non-unique emails (shared between parent and children)
+            if ($field === 'email') {
+                // Find a non-child user with this email
+                $user = V4User::where('email', $identifier)
+                              ->where('is_child', false)
+                              ->first();
+
+                // If no non-child user found, create a new one
+                if (!$user) {
+                    $user = V4User::create([
+                        'email'     => $validated['email'],
+                        'phone'     => $validated['phone'] ?? null,
+                        'role'      => $validated['role'],
+                        'is_child'  => $validated['is_child'] ?? false,
+                    ]);
+                }
+            } else {
+                // For phone, we can use firstOrCreate as before
+                $user = V4User::firstOrCreate(
+                    [$field => $identifier],
+                    [
+                        'role'      => $validated['role'],
+                        'is_child'  => $validated['is_child'] ?? false,
+                        'email'     => $validated['email'] ?? null,
+                        'phone'     => $validated['phone'] ?? null,
+                    ]
+                );
+            }
 
             // Generate OTP
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -101,7 +119,16 @@ class V4AuthController extends Controller
             $field      = isset($validated['email']) ? 'email' : 'phone';
             $identifier = $validated[$field];
 
-            $user = V4User::where($field, $identifier)->first();
+            // For email, we need to handle non-unique emails (shared between parent and children)
+            if ($field === 'email') {
+                // Find a non-child user with this email (parent account)
+                $user = V4User::where('email', $identifier)
+                              ->where('is_child', false)
+                              ->first();
+            } else {
+                // For phone, we can use the original query
+                $user = V4User::where($field, $identifier)->first();
+            }
 
             if (
                 !$user ||
@@ -156,7 +183,6 @@ class V4AuthController extends Controller
         }
     }
 
-
     public function childLogin(Request $request)
     {
         $request->validate([
@@ -172,6 +198,9 @@ class V4AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        $user->load('playerProfile');
+
+
         $token = JWTAuth::fromUser($user);
 
         return response()->json([
@@ -183,6 +212,7 @@ class V4AuthController extends Controller
                 'is_child' => $user->is_child,
                 'email' => $user->email,
                 'phone' => $user->phone,
+                'permissions' => $user->playerProfile->permissions,
             ],
             'message' => 'Login successful'
         ]);
