@@ -115,7 +115,7 @@ class ProfileController extends Controller
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
-                    'date_of_birth' => 'nullable|date',
+                'date_of_birth' => 'nullable|date',
                 'zip' => 'nullable|string|max:20',
                 'is_onboarded' => 'nullable|boolean',
             ];
@@ -705,5 +705,54 @@ class ProfileController extends Controller
                 'has_more_pages' => $users->hasMorePages(),
             ]
         ]);
+    }
+
+    public function getProfileBatchData(Request $request)
+    {
+        try {
+            // Validate request
+            $validated = $request->validate([
+                'userIds' => 'required|array',
+                'userIds.*' => 'required|string'
+            ]);
+
+            // Get users data
+            $users = V4User::whereIn('id', $validated['userIds'])
+                ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
+                ->get()
+                ->keyBy('id');
+
+            // Build ordered result array based on input userIds order
+            $orderedUsers = [];
+            foreach ($validated['userIds'] as $userId) {
+                if ($users->has($userId)) {
+                    $user = $users->get($userId);
+                    $orderedUsers[] = [
+                        'id' => $user->id,
+                        'name' => $user->first_name . ' ' . $user->last_name,
+                        'role' => $user->role,
+                        'profilePhoto' => $user->profile_photo
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'users' => $orderedUsers
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve batch profile data',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 }

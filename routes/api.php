@@ -257,6 +257,7 @@ Route::prefix('v4')->group(function () {
 
     Route::middleware('auth:v4api')->group(function () {
         Route::get('/profile', [ProfileController::class, 'getProfileData']);
+        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);;
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
