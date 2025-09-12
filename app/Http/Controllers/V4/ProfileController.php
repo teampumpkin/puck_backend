@@ -710,33 +710,52 @@ class ProfileController extends Controller
     public function getProfileBatchData(Request $request)
     {
         try {
-            // Validate request
+//validation
             $validated = $request->validate([
                 'convoIds' => 'required|array',
-                'convoIds.*' => 'required|string'
+                'convoIds.*' => 'required|array',
+                'convoIds.*.*' => 'required|array',
+                'convoIds.*.*.*' => 'required|string',
             ]);
 
-            // Get users data
-            $users = V4User::whereIn('id', $validated['convoIds'])
-                ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
-                ->get();
+            $result = [];
 
-            // Build result array based on userId
-            $userDetails = [];
-            foreach ($users as $user) {
-                $userDetails[$user->id] = [
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'role' => $user->role,
-                    'profile_photo' => $user->profile_photo
-                ];
+            foreach ($validated['convoIds'] as $convoMap) {
+                $entryResult = [];
+
+                foreach ($convoMap as $conversationKey => $userIds) {
+                    if (!is_string($conversationKey)) {
+                        continue;
+                    }
+
+                    $userResult = [];
+
+                    if (!empty($userIds)) {
+                        // all users
+                        $users = V4User::whereIn('id', $userIds)
+                            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
+                            ->get();
+
+                        foreach ($users as $user) {
+                            $userResult[$user->id] = [
+                                'id' => $user->id,
+                                'first_name' => $user->first_name,
+                                'last_name' => $user->last_name,
+                                'role' => $user->role,
+                                'profile_photo' => $user->profile_photo
+                            ];
+                        }
+                    }
+                    $entryResult[$conversationKey] = $userResult;
+                }
+
+                $result[] = $entryResult;
             }
 
             return response()->json([
                 'success' => true,
-                'users' => $userDetails
+                'users' => $result,
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
