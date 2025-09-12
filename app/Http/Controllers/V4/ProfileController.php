@@ -712,33 +712,29 @@ class ProfileController extends Controller
         try {
             // Validate request
             $validated = $request->validate([
-                'userIds' => 'required|array',
-                'userIds.*' => 'required|string'
+                'convoIds' => 'required|array',
+                'convoIds.*' => 'required|string'
             ]);
 
             // Get users data
-            $users = V4User::whereIn('id', $validated['userIds'])
+            $users = V4User::whereIn('id', $validated['convoIds'])
                 ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
-                ->get()
-                ->keyBy('id');
+                ->get();
 
-            // Build ordered result array based on input userIds order
-            $orderedUsers = [];
-            foreach ($validated['userIds'] as $userId) {
-                if ($users->has($userId)) {
-                    $user = $users->get($userId);
-                    $orderedUsers[] = [
-                        'id' => $user->id,
-                        'name' => $user->first_name . ' ' . $user->last_name,
-                        'role' => $user->role,
-                        'profilePhoto' => $user->profile_photo
-                    ];
-                }
+            // Build result array based on userId
+            $userDetails = [];
+            foreach ($users as $user) {
+                $userDetails[$user->id] = [
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'role' => $user->role,
+                    'profile_photo' => $user->profile_photo
+                ];
             }
 
             return response()->json([
                 'success' => true,
-                'users' => $orderedUsers
+                'users' => $userDetails
             ]);
 
         } catch (ValidationException $e) {
