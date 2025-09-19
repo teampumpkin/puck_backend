@@ -397,7 +397,7 @@ class ProfileController extends Controller
                     'username' => $validatedData['username'],
                     'password' => Hash::make($validatedData['password']),
                     // Pass parent's contact and location information to child
-                    'email' => $validatedData['email'] ?? $parent->email,
+                    'email' => null, // Children do not require email; keep unique constraint for non-children
                     'phone' => $parent->phone,
                     'country' => $parent->country,
                     'state' => $parent->state,
