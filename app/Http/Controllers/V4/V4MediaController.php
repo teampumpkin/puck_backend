@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
-class V4MediaController extends Controller
+class   V4MediaController extends Controller
 {
     /**
      * Upload media file (photo or video)

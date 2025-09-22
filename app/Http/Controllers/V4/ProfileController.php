@@ -658,7 +658,7 @@ class ProfileController extends Controller
      *
      * @param Request $request
      * @return JsonResponse
-     */
+     */ 
     public function searchUsers(Request $request)
     {
         // Validate request parameters
