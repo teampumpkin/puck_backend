@@ -24,6 +24,7 @@ use App\Http\Controllers\GuardianController;
 use App\Http\Controllers\PlayableController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\V4MediaController;
+use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\WebSocketController;
@@ -57,7 +58,7 @@ Route::get('terms-and-conditions', function () {
 });
 
 // WebSocket client event webhook
-Route::post('websocket/client-events', [WebSocketController::class, 'handleClientEvent']);
+// Route::post('websocket/client-events', [WebSocketController::class, 'handleClientEvent']);
 
 // Broadcasting authentication route (dev-only bypass if WS_AUTH_BYPASS=true)
 if (env('WS_AUTH_BYPASS', false)) {
@@ -257,7 +258,8 @@ Route::prefix('v4')->group(function () {
 
     Route::middleware('auth:v4api')->group(function () {
         Route::get('/profile', [ProfileController::class, 'getProfileData']);
-        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);;
+        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);
+        ;
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
@@ -272,19 +274,23 @@ Route::prefix('v4')->group(function () {
 
         // Chat routes
         Route::prefix('/chat')->group(function () {
-            // Direct chat routes
-            Route::get('/get-chat-id', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getChatId']);
-            Route::get('/recent-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getRecentChats']);
-            Route::post('/send-message', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'sendMessage']);
-            Route::post('/send-media-message', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'sendMediaMessage']);
-            Route::get('/get-messages', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getMessages']);
-            Route::put('/mark-as-read', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'markAsRead']);
+            // Chat media routes
+            Route::post('/upload-media', [V4ChatMediaController::class, 'uploadMedia']);
+            Route::get('/get-media', [V4ChatMediaController::class, 'getMedia']);
 
-            // Group chat routes
-            Route::post('/create-group-chat', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'createGroupChat']);
-            Route::get('/group-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getGroupChats']);
-            Route::post('/add-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'addParticipants']);
-            Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
+            // Direct chat routes (keeping commented for now)
+            // Route::get('/get-chat-id', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getChatId']);
+            // Route::get('/recent-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getRecentChats']);
+            // Route::post('/send-message', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'sendMessage']);
+            // Route::post('/send-media-message', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'sendMediaMessage']);
+            // Route::get('/get-messages', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getMessages']);
+            // Route::put('/mark-as-read', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'markAsRead']);
+
+            // Group chat routes (keeping commented for now)
+            // Route::post('/create-group-chat', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'createGroupChat']);
+            // Route::get('/group-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getGroupChats']);
+            // Route::post('/add-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'addParticipants']);
+            // Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
         });
     });
 });
