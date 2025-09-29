@@ -103,10 +103,8 @@ class ProfileController extends Controller
 
             $user = Auth::guard('v4api')->user();
 
-            // Check if user is being onboarded for the first time
             $isFirstTimeOnboarding = !$user->is_onboarded;
 
-            // Define validation rules based on onboarding status
             $rules = [
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
@@ -288,6 +286,30 @@ class ProfileController extends Controller
                     $user->parentProfile()->updateOrCreate([], []);
                     $user->load('parentProfile');
                     break;
+                case 'evaluator':
+                    $evaluatorValidated = $request->validate([
+                        'leagues' => 'nullable|array',
+                        'address' => 'nullable|string|max:255',
+                        'level_hockey_played' => 'nullable|string|max:255',
+                        'current_involvement_level' => 'nullable|string|max:255',
+                        'current_sport_role' => 'nullable|string|max:255',
+                        'number_of_years_experience' => 'nullable|integer',
+                        'resume' => 'nullable|file|mimes:pdf|max:10240',
+                        'references' => 'nullable|array',
+                        'references.*.name' => 'required_with:references|string|max:255',
+                        'references.*.email' => 'required_with:references|email|max:255',
+                        'references.*.phone' => 'required_with:references|string|max:20'
+                    ]);
+                    if($request->hasFile('resume')) {
+                        $path = $request->file('resume')->store(
+                            'resume/'.$request->user()->id, 's3'
+                        );
+                        $resumeUrl = Storage::disk('s3')->url($path);
+                        $evaluatorValidated['resume'] = $resumeUrl;
+                    }
+                    $user->evaluatorProfile()->updateOrCreate([], $evaluatorValidated);
+                    $user->load('evaluatorProfile');
+                    break;
             }
 
             // Create a standardized response
@@ -303,7 +325,8 @@ class ProfileController extends Controller
                 $userData['organizer_profile'],
                 $userData['adviser_profile'],
                 $userData['parent_profile'],
-                $userData['fan_profile']
+                $userData['fan_profile'],
+                $userData['evaluator_profile']
             );
 
             // Add the profile data under a standardized field name
@@ -334,6 +357,10 @@ class ProfileController extends Controller
                     break;
                 case 'fan':
                     $userData['profile'] = $user->fanProfile;
+                    break;
+
+                case 'evaluator':
+                    $userData['profile'] = $user->evaluatorProfile;
                     break;
             }
 
@@ -658,7 +685,7 @@ class ProfileController extends Controller
      *
      * @param Request $request
      * @return JsonResponse
-     */ 
+     */
     public function searchUsers(Request $request)
     {
         // Validate request parameters
