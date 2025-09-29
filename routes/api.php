@@ -32,6 +32,7 @@ use App\Http\Controllers\WebSocketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\API\EvaluationRejectionReasonController;
 
 /*
 |--------------------------------------------------------------------------
@@ -266,6 +267,10 @@ Route::prefix('v4')->group(function () {
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
         Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
+
+        // Evaluation
+        Route::get('evaluation-rejection-reasons', [EvaluationRejectionReasonController::class, 'getActiveReasons']);
+
 
         // Media routes
         Route::post('/upload-media', [V4MediaController::class, 'uploadMedia']);
