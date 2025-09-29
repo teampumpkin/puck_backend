@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         $this->call(PrcLeagueSeeder::class);
         $this->call(UpdateUserTypeSeeder::class);
         $this->call(PrcPositionSeeder::class);
-//        $this->call(SyncZohoPlanSeeder::class);
+        //        $this->call(SyncZohoPlanSeeder::class);
         $this->call(AssessmentDataSeeder::class);
         $this->call(AssessmentStatementSeeder::class);
         $this->call(CountrySeeder::class);
