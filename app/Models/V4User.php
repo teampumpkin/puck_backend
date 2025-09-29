@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class V4User extends Authenticatable implements JWTSubject
 {
@@ -31,6 +34,8 @@ class V4User extends Authenticatable implements JWTSubject
         'terms_accepted' => 'boolean',
         'is_onboarded' => 'boolean'
     ];
+
+    protected $appends = ['block_status'];
 
     public function getJWTIdentifier()
     {
@@ -101,5 +106,97 @@ class V4User extends Authenticatable implements JWTSubject
     public function media()
     {
         return $this->hasMany(V4Media::class, 'v4_user_id');
+    }
+    /**
+     * Get users blocked by this user
+     */
+    public function blockedUsers(): HasMany
+    {
+        return $this->hasMany(BlockedUser::class, 'blocker_id');
+    }
+
+    /**
+     * Get users who blocked this user
+     */
+    public function blockedByUsers(): HasMany
+    {
+        return $this->hasMany(BlockedUser::class, 'blocked_id');
+    }
+
+    /**
+     * Check if this user has blocked another user
+     */
+    public function hasBlocked($userId): bool
+    {
+        return $this->blockedUsers()
+            ->where('blocked_id', $userId)
+            ->active()
+            ->exists();
+    }
+
+    /**
+     * Check if this user is blocked by another user
+     */
+    public function isBlockedBy($userId): bool
+    {
+        return $this->blockedByUsers()
+            ->where('blocker_id', $userId)
+            ->active()
+            ->exists();
+    }
+
+    /**
+     * Get active blocked users
+     */
+    public function getActiveBlockedUsers()
+    {
+        return $this->blockedUsers()->active()->get();
+    }
+
+    /**
+     * Get block history
+     */
+    public function getBlockHistory()
+    {
+        return BlockedUser::where('blocker_id', $this->id)
+            ->orWhere('blocked_id', $this->id)
+            ->with(['blocker', 'blocked'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+
+    // Traditional accessor for Laravel 8
+    public function getBlockStatusAttribute()
+    {
+        if (!auth()->check()) {
+            return null;
+        }
+
+        $currentUserId = auth()->id();
+
+        return [
+            'you_blocked_them' => $this->hasBlocked($currentUserId),
+            'they_blocked_you' => $this->isBlockedBy($currentUserId),
+            'is_blocked' => $this->hasBlocked($currentUserId) || $this->isBlockedBy($currentUserId),
+        ];
+    }
+
+    /**
+     * Eager load block relationships for current user
+     */
+    public function scopeWithBlockStatus($query)
+    {
+        if (!auth()->check()) {
+            return $query;
+        }
+
+        $currentUserId = auth()->id();
+
+        return $query->with(['blockedUsers' => function ($query) use ($currentUserId) {
+            $query->where('blocked_id', $currentUserId)->active();
+        }, 'blockedByUsers' => function ($query) use ($currentUserId) {
+            $query->where('blocker_id', $currentUserId)->active();
+        }]);
     }
 }
