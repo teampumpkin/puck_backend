@@ -88,6 +88,11 @@ class V4User extends Authenticatable implements JWTSubject
         return $this->hasOne(FanProfile::class);
     }
 
+    public function evaluatorProfile()
+    {
+        return $this->hasOne(EvaluatorProfile::class);
+    }
+
     public function children()
     {
         return $this->hasMany(V4User::class, 'parent_id');

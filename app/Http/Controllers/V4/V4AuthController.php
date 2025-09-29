@@ -23,7 +23,7 @@ class V4AuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser',
+                'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
                 'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
@@ -39,7 +39,6 @@ class V4AuthController extends Controller
                 ], 403);
             }
 
-            // Find or create user
             $user = V4User::firstOrCreate(
                 [$field => $identifier],
                 [
