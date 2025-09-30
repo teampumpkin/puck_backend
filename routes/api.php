@@ -273,6 +273,19 @@ Route::prefix('v4')->group(function () {
         Route::put('/edit-media/{id}', [V4MediaController::class, 'editMedia']);
         Route::delete('/delete-media/{id}', [V4MediaController::class, 'deleteMedia']);
 
+        // Block/Unblock routes
+        Route::post('/block-user', [UserBlockController::class, 'blockUser']);
+        Route::post('/unblock-user/{userId}', [UserBlockController::class, 'unblockUser']);
+
+        // Get blocked users list
+        Route::get('/blocked-users', [UserBlockController::class, 'getBlockedUsers']);
+
+        // Get block history
+        Route::get('/block-history', [UserBlockController::class, 'getBlockHistory']);
+
+        // Check block status
+        Route::get('/check-block-status/{userId}', [UserBlockController::class, 'checkBlockStatus']);
+
         // Chat routes
         Route::prefix('/chat')->group(function () {
             // Chat media routes
@@ -293,20 +306,9 @@ Route::prefix('v4')->group(function () {
             // Route::post('/add-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'addParticipants']);
             // Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
         });
-
-        // Block/Unblock routes
-        Route::post('/block-user', [UserBlockController::class, 'blockUser']);
-        Route::post('/unblock-user/{userId}', [UserBlockController::class, 'unblockUser']);
-
-        // Get blocked users list
-        Route::get('/blocked-users', [UserBlockController::class, 'getBlockedUsers']);
-
-        // Get block history
-        Route::get('/block-history', [UserBlockController::class, 'getBlockHistory']);
-
-        // Check block status
-        Route::get('/check-block-status/{userId}', [UserBlockController::class, 'checkBlockStatus']);
     });
+
+
 });
 
 // // Parent routes
