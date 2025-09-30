@@ -26,12 +26,12 @@ class BlockedUser extends Model
 
     public function blocker()
     {
-        return $this->belongsTo(User::class, 'blocker_id');
+        return $this->belongsTo(V4User::class, 'blocker_id');
     }
 
     public function blocked()
     {
-        return $this->belongsTo(User::class, 'blocked_id');
+        return $this->belongsTo(V4User::class, 'blocked_id');
     }
 
     public function scopeActive($query)

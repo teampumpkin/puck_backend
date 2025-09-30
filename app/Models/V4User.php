@@ -174,12 +174,7 @@ class V4User extends Authenticatable implements JWTSubject
     // Traditional accessor for Laravel 8
     public function getBlockStatusAttribute()
     {
-        if (!auth()->check()) {
-            return null;
-        }
-
         $currentUserId = auth()->id();
-
         return [
             'you_blocked_them' => $this->hasBlocked($currentUserId),
             'they_blocked_you' => $this->isBlockedBy($currentUserId),
@@ -192,12 +187,7 @@ class V4User extends Authenticatable implements JWTSubject
      */
     public function scopeWithBlockStatus($query)
     {
-        if (!auth()->check()) {
-            return $query;
-        }
-
         $currentUserId = auth()->id();
-
         return $query->with(['blockedUsers' => function ($query) use ($currentUserId) {
             $query->where('blocked_id', $currentUserId)->active();
         }, 'blockedByUsers' => function ($query) use ($currentUserId) {
