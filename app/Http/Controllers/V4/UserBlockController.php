@@ -18,13 +18,15 @@ class UserBlockController extends Controller
     public function blockUser(Request $request)
     {
         try {
+            $user = Auth::guard('v4api')->user();
+
             $request->validate([
-                'blocked_id' => 'required|exists:V4User,id',
+                'blocked_id' => 'required|exists:v4_users,id',
                 'reason' => 'nullable|string|max:500'
             ]);
 
             // Prevent blocking self
-            if ($request->blocked_id == Auth::id()) {
+            if ($request->blocked_id == $user->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You cannot block yourself'
@@ -32,10 +34,10 @@ class UserBlockController extends Controller
             }
 
             // Check if user is already blocked
-            $existingBlock = BlockedUser::where('blocker_id', Auth::id())
-                ->where('blocked_id', $request->blocked_id)
+            $existingBlock = BlockedUser::blockedBy($user->id)
+                ->blockedUser($request->blocked_id)
                 ->active()
-                ->first();
+                ->exists();
 
             if ($existingBlock) {
                 return response()->json([
@@ -46,7 +48,7 @@ class UserBlockController extends Controller
 
             // Block the user
             $block = BlockedUser::create([
-                'blocker_id' => Auth::id(),
+                'blocker_id' => $user->id,
                 'blocked_id' => $request->blocked_id,
                 'reason' => $request->reason,
                 'blocked_at' => now(),
@@ -80,9 +82,11 @@ class UserBlockController extends Controller
     public function unblockUser(Request $request, $userId)
     {
         try {
+            $user = Auth::guard('v4api')->user();
+
             // Find the block record
-            $block = BlockedUser::where('blocker_id', Auth::id())
-                ->where('blocked_id', $userId)
+            $block = BlockedUser::blockedBy($user->id)
+                ->blockedUser($userId)
                 ->active()
                 ->first();
 
@@ -126,10 +130,12 @@ class UserBlockController extends Controller
     public function getBlockedUsers()
     {
         try {
+            $user = Auth::guard('v4api')->user();
             $blockedUsers = BlockedUser::with('blocked')
-                ->where('blocker_id', Auth::id())
+                ->blockedBy($user->id)
                 ->active()
                 ->get();
+
 
             return response()->json([
                 'success' => true,
@@ -158,11 +164,10 @@ class UserBlockController extends Controller
     public function getBlockHistory()
     {
         try {
+            $user = Auth::guard('v4api')->user();
+
             $history = BlockedUser::with(['blocker', 'blocked'])
-                ->where(function ($query) {
-                    $query->where('blocker_id', Auth::id())
-                        ->orWhere('blocked_id', Auth::id());
-                })
+                ->history($user->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -193,17 +198,15 @@ class UserBlockController extends Controller
     public function checkBlockStatus($userId)
     {
         try {
-            // Check if the user is blocked
-            $isBlocked = BlockedUser::where('blocker_id', Auth::id())
-                ->where('blocked_id', $userId)
-                ->active()
-                ->exists();
+            $user = Auth::guard('v4api')->user();
 
-            // Check if the user has blocked you
-            $hasBlockedYou = BlockedUser::where('blocker_id', $userId)
-                ->where('blocked_id', Auth::id())
+            // Check if any active blocks exist between the users
+            $blockStatus = BlockedUser::betweenUsers($user->id, $userId)
                 ->active()
-                ->exists();
+                ->get(['blocker_id', 'blocked_id']);
+
+            $isBlocked = $blockStatus->contains('blocker_id', $user->id);
+            $hasBlockedYou = $blockStatus->contains('blocker_id', $userId);
 
             return response()->json([
                 'success' => true,
