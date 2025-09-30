@@ -27,6 +27,7 @@ use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
+use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\WebSocketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -297,6 +298,19 @@ Route::prefix('v4')->group(function () {
             // Route::post('/add-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'addParticipants']);
             // Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
         });
+
+        // Block/Unblock routes
+        Route::post('/block-user', [UserBlockController::class, 'blockUser']);
+        Route::post('/unblock-user/{userId}', [UserBlockController::class, 'unblockUser']);
+
+        // Get blocked users list
+        Route::get('/blocked-users', [UserBlockController::class, 'getBlockedUsers']);
+
+        // Get block history
+        Route::get('/block-history', [UserBlockController::class, 'getBlockHistory']);
+
+        // Check block status
+        Route::get('/check-block-status/{userId}', [UserBlockController::class, 'checkBlockStatus']);
     });
 });
 
