@@ -19,7 +19,7 @@ class UserBlockController extends Controller
     {
         try {
             $request->validate([
-                'blocked_id' => 'required|exists:V4User,id',
+                'blocked_id' => 'required|exists:v4_users,id',
                 'reason' => 'nullable|string|max:500'
             ]);
 

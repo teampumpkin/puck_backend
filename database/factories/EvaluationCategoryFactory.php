@@ -35,7 +35,7 @@ class EvaluationCategoryFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name),
-            'description' => $this->faker->sentence(10),
+            'description' => null,
             'active' => $this->faker->boolean(90),
             'sort_order' => $this->faker->numberBetween(1, 100),
             'meta' => null, // Empty meta data

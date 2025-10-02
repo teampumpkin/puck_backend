@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 /**
  * Question that belongs to a Category.
  *
- * Fields: id, category_id, title, description, required (bool), sort_order, active (bool), meta
+ * Fields: id, category_id, title, question, required (bool), sort_order, active (bool), meta
  */
 class EvaluationQuestion extends Model
 {
@@ -17,7 +17,7 @@ class EvaluationQuestion extends Model
     protected $fillable = [
         'category_id',
         'title',
-        'description',
+        'question',
         'required',
         'sort_order',
         'active',
