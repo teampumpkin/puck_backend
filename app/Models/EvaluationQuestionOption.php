@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * Option for question: stores text + rating value (float).
  *
  * Example option structure from your sample:
- *  title: "SKATING MECHANICS" -> option text string with description -> rating: 1 | 1.5 | 2 ... 5
+ *  title: "SKATING MECHANICS" -> option text string with option -> rating: 1 | 1.5 | 2 ... 5
  *
- * Fields: id, question_id, title, description, rating (float), sort_order, meta
+ * Fields: id, question_id, title, option, rating (float), sort_order, meta
  */
 class EvaluationQuestionOption extends Model
 {
@@ -20,7 +20,7 @@ class EvaluationQuestionOption extends Model
     protected $fillable = [
         'question_id',
         'title',
-        'description',
+        'option',
         'rating',
         'sort_order',
         'meta',

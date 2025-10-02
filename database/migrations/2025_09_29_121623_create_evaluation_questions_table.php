@@ -17,7 +17,7 @@ class CreateEvaluationQuestionsTable extends Migration
             $table->id();
             $table->foreignId('category_id')->constrained('evaluation_categories')->onDelete('cascade');
             $table->string('title');
-            $table->text('description')->nullable();
+            $table->text('question')->nullable();
             $table->boolean('required')->default(false);
             $table->integer('sort_order')->default(0);
             $table->boolean('active')->default(true);

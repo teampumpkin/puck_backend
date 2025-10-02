@@ -10,6 +10,9 @@ class EvaluationQuestionSeeder extends Seeder
 {
     public function run()
     {
+        // Clear existing questions
+        EvaluationQuestion::truncate();
+
         // Get all categories
         $categories = EvaluationCategory::all();
 
@@ -18,27 +21,85 @@ class EvaluationQuestionSeeder extends Seeder
             return;
         }
 
+        // Define specific titles and questions for each category
+        $categoryQuestions = [
+            'Skating' => [
+                [
+                    'title' => 'Skating Mechanics',
+                    'question' => "What do you rate the player's skating mechanics?"
+                ],
+                [
+                    'title' => 'Skating Control',
+                    'question' => "What do you rate the player's skating control?"
+                ],
+                [
+                    'title' => 'Skating Speed',
+                    'question' => "What do you rate the player's skating speed?"
+                ],
+            ],
+            'Compete' => [
+                [
+                    'title' => 'Compete Engagement',
+                    'question' => "What do you rate the player's compete engagement?"
+                ],
+                [
+                    'title' => 'Compete Technique',
+                    'question' => "What do you rate the player's compete technique?"
+                ],
+                [
+                    'title' => 'Compete Persistence',
+                    'question' => "What do you rate the player's compete persistence?"
+                ],
+            ],
+            'Skills' => [
+                [
+                    'title' => 'Skills Puck Handling',
+                    'question' => "What do you rate the player's skill puck handling?"
+                ],
+                [
+                    'title' => 'Skills Passing',
+                    'question' => "What do you rate the player's skills passing?"
+                ],
+                [
+                    'title' => 'Skills Shooting',
+                    'question' => "What do you rate the player's skills shooting?"
+                ],
+            ],
+            'Hockey IQ' => [
+                [
+                    'title' => 'Hockey IQ Vision',
+                    'question' => "What do you rate the player's hockey IQ vision?"
+                ],
+                [
+                    'title' => 'Hockey IQ Position',
+                    'question' => "What do you rate the player's hockey IQ position?"
+                ],
+                [
+                    'title' => 'Hockey IQ Execution',
+                    'question' => "What do you rate the player's hockey IQ execution?"
+                ],
+            ],
+        ];
+
         // Create questions for each category
         foreach ($categories as $category) {
-            $questionCount = rand(3, 6); // 3-6 questions per category
+            if (isset($categoryQuestions[$category->name])) {
+                $questions = $categoryQuestions[$category->name];
 
-            for ($i = 1; $i <= $questionCount; $i++) {
-                EvaluationQuestion::factory()
-                    ->active()
-                    ->required()
-                    ->sortOrder($i)
-                    ->forCategory($category->id)
-                    ->create([
-                        'title' => "How would you rate the player's {$category->name}?",
-                        'description' => "Evaluate the player's performance in {$category->name}."
-                    ]);
+                foreach ($questions as $index => $q) {
+                    EvaluationQuestion::factory()
+                        ->active()
+                        ->required()
+                        ->sortOrder($index + 1)
+                        ->forCategory($category->id)
+                        ->create([
+                            'title' => $q['title'],
+                            'question' => $q['question'],
+                        ]);
+                }
             }
         }
 
-        // Create additional random questions
-        EvaluationQuestion::factory(10)->create();
-
-        // Create some inactive questions
-        EvaluationQuestion::factory(3)->inactive()->create();
+        $this->command->info('Created specific questions with proper titles and question text for all categories.');
     }
 }

@@ -28,7 +28,7 @@ class EvaluationQuestionFactory extends Factory
         return [
             'category_id' => EvaluationCategory::factory(),
             'title' => $this->faker->randomElement($questions),
-            'description' => $this->faker->optional(0.6)->sentence(8),
+            'question' => $this->faker->optional(0.6)->sentence(8),
             'required' => $this->faker->boolean(60),
             'sort_order' => $this->faker->numberBetween(1, 50),
             'active' => $this->faker->boolean(95),

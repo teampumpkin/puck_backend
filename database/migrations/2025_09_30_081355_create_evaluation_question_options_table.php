@@ -15,16 +15,15 @@ class CreateEvaluationQuestionOptionsTable extends Migration
     {
         Schema::create('evaluation_question_options', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('question_id')->constrained('evaluation_questions')->onDelete('cascade');
-            $table->string('title');
-            $table->text('description')->nullable();
-            $table->decimal('rating', 3, 1); // Allows values like 4.5, 3.0, etc.
-            $table->integer('sort_order')->default(0);
+            $table->foreignId('question_id')
+                ->constrained('evaluation_questions')
+                ->onDelete('cascade');
+            $table->string('title')->nullable();
+            $table->text('option');
+            $table->decimal('rating', 3, 1);
+            $table->integer('sort_order')->default(1);
             $table->json('meta')->nullable();
             $table->timestamps();
-
-            $table->index(['question_id', 'sort_order']);
-            $table->index(['question_id', 'rating']);
         });
     }
 

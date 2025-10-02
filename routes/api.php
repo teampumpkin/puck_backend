@@ -27,12 +27,12 @@ use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
-use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\WebSocketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\API\EvaluationRejectionReasonController;
+use App\Http\Controllers\V4\EvaluationRejectionReasonController;
+use App\Http\Controllers\V4\V4EvaluationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -269,7 +269,14 @@ Route::prefix('v4')->group(function () {
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
 
         // Evaluation
-        Route::get('evaluation-rejection-reasons', [EvaluationRejectionReasonController::class, 'getActiveReasons']);
+        Route::prefix('evaluation')->group(function () {
+            Route::get('/rejection-reasons', [EvaluationRejectionReasonController::class, 'getActiveReasons']);
+            Route::post('/create-rejection-reason', [EvaluationRejectionReasonController::class, 'create']);
+            Route::put('/update-rejection-reason', [EvaluationRejectionReasonController::class, 'update']);
+            Route::get('/questions', [V4EvaluationController::class, 'getAllQuestions']);
+            Route::get('/categories', [V4EvaluationController::class, 'getCategories']);
+            Route::get('/categories/{categoryId}/questions', [V4EvaluationController::class, 'getCategoryQuestions']);
+        });
 
 
         // Media routes
