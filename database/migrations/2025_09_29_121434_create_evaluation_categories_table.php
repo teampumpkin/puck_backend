@@ -16,7 +16,7 @@ class CreateEvaluationCategoriesTable extends Migration
         Schema::create('evaluation_categories', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('slug')->unique();
+            $table->string('slug');
             $table->text('description')->nullable();
             $table->boolean('active')->default(true);
             $table->integer('sort_order')->default(0);

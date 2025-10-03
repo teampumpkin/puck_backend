@@ -270,12 +270,26 @@ Route::prefix('v4')->group(function () {
 
         // Evaluation
         Route::prefix('evaluation')->group(function () {
-            Route::get('/rejection-reasons', [EvaluationRejectionReasonController::class, 'getActiveReasons']);
+
+            // Rejection reasons
+            Route::get('/get-rejection-reasons', [EvaluationRejectionReasonController::class, 'getActiveReasons']);
+            Route::get('/get-rejection-reasons/all', [EvaluationRejectionReasonController::class, 'getAllReasons']);
+            Route::get('/get-rejection-reason/{id}', [EvaluationRejectionReasonController::class, 'getRejectionReason']);
             Route::post('/create-rejection-reason', [EvaluationRejectionReasonController::class, 'create']);
             Route::put('/update-rejection-reason', [EvaluationRejectionReasonController::class, 'update']);
-            Route::get('/questions', [V4EvaluationController::class, 'getAllQuestions']);
-            Route::get('/categories', [V4EvaluationController::class, 'getCategories']);
-            Route::get('/categories/{categoryId}/questions', [V4EvaluationController::class, 'getCategoryQuestions']);
+            Route::delete('/delete-rejection-reason', [EvaluationRejectionReasonController::class, 'delete']);
+
+            // Categories
+            Route::get('/get-categories', [V4EvaluationController::class, 'getCategories']);
+            Route::get('/get-categories/all', [V4EvaluationController::class, 'getAllCategories']);
+            Route::get('/get-category/{id}', [V4EvaluationController::class, 'getCategory']);
+            Route::post('/create-category', [V4EvaluationController::class, 'createCategory']);
+            Route::put('/update-category', [V4EvaluationController::class, 'updateCategory']);
+            Route::delete('/delete-category', [V4EvaluationController::class, 'deleteCategory']);
+
+            // Questions-categories-options
+            Route::get('/category/{categoryId}/get-questions-options', [V4EvaluationController::class, 'getCategoryQuestions']);
+            Route::get('/get-questions-categories-options', [V4EvaluationController::class, 'getAllQuestions']);
         });
 
 
