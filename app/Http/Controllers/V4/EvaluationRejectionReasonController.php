@@ -56,13 +56,17 @@ class EvaluationRejectionReasonController extends Controller
         try {
             $activeReasons = EvaluationRejectionReason::active()->get();
 
-            return prepare_response(
-                true,
-                'Active rejection reasons retrieved successfully',
-                $activeReasons
-            );
+            return response()->json([
+                'success' => true,
+                'message' => 'Active rejection reasons retrieved successfully',
+                'data' => $activeReasons
+            ]);
         } catch (Exception $e) {
-            return exceptionMessage($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
     }
 
@@ -99,14 +103,17 @@ class EvaluationRejectionReasonController extends Controller
         try {
             $allReasons = EvaluationRejectionReason::orderBy('sort_order')->get();
 
-            return prepare_response(
-                200,
-                true,
-                'All rejection reasons retrieved successfully',
-                $allReasons
-            );
+            return response()->json([
+                'success' => true,
+                'message' => 'All rejection reasons retrieved successfully',
+                'data' => $allReasons
+            ]);
         } catch (Exception $e) {
-            return exceptionMessage($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
     }
 
@@ -300,6 +307,54 @@ class EvaluationRejectionReasonController extends Controller
                 'message' => 'Something went wrong',
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
+        }
+    }
+
+    public function delete(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'id' => 'required|integer|exists:evaluation_rejection_reasons,id'
+            ]);
+
+            $rejectionReason = EvaluationRejectionReason::findOrFail($validated['id']);
+            $rejectionReason->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Rejection reason deleted successfully'
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function getRejectionReason(Request $request, int $id): JsonResponse
+    {
+        try {
+            $rejectionReason = EvaluationRejectionReason::findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Rejection reason retrieved successfully',
+                'data' => $rejectionReason
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rejection reason not found',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 404);
         }
     }
 }
