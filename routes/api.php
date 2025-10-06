@@ -311,6 +311,7 @@ Route::prefix('v4')->group(function () {
 
             // Payment routes
             Route::post('/process-payment', [V4PaymentController::class, 'processPayment']);
+            Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
         });
 
 
