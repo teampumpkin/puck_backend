@@ -9,11 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Tracks a payment request for a player.
  *
-<<<<<<< HEAD
  * Fields: id, payer_id (player), parent_id (nullable), player_id (nullable), in_app_purchase_id, amount_cents, currency,
-=======
- * Fields: id, payer_id (player), parent_id (nullable), in_app_purchase_id, amount_cents, currency,
->>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
  * status, retry_count, notes, meta, created_at, updated_at
  *
  * Status flow:
@@ -38,10 +34,7 @@ class V4PaymentRequest extends Model
     protected $fillable = [
         'payer_id',
         'parent_id',
-<<<<<<< HEAD
         'player_id',
-=======
->>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
         'in_app_purchase_id',
         'amount_cents',
         'currency',
@@ -76,14 +69,11 @@ class V4PaymentRequest extends Model
         return $this->belongsTo(V4User::class, 'parent_id');
     }
 
-<<<<<<< HEAD
     public function player()
     {
         return $this->belongsTo(V4User::class, 'player_id');
     }
 
-=======
->>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
     public function inAppPurchase()
     {
         return $this->belongsTo(V4InAppPurchase::class, 'in_app_purchase_id');
@@ -122,14 +112,11 @@ class V4PaymentRequest extends Model
         return $q->where('parent_id', $parentId);
     }
 
-<<<<<<< HEAD
     public function scopeForPlayer($q, $playerId)
     {
         return $q->where('player_id', $playerId);
     }
 
-=======
->>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
     /* --------------------
      | Helpers
      --------------------*/
@@ -204,8 +191,4 @@ class V4PaymentRequest extends Model
     {
         return !is_null($this->parent_id) && $this->status === self::STATUS_PENDING;
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
