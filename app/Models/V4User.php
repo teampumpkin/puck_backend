@@ -15,10 +15,26 @@ class V4User extends Authenticatable implements JWTSubject
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'email', 'phone', 'password', 'first_name', 'last_name',
-        'date_of_birth', 'country', 'state', 'city', 'zip',
-        'is_child', 'parent_id', 'username', 'enable_private_account',
-        'receive_news_offers', 'terms_accepted', 'role', 'is_onboarded', 'otp', 'otp_expiry',
+        'email',
+        'phone',
+        'password',
+        'first_name',
+        'last_name',
+        'date_of_birth',
+        'country',
+        'state',
+        'city',
+        'zip',
+        'is_child',
+        'parent_id',
+        'username',
+        'enable_private_account',
+        'receive_news_offers',
+        'terms_accepted',
+        'role',
+        'is_onboarded',
+        'otp',
+        'otp_expiry',
         'profile_photo'
     ];
 
@@ -188,10 +204,13 @@ class V4User extends Authenticatable implements JWTSubject
     public function scopeWithBlockStatus($query)
     {
         $currentUserId = auth()->id();
-        return $query->with(['blockedUsers' => function ($query) use ($currentUserId) {
-            $query->where('blocked_id', $currentUserId)->active();
-        }, 'blockedByUsers' => function ($query) use ($currentUserId) {
-            $query->where('blocker_id', $currentUserId)->active();
-        }]);
+        return $query->with([
+            'blockedUsers' => function ($query) use ($currentUserId) {
+                $query->where('blocked_id', $currentUserId)->active();
+            },
+            'blockedByUsers' => function ($query) use ($currentUserId) {
+                $query->where('blocker_id', $currentUserId)->active();
+            }
+        ]);
     }
 }

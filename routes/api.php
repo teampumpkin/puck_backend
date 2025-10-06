@@ -287,9 +287,24 @@ Route::prefix('v4')->group(function () {
             Route::put('/update-category', [V4EvaluationController::class, 'updateCategory']);
             Route::delete('/delete-category', [V4EvaluationController::class, 'deleteCategory']);
 
+            // Questions
+            Route::get('/get-questions', [V4EvaluationController::class, 'getQuestions']);
+            Route::get('/get-questions/all', [V4EvaluationController::class, 'getAllQuestions']);
+            Route::get('/get-question/{id}', [V4EvaluationController::class, 'getQuestion']);
+            Route::post('/create-question', [V4EvaluationController::class, 'createQuestion']);
+            Route::put('/update-question', [V4EvaluationController::class, 'updateQuestion']);
+            Route::delete('/delete-question', [V4EvaluationController::class, 'deleteQuestion']);
+
+            // Question options
+            Route::get('/get-question-options', [V4EvaluationController::class, 'getQuestionOptions']);
+            Route::get('/get-question-option/{id}', [V4EvaluationController::class, 'getQuestionOption']);
+            Route::post('/create-question-option', [V4EvaluationController::class, 'createQuestionOption']);
+            Route::put('/update-question-option', [V4EvaluationController::class, 'updateQuestionOption']);
+            Route::delete('/delete-question-option', [V4EvaluationController::class, 'deleteQuestionOption']);
+
             // Questions-categories-options
             Route::get('/category/{categoryId}/get-questions-options', [V4EvaluationController::class, 'getCategoryQuestions']);
-            Route::get('/get-questions-categories-options', [V4EvaluationController::class, 'getAllQuestions']);
+            Route::get('/get-categories-questions-options', [V4EvaluationController::class, 'getCategoriesQuestionsOptions']);
         });
 
 
