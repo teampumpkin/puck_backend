@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Tracks a payment request for a player.
  *
- * Fields: id, payer_id (player), parent_id (nullable), in_app_purchase_id, amount_cents, currency,
+ * Fields: id, payer_id (player), parent_id (nullable), player_id (nullable), in_app_purchase_id, amount_cents, currency,
  * status, retry_count, notes, meta, created_at, updated_at
  *
  * Status flow:
@@ -34,6 +34,7 @@ class V4PaymentRequest extends Model
     protected $fillable = [
         'payer_id',
         'parent_id',
+        'player_id',
         'in_app_purchase_id',
         'amount_cents',
         'currency',
@@ -66,6 +67,11 @@ class V4PaymentRequest extends Model
     public function parent()
     {
         return $this->belongsTo(V4User::class, 'parent_id');
+    }
+
+    public function player()
+    {
+        return $this->belongsTo(V4User::class, 'player_id');
     }
 
     public function inAppPurchase()
@@ -104,6 +110,11 @@ class V4PaymentRequest extends Model
     public function scopeForParent($q, $parentId)
     {
         return $q->where('parent_id', $parentId);
+    }
+
+    public function scopeForPlayer($q, $playerId)
+    {
+        return $q->where('player_id', $playerId);
     }
 
     /* --------------------

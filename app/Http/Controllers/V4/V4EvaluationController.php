@@ -1583,4 +1583,157 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Upload evaluation video
+     * This function can be called by other controllers
+     *
+     * @param Request $request
+     * @param int $evaluationId (optional) - if provided, associates video with specific evaluation
+     * @param int $userId (optional) - if provided, uses this user ID instead of authenticated user
+     * @return JsonResponse
+     */
+    public function uploadEvaluationVideo(Request $request, $userId = null): JsonResponse
+    {
+        try {
+            // Get user - either from parameter or authenticated user
+            if ($userId) {
+                $user = V4User::findOrFail($userId);
+            } else {
+                /** @var V4User $user */
+                $user = Auth::guard('v4api')->user();
+            }
+
+            // Validate request
+            $validated = $request->validate([
+                'video' => 'required|file|mimes:mp4,avi,mov,wmv,flv,webm|max:102400', // 100MB max
+                'title' => 'nullable|string|max:255',
+                'description' => 'nullable|string|max:1000'
+            ]);
+
+            // Handle file upload
+            if ($request->hasFile('video')) {
+                $file = $request->file('video');
+                $mimeType = $file->getClientMimeType();
+                $fileSize = $file->getSize(); // Size in bytes
+
+                // Generate unique filename to prevent conflicts
+                $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                // Store file in S3 under evaluation-videos directory
+                $path = $file->storeAs(
+                    'evaluation-videos/' . $user->id,
+                    $filename,
+                    's3'
+                );
+
+                $videoUrl = Storage::disk('s3')->url($path);
+                $originalName = $file->getClientOriginalName();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluation video uploaded successfully',
+                    'data' => [
+                        'video_url' => $videoUrl,
+                        'file_path' => $path,
+                        'title' => $validated['title'] ?? $originalName,
+                        'description' => $validated['description'],
+                        'original_name' => $originalName,
+                        'file_size' => $fileSize,
+                        'mime_type' => $mimeType,
+                        'uploaded_at' => now()->toISOString(),
+                        'user_id' => $user->id,
+                    ]
+                ], 201);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No video file provided'
+            ], 400);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error uploading evaluation video: ' . $e->getMessage(), [
+                'user_id' => $userId ?? Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload evaluation video',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get evaluation videos for a user from S3
+     *
+     * @param Request $request
+     * @param int $userId (optional) - if provided, gets videos for this user
+     * @return JsonResponse
+     */
+    public function getEvaluationVideos(Request $request, $userId = null): JsonResponse
+    {
+        try {
+            // Get user - either from parameter or authenticated user
+            if ($userId) {
+                $user = V4User::findOrFail($userId);
+            } else {
+                /** @var V4User $user */
+                $user = Auth::guard('v4api')->user();
+            }
+
+            // Get all files from the user's evaluation-videos directory
+            $files = Storage::disk('s3')->files('evaluation-videos/' . $user->id);
+
+            $videos = [];
+            foreach ($files as $file) {
+                // Only include video files
+                if (preg_match('/\.(mp4|avi|mov|wmv|flv|webm)$/i', $file)) {
+                    $videos[] = [
+                        'file_path' => $file,
+                        'video_url' => Storage::disk('s3')->url($file),
+                        'filename' => basename($file),
+                        'size' => Storage::disk('s3')->size($file),
+                        'last_modified' => Storage::disk('s3')->lastModified($file),
+                        'mime_type' => Storage::disk('s3')->mimeType($file)
+                    ];
+                }
+            }
+
+            // Sort by last modified (newest first)
+            usort($videos, function ($a, $b) {
+                return $b['last_modified'] - $a['last_modified'];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluation videos retrieved successfully',
+                'data' => [
+                    'videos' => $videos,
+                    'total_videos' => count($videos),
+                    'total_size' => array_sum(array_column($videos, 'size'))
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching evaluation videos: ' . $e->getMessage(), [
+                'user_id' => $userId ?? Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve evaluation videos',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
 }
