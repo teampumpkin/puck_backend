@@ -27,11 +27,12 @@ use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
-use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\WebSocketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\V4\EvaluationRejectionReasonController;
+use App\Http\Controllers\V4\V4EvaluationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -266,6 +267,46 @@ Route::prefix('v4')->group(function () {
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
         Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
+
+        // Evaluation
+        Route::prefix('evaluation')->group(function () {
+
+            // Rejection reasons
+            Route::get('/get-rejection-reasons', [EvaluationRejectionReasonController::class, 'getActiveReasons']);
+            Route::get('/get-rejection-reasons/all', [EvaluationRejectionReasonController::class, 'getAllReasons']);
+            Route::get('/get-rejection-reason/{id}', [EvaluationRejectionReasonController::class, 'getRejectionReason']);
+            Route::post('/create-rejection-reason', [EvaluationRejectionReasonController::class, 'create']);
+            Route::put('/update-rejection-reason', [EvaluationRejectionReasonController::class, 'update']);
+            Route::delete('/delete-rejection-reason', [EvaluationRejectionReasonController::class, 'delete']);
+
+            // Categories
+            Route::get('/get-categories', [V4EvaluationController::class, 'getCategories']);
+            Route::get('/get-categories/all', [V4EvaluationController::class, 'getAllCategories']);
+            Route::get('/get-category/{id}', [V4EvaluationController::class, 'getCategory']);
+            Route::post('/create-category', [V4EvaluationController::class, 'createCategory']);
+            Route::put('/update-category', [V4EvaluationController::class, 'updateCategory']);
+            Route::delete('/delete-category', [V4EvaluationController::class, 'deleteCategory']);
+
+            // Questions
+            Route::get('/get-questions', [V4EvaluationController::class, 'getQuestions']);
+            Route::get('/get-questions/all', [V4EvaluationController::class, 'getAllQuestions']);
+            Route::get('/get-question/{id}', [V4EvaluationController::class, 'getQuestion']);
+            Route::post('/create-question', [V4EvaluationController::class, 'createQuestion']);
+            Route::put('/update-question', [V4EvaluationController::class, 'updateQuestion']);
+            Route::delete('/delete-question', [V4EvaluationController::class, 'deleteQuestion']);
+
+            // Question options
+            Route::get('/get-question-options', [V4EvaluationController::class, 'getQuestionOptions']);
+            Route::get('/get-question-option/{id}', [V4EvaluationController::class, 'getQuestionOption']);
+            Route::post('/create-question-option', [V4EvaluationController::class, 'createQuestionOption']);
+            Route::put('/update-question-option', [V4EvaluationController::class, 'updateQuestionOption']);
+            Route::delete('/delete-question-option', [V4EvaluationController::class, 'deleteQuestionOption']);
+
+            // Questions-categories-options
+            Route::get('/category/{categoryId}/get-questions-options', [V4EvaluationController::class, 'getCategoryQuestions']);
+            Route::get('/get-categories-questions-options', [V4EvaluationController::class, 'getCategoriesQuestionsOptions']);
+        });
+
 
         // Media routes
         Route::post('/upload-media', [V4MediaController::class, 'uploadMedia']);
