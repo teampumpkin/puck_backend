@@ -159,4 +159,84 @@ class V4PaymentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Check if payment is done for a specific SKU
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function isPaymentDone(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            $validated = $request->validate([
+                'sku' => 'required|string|exists:v4_in_app_purchases,sku'
+            ]);
+
+            // Get the in-app purchase
+            $inAppPurchase = V4InAppPurchase::where('sku', $validated['sku'])
+                ->where('active', true)
+                ->first();
+
+            if (!$inAppPurchase) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'In-app purchase not found or inactive'
+                ], 404);
+            }
+
+            // Check if payment exists and is successful
+            $paymentRequest = V4PaymentRequest::where('payer_id', $user->id)
+                ->where('in_app_purchase_id', $inAppPurchase->id)
+                ->where('status', V4PaymentRequest::STATUS_PAID)
+                ->whereHas('paymentTransaction', function ($query) {
+                    $query->where('status', V4PaymentTransaction::STATUS_SUCCESS);
+                })
+                ->first();
+
+            if ($paymentRequest) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment is completed',
+                    'data' => [
+                        'is_paid' => true,
+                        'sku' => $inAppPurchase->sku,
+                        'title' => $inAppPurchase->title,
+                        'payment_transaction_id' => $paymentRequest->paymentTransaction->id,
+                        'paid_at' => $paymentRequest->updated_at
+                    ]
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment not found or invalid',
+                    'data' => [
+                        'is_paid' => false,
+                        'sku' => $inAppPurchase->sku
+                    ]
+                ], 404);
+            }
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error checking payment status: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'sku' => $request->input('sku'),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check payment status',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
 }
