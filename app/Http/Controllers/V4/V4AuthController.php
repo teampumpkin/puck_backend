@@ -23,7 +23,7 @@ class V4AuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator',
+                'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
                 'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
@@ -57,10 +57,10 @@ class V4AuthController extends Controller
                 'otp_expiry'  => now()->addMinutes(10),
             ]);
 
-                //TODO: dispatch SMS job if $field === phone
-                //if ($field === 'email') {
-                // Mail::to($user->email)->send(new SendOtpMail($otp));
-                //}
+            //TODO: dispatch SMS job if $field === phone
+            //if ($field === 'email') {
+            // Mail::to($user->email)->send(new SendOtpMail($otp));
+            //}
 
             return response()->json([
                 'success' => true,
@@ -69,14 +69,12 @@ class V4AuthController extends Controller
                 $field    => $identifier,
                 'role'    => $user->role,
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors'  => $e->errors()
             ], 422);
-
         } catch (Exception $e) {
             Log::error('Send OTP error: ' . $e->getMessage());
 
@@ -104,11 +102,11 @@ class V4AuthController extends Controller
 
             if (
                 !$user ||
-                $user->otp !== $validated['otp'] ||
-                !$user->otp_expiry ||
-                now()->gt($user->otp_expiry)
+                $user->otp !== $validated['otp']
+                || !$user->otp_expiry
+                ||  now()->gt($user->otp_expiry)
             ) {
-                return response()->json(['message' => 'Invalid or expired OTP'], 401);
+                return response()->json(['message' => 'Invalid or expired OTP',], 401);
             }
 
             // Child players are not allowed via OTP
@@ -137,14 +135,12 @@ class V4AuthController extends Controller
                 ],
                 'message' => 'OTP verification successful',
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors'  => $e->errors(),
             ], 422);
-
         } catch (Exception $e) {
             Log::error('OTP verification failed: ' . $e->getMessage());
 
@@ -164,8 +160,8 @@ class V4AuthController extends Controller
         ]);
 
         $user = V4User::where('username', $request->username)
-                     ->where('is_child', true)
-                     ->first();
+            ->where('is_child', true)
+            ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
