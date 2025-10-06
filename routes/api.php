@@ -307,13 +307,10 @@ Route::prefix('v4')->group(function () {
             // Questions-categories-options
             Route::get('/category/{categoryId}/get-questions-options', [V4EvaluationController::class, 'getCategoryQuestions']);
             Route::get('/get-categories-questions-options', [V4EvaluationController::class, 'getCategoriesQuestionsOptions']);
-<<<<<<< HEAD
 
 
             // Payment routes
             Route::post('/process-payment', [V4PaymentController::class, 'processPayment']);
-=======
->>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
         });
 
 
