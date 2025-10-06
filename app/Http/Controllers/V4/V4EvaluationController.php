@@ -1583,6 +1583,7 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
+<<<<<<< HEAD
 
     /**
      * Upload evaluation video
@@ -1736,4 +1737,6 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
+=======
+>>>>>>> 8195f09359457f493e2e83a875f8e4760febbc66
 }
