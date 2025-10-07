@@ -151,6 +151,105 @@ class V4AuthController extends Controller
         }
     }
 
+    public function adminRegister(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'first_name' => 'required|string',
+                'last_name' => 'required|string',
+                'email' => 'required|email|unique:v4_users,email',
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            $user = V4User::create([
+                'email'    => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role'     => 'super-admin',
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+            ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin registered successfully',
+                'user'    => [
+                    'id'    => $user->id,
+                    'email' => $user->email,
+                    'role'  => $user->role,
+                ],
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Admin Register Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to register admin. Please try again.',
+                'error'   => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function adminLogin(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string',
+            ]);
+
+            $user = V4User::where('email', $validated['email'])->first();
+
+            if (!$user || $user->role !== 'super-admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials or unauthorized role.',
+                ], 401);
+            }
+
+            if (!Hash::check($validated['password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials.',
+                ], 401);
+            }
+
+            $token = JWTAuth::fromUser($user);
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login successful',
+                'token' => $token,
+                'user'    => [
+                    'id'    => $user->id,
+                    'email' => $user->email,
+                    'role'  => $user->role,
+                    'firstName' => $user->first_name,
+                    'lastName' => $user->last_name,
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Admin Login Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Login failed. Please try again.',
+                'error'   => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
 
     public function childLogin(Request $request)
     {

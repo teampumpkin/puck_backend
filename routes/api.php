@@ -6,6 +6,7 @@ use App\Http\Controllers\API\Admin\AdminScoutController;
 use App\Http\Controllers\API\Admin\AdminTeamController;
 use App\Http\Controllers\API\Admin\DashboardController;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\API\Developer\DeveloperController;
 use App\Http\Controllers\API\EvaluatorController;
 use App\Http\Controllers\API\PlayerController;
@@ -258,10 +259,40 @@ Route::prefix('v4')->group(function () {
     Route::post('verify-login-otp', [V4AuthController::class, 'verifyLoginOtp']);
     Route::post('/child-login', [V4AuthController::class, 'childLogin']);
 
+    Route::prefix('admin')->group(function () {
+        Route::post('/register', [V4AuthController::class, 'adminRegister']);
+        Route::post('/login', [V4AuthController::class, 'adminLogin']);
+
+
+        Route::middleware('auth:v4api')->group(function () {
+            Route::prefix('evaluation')->group(function () {
+                
+                // Get Question Category by id
+                Route::get('/get-questions-category-by/{id}', [V4EvaluationController::class, 'getAllQuestionsById']);
+                // Get Options Question by id
+                Route::get('/get-question-option-by/{id}', [V4EvaluationController::class, 'getQuestionOptionsById']);
+
+
+                // Get All Categories
+                Route::get('/categories', [V4EvaluationController::class, 'getAllCategories']);
+                // Get Category by id
+                Route::get('/category/{id}', [V4EvaluationController::class, 'getCategory']);
+                // Create Category
+                Route::post('/category', [V4EvaluationController::class, 'createCategory']);
+                // Update Category by id
+                Route::put('/category/{id}', [V4EvaluationController::class, 'updateCategoryById']);
+                // Delete Category by id
+                Route::delete('/category/{id}', [V4EvaluationController::class, 'deleteCategoryById']);
+
+                // Re-Order Categories
+                Route::put('/categories/reorder', [V4EvaluationController::class, 'reorderCategories']);
+            });
+        });
+    });
+
     Route::middleware('auth:v4api')->group(function () {
         Route::get('/profile', [ProfileController::class, 'getProfileData']);
-        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);
-        ;
+        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);;
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
@@ -280,12 +311,7 @@ Route::prefix('v4')->group(function () {
             Route::delete('/delete-rejection-reason', [EvaluationRejectionReasonController::class, 'delete']);
 
             // Categories
-            Route::get('/get-categories', [V4EvaluationController::class, 'getCategories']);
-            Route::get('/get-categories/all', [V4EvaluationController::class, 'getAllCategories']);
-            Route::get('/get-category/{id}', [V4EvaluationController::class, 'getCategory']);
-            Route::post('/create-category', [V4EvaluationController::class, 'createCategory']);
-            Route::put('/update-category', [V4EvaluationController::class, 'updateCategory']);
-            Route::delete('/delete-category', [V4EvaluationController::class, 'deleteCategory']);
+            Route::get('/get-categories', [V4EvaluationController::class, 'getCategories']); 
 
             // Questions
             Route::get('/get-questions', [V4EvaluationController::class, 'getQuestions']);
@@ -348,8 +374,6 @@ Route::prefix('v4')->group(function () {
             // Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
         });
     });
-
-
 });
 
 // // Parent routes

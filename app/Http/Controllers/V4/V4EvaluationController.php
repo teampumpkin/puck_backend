@@ -83,7 +83,6 @@ class V4EvaluationController extends Controller
                     )
                 ]
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching evaluation questions: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -165,7 +164,6 @@ class V4EvaluationController extends Controller
                 'message' => 'Category questions retrieved successfully',
                 'data' => $categoryData
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching category questions: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -212,7 +210,6 @@ class V4EvaluationController extends Controller
                     ];
                 })
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching evaluation categories: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -245,14 +242,13 @@ class V4EvaluationController extends Controller
                         'slug' => $category->slug,
                         'description' => $category->description,
                         'active' => $category->active,
-                        'sort_order' => $category->sort_order,
+                        'sortOrder' => $category->sort_order,
                         'meta' => $category->meta,
                         'created_at' => $category->created_at,
                         'updated_at' => $category->updated_at,
                     ];
                 })
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching all evaluation categories: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -351,14 +347,17 @@ class V4EvaluationController extends Controller
         }
     }
 
-    public function deleteCategory(Request $request): JsonResponse
+    public function deleteCategoryById(int $id): JsonResponse
     {
         try {
-            $validated = $request->validate([
-                'id' => 'required|integer|exists:evaluation_categories,id'
-            ]);
+            if (!is_numeric($id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid ID',
+                ], 400);
+            }
 
-            $category = EvaluationCategory::findOrFail($validated['id']);
+            $category = EvaluationCategory::findOrFail($id);
             $category->delete();
 
             return response()->json([
@@ -538,6 +537,170 @@ class V4EvaluationController extends Controller
         }
     }
 
+    public function updateCategoryById(Request $request, int $id): JsonResponse
+    {
+        try {
+            if (!is_numeric($id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid ID',
+                ], 400);
+            }
+
+            $validated = $request->validate([
+                'name' => 'sometimes|required|string|max:255',
+                'slug' => 'sometimes|nullable|string|max:255',
+                'description' => 'sometimes|required|string',
+                'active' => 'sometimes|required|boolean',
+                'sort_order' => 'sometimes|required|integer|min:1',
+                'meta' => 'sometimes|nullable|array',
+                'meta.*' => 'string'
+            ]);
+
+            $category = EvaluationCategory::findOrFail($id);
+
+            $updateData = [];
+            $hasAtLeastOneField = false;
+
+            if (isset($validated['name'])) {
+                $updateData['name'] = $validated['name'];
+                $hasAtLeastOneField = true;
+            }
+
+            if (isset($validated['slug'])) {
+                $slugToUse = $validated['slug'];
+            } elseif (isset($validated['name'])) {
+                $slugToUse = Str::slug($validated['name']);
+            } else {
+                $slugToUse = $category->slug;
+            }
+
+            if (isset($validated['name']) || isset($validated['slug'])) {
+                if ($slugToUse !== $category->slug) {
+                    $existingSlug = EvaluationCategory::where('slug', $slugToUse)
+                        ->where('id', '!=', $id)
+                        ->where('active', true)
+                        ->first();
+                    if ($existingSlug) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Slug already exists for an active category'
+                        ], 400);
+                    }
+                }
+                $updateData['slug'] = $slugToUse;
+                $hasAtLeastOneField = true;
+            }
+
+            if (isset($validated['description'])) {
+                $updateData['description'] = $validated['description'];
+                $hasAtLeastOneField = true;
+            }
+
+            if (isset($validated['name'])) {
+                if ($validated['name'] !== $category->name) {
+                    $existingName = EvaluationCategory::where('name', $validated['name'])
+                        ->where('id', '!=', $id)
+                        ->where('active', true)
+                        ->first();
+                    if ($existingName) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Name already exists for an active category'
+                        ], 400);
+                    }
+                }
+            }
+
+            if (isset($validated['active']) && $validated['active'] === true) {
+                $sortOrderToCheck = isset($validated['sort_order']) ? $validated['sort_order'] : $category->sort_order;
+
+                $existingSortOrder = EvaluationCategory::where('sort_order', $sortOrderToCheck)
+                    ->where('id', '!=', $id)
+                    ->where('active', true)
+                    ->first();
+
+                if ($existingSortOrder) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot activate record: Sort order ' . $sortOrderToCheck . ' already exists for an active category (ID: ' . $existingSortOrder->id . ')'
+                    ], 400);
+                }
+            }
+
+            if (isset($validated['sort_order'])) {
+                $activeToCheck = isset($validated['active']) ? $validated['active'] : $category->active;
+
+                if ($activeToCheck === true) {
+                    $existingSortOrder = EvaluationCategory::where('sort_order', $validated['sort_order'])
+                        ->where('id', '!=', $id)
+                        ->where('active', true)
+                        ->first();
+                    if ($existingSortOrder) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Sort order ' . $validated['sort_order'] . ' already exists for an active category (ID: ' . $existingSortOrder->id . ')'
+                        ], 400);
+                    }
+                }
+                $updateData['sort_order'] = $validated['sort_order'];
+                $hasAtLeastOneField = true;
+            }
+
+            if (isset($validated['active'])) {
+                $updateData['active'] = $validated['active'];
+                $hasAtLeastOneField = true;
+            }
+
+            if (isset($validated['meta'])) {
+                $meta = null;
+                if (is_array($validated['meta'])) {
+                    $meta = [];
+                    foreach ($validated['meta'] as $key => $value) {
+                        if (!is_string($key) || !is_string($value)) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Meta keys and values must be strings'
+                            ], 400);
+                        }
+                        $meta[$key] = $value;
+                    }
+                }
+                $updateData['meta'] = $meta;
+                $hasAtLeastOneField = true;
+            }
+
+            if (!$hasAtLeastOneField) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'At least one field (name, slug, description, active, sort_order, or meta) must be provided for update'
+                ], 400);
+            }
+
+            $updateData['updated_at'] = now()->format('Y-m-d H:i:s');
+
+            $category->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category updated successfully',
+                'data' => $category->fresh()
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
     public function getCategory(Request $request, int $id): JsonResponse
     {
         try {
@@ -554,6 +717,42 @@ class V4EvaluationController extends Controller
                 'message' => 'Category not found',
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 404);
+        }
+    }
+
+
+    public function reorderCategories(Request $request): JsonResponse
+    {
+
+         
+        try {
+            $validated = $request->validate([
+                'categories' => 'required|array',
+                'categories.*.id' => 'required|integer|exists:evaluation_categories,id',
+                'categories.*.sortOrder' => 'required|integer|min:0',
+            ]);
+
+            foreach ($validated['categories'] as $categoryData) {
+                EvaluationCategory::where('id', $categoryData['id'])
+                    ->update(['sort_order' => $categoryData['sortOrder']]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Categories reordered successfully.'
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
     }
 
@@ -600,7 +799,6 @@ class V4EvaluationController extends Controller
                 'message' => 'Question retrieved successfully',
                 'data' => $questionData
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching question: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -658,7 +856,6 @@ class V4EvaluationController extends Controller
                     'questions' => $questionsData
                 ]
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching active questions: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -714,7 +911,60 @@ class V4EvaluationController extends Controller
                     'questions' => $questionsData
                 ]
             ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching all questions: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve all questions',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+
+    public function getAllQuestionsById($id): JsonResponse
+    {
+        try {
+            // Optionally validate manually
+            if (!is_numeric($id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid ID',
+                ], 400);
+            }
+
+            $questions = EvaluationQuestion::with(['category'])
+                ->where('category_id', $id)
+                ->orderBy('category_id')
+                ->orderBy('sort_order')
+                ->get();
+
+            $questionsData = $questions->map(function ($question) {
+                return [
+                    'id' => $question->id,
+                    'title' => $question->title,
+                    'question' => $question->question,
+                    'required' => $question->required,
+                    'sortOrder' => $question->sort_order,
+                    'active' => $question->active,
+                    'meta' => $question->meta,
+                    'created_at' => $question->created_at,
+                    'updated_at' => $question->updated_at,
+                    'category' => $question->category
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Active questions retrieved successfully',
+                'data' => [
+                    'questions' => $questionsData
+                ]
+            ], 200);
         } catch (Exception $e) {
             Log::error('Error fetching all questions: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -749,7 +999,6 @@ class V4EvaluationController extends Controller
                 'success' => true,
                 'message' => 'Question deleted successfully'
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -871,7 +1120,6 @@ class V4EvaluationController extends Controller
                     'category' => $question->category
                 ]
             ], 201);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1063,7 +1311,6 @@ class V4EvaluationController extends Controller
                     'category' => $question->category
                 ]
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1135,7 +1382,6 @@ class V4EvaluationController extends Controller
                     'options' => $optionsData
                 ]
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching question options: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -1145,6 +1391,75 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve question options',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    public function getQuestionOptionsById($id): JsonResponse
+    {
+        try {
+            // Optionally validate manually
+            if (!is_numeric($id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid ID',
+                ], 400);
+            }
+
+            // Get the question option with full question and category information
+            $options = EvaluationQuestionOption::with(['question.category'])
+                ->where('question_id', $id)
+                ->get();
+
+            if (!$options) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Question option not found'
+                ], 404);
+            }
+
+            // Transform the data for API response
+            $optionsData = $options->map(function ($option) {
+                return [
+                    'id' => $option->id,
+                    'title' => $option->title,
+                    'option' => $option->option,
+                    'rating' => (float) $option->rating,
+                    'sortOrder' => $option->sort_order,
+                    'meta' => $option->meta,
+                    'created_at' => $option->created_at,
+                    'updated_at' => $option->updated_at,
+                    'question' => [
+                        'id' => $option->question->id,
+                        'title' => $option->question->title,
+                        'question' => $option->question->question,
+                        'required' => $option->question->required,
+                        'sortOrder' => $option->question->sort_order,
+                        'active' => $option->question->active,
+                        'meta' => $option->question->meta,
+                        'created_at' => $option->question->created_at,
+                        'updated_at' => $option->question->updated_at,
+                        'category' => $option->question->category
+                    ]
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Question option retrieved successfully',
+                'data' => $optionsData
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching question option: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'option_id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve question option',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
@@ -1203,7 +1518,6 @@ class V4EvaluationController extends Controller
                 'message' => 'Question option retrieved successfully',
                 'data' => $optionData
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching question option: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
@@ -1333,7 +1647,6 @@ class V4EvaluationController extends Controller
                     ]
                 ]
             ], 201);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1520,7 +1833,6 @@ class V4EvaluationController extends Controller
                     ]
                 ]
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1562,7 +1874,6 @@ class V4EvaluationController extends Controller
                 'success' => true,
                 'message' => 'Question option deleted successfully'
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
