@@ -26,6 +26,8 @@ use App\Http\Controllers\PlayableController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
+use App\Http\Controllers\V4\V4PaymentController;
+use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\WebSocketController;
@@ -343,6 +345,14 @@ Route::prefix('v4')->group(function () {
             // Questions-categories-options
             Route::get('/category/{categoryId}/get-questions-options', [V4EvaluationController::class, 'getCategoryQuestions']);
             Route::get('/get-categories-questions-options', [V4EvaluationController::class, 'getCategoriesQuestionsOptions']);
+
+            // Payment routes
+            Route::post('/process-payment', [V4PaymentController::class, 'processPayment']);
+            Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
+
+            // Video Evaluation
+            Route::post('/upload-evaluation-video', [V4EvaluationController::class, 'uploadEvaluationVideo']);
+            Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
         });
 
 

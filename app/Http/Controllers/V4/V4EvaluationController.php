@@ -7,6 +7,7 @@ use App\Models\EvaluationCategory;
 use App\Models\EvaluationQuestion;
 use App\Models\EvaluationQuestionOption;
 use App\Models\V4User;
+use Illuminate\Support\Facades\Storage;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Psy\Readline\Hoa\Console;
+use App\Models\EvaluationSubmission;
+use App\Models\EvaluationSubmissionVersion;
+use App\Models\V4PaymentRequest;
 
 class V4EvaluationController extends Controller
 {
@@ -1872,6 +1877,243 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete question option',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload evaluation video
+     * This function can be called by other controllers
+     *
+     * @param Request $request
+     * @param int $evaluationId (optional) - if provided, associates video with specific evaluation
+     * @param int $userId (optional) - if provided, uses this user ID instead of authenticated user
+     * @return JsonResponse
+     */
+    public function uploadEvaluationVideo(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            $playerId = $user->id; // Get user_id from token
+
+            // Validate only video file is required
+            $request->validate([
+                'video' => 'required|file',
+            ]);
+
+            // Check if payment is completed for this player
+            $paymentRequest = V4PaymentRequest::where('player_id', $playerId)
+                ->where('status', V4PaymentRequest::STATUS_PAID)
+                ->first();
+
+            if (!$paymentRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment not completed for this player'
+                ], 400);
+            }
+
+            // Handle file upload
+            if (!$request->hasFile('video')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No video file provided'
+                ], 400);
+            }
+
+            $file = $request->file('video');
+
+            // Check if file upload was successful
+            if (!$file->isValid()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File upload failed: ' . $file->getError()
+                ], 422);
+            }
+
+            $mimeType = $file->getClientMimeType();
+            $fileSize = $file->getSize();
+
+            // Check if it's a video file
+            if (!str_starts_with($mimeType, 'video/')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File must be a video'
+                ], 422);
+            }
+
+            // Check file size (100MB max)
+            $maxSizeInBytes = 100 * 1024 * 1024; // 100MB
+            if ($fileSize > $maxSizeInBytes) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Video file size must not exceed 100MB'
+                ], 422);
+            }
+
+            // Check if submission already exists for this player
+            $existingSubmission = EvaluationSubmission::where('player_id', $playerId)
+                ->where('payment_request_id', $paymentRequest->id)
+                ->first();
+
+            if ($existingSubmission) {
+                // Only allow new version if status is rejected
+                if ($existingSubmission->status !== EvaluationSubmission::STATUS_REJECTED) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Already uploaded a video for evaluation',
+                        'current_status' => $existingSubmission->status
+                    ], 400);
+                }
+            }
+
+            // Generate unique filename to prevent conflicts
+            $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            // Store file in S3 under evaluation-videos directory
+            $path = $file->storeAs(
+                'evaluation-videos/' . $playerId,
+                $filename,
+                's3'
+            );
+
+            $videoUrl = Storage::disk('s3')->url($path);
+            $originalName = $file->getClientOriginalName();
+
+            // Prepare file metadata
+            $fileMeta = [
+                'original_name' => $originalName,
+                'file_size' => $fileSize,
+                'mime_type' => $mimeType,
+                'video_url' => $videoUrl,
+                'uploaded_at' => now()->toISOString(),
+            ];
+
+            // Create or update submission
+            if ($existingSubmission) {
+                // Update existing submission status to uploaded
+                $existingSubmission->update([
+                    'status' => EvaluationSubmission::STATUS_UPLOADED
+                ]);
+                $submission = $existingSubmission;
+            } else {
+                // Create new submission
+                $submission = EvaluationSubmission::create([
+                    'player_id' => $playerId,
+                    'payment_request_id' => $paymentRequest->id,
+                    'status' => EvaluationSubmission::STATUS_UPLOADED,
+                ]);
+            }
+
+            // Create submission version
+            $submissionVersion = EvaluationSubmissionVersion::create([
+                'submission_id' => $submission->id,
+                'file_path' => $videoUrl,
+                'file_meta' => $fileMeta,
+                'uploaded_by' => $user->id,
+            ]);
+
+            // Update submission with current version ID
+            $submission->update([
+                'current_version_id' => $submissionVersion->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluation video uploaded successfully',
+                'data' => [
+                    'player_id' => $playerId,
+                    'submission_id' => $submission->id,
+                    'submission_version_id' => $submissionVersion->id,
+                    'status' => $submission->status,
+                    'video_url' => $videoUrl,
+                    'file_size' => $fileSize,
+                    'mime_type' => $mimeType,
+                    'uploaded_at' => now()->toISOString()
+                ]
+            ], 201);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error uploading evaluation video: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload evaluation video',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get evaluation videos for a user from S3
+     *
+     * @param Request $request
+     * @param int $userId (optional) - if provided, gets videos for this user
+     * @return JsonResponse
+     */
+    public function getEvaluationVideos(Request $request, $userId = null): JsonResponse
+    {
+        try {
+            // Get user - either from parameter or authenticated user
+            if ($userId) {
+                $user = V4User::findOrFail($userId);
+            } else {
+                /** @var V4User $user */
+                $user = Auth::guard('v4api')->user();
+            }
+
+            // Get all files from the user's evaluation-videos directory
+            $files = Storage::disk('s3')->files('evaluation-videos/' . $user->id);
+
+            $videos = [];
+            foreach ($files as $file) {
+                // Only include video files
+                if (preg_match('/\.(mp4|avi|mov|wmv|flv|webm)$/i', $file)) {
+                    $videos[] = [
+                        'file_path' => $file,
+                        'video_url' => Storage::disk('s3')->url($file),
+                        'filename' => basename($file),
+                        'size' => Storage::disk('s3')->size($file),
+                        'last_modified' => Storage::disk('s3')->lastModified($file),
+                        'mime_type' => Storage::disk('s3')->mimeType($file)
+                    ];
+                }
+            }
+
+            // Sort by last modified (newest first)
+            usort($videos, function ($a, $b) {
+                return $b['last_modified'] - $a['last_modified'];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluation videos retrieved successfully',
+                'data' => [
+                    'videos' => $videos,
+                    'total_videos' => count($videos),
+                    'total_size' => array_sum(array_column($videos, 'size'))
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching evaluation videos: ' . $e->getMessage(), [
+                'user_id' => $userId ?? Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve evaluation videos',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }

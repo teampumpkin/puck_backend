@@ -17,6 +17,7 @@ class CreateV4PaymentRequestsTable extends Migration
             $table->id();
             $table->foreignId('payer_id')->constrained('v4_users')->onDelete('cascade');
             $table->foreignId('parent_id')->nullable()->constrained('v4_users')->onDelete('cascade');
+            $table->foreignId('player_id')->constrained('v4_users')->onDelete('cascade');
             $table->foreignId('in_app_purchase_id')->constrained('v4_in_app_purchases')->onDelete('cascade');
             $table->integer('amount_cents');
             $table->string('currency', 3)->default('USD');
@@ -37,6 +38,7 @@ class CreateV4PaymentRequestsTable extends Migration
             // Indexes for performance
             $table->index(['payer_id', 'status']);
             $table->index(['parent_id', 'status']);
+            $table->index(['player_id', 'status']);
             $table->index(['status', 'created_at']);
             $table->index('in_app_purchase_id');
         });
