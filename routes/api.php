@@ -267,8 +267,19 @@ Route::prefix('v4')->group(function () {
         Route::middleware('auth:v4api')->group(function () {
             Route::prefix('evaluation')->group(function () {
                 
-                // Get Question Category by id
+                // Get Questions Category by id
                 Route::get('/get-questions-category-by/{id}', [V4EvaluationController::class, 'getAllQuestionsById']);
+
+                // Create Question Category by id
+                Route::post('/question', [V4EvaluationController::class, 'createQuestion']);
+
+                // Update Question Category by id
+                Route::put('/question', [V4EvaluationController::class, 'updateQuestion']);
+
+                // Delete Question Category by id
+                Route::delete('/question/{id}', [V4EvaluationController::class, 'deleteQuestion']);
+
+
                 // Get Options Question by id
                 Route::get('/get-question-option-by/{id}', [V4EvaluationController::class, 'getQuestionOptionsById']);
 
@@ -283,9 +294,11 @@ Route::prefix('v4')->group(function () {
                 Route::put('/category/{id}', [V4EvaluationController::class, 'updateCategoryById']);
                 // Delete Category by id
                 Route::delete('/category/{id}', [V4EvaluationController::class, 'deleteCategoryById']);
-
                 // Re-Order Categories
                 Route::put('/categories/reorder', [V4EvaluationController::class, 'reorderCategories']);
+
+
+
             });
         });
     });
@@ -317,7 +330,6 @@ Route::prefix('v4')->group(function () {
             Route::get('/get-questions', [V4EvaluationController::class, 'getQuestions']);
             Route::get('/get-questions/all', [V4EvaluationController::class, 'getAllQuestions']);
             Route::get('/get-question/{id}', [V4EvaluationController::class, 'getQuestion']);
-            Route::post('/create-question', [V4EvaluationController::class, 'createQuestion']);
             Route::put('/update-question', [V4EvaluationController::class, 'updateQuestion']);
             Route::delete('/delete-question', [V4EvaluationController::class, 'deleteQuestion']);
 

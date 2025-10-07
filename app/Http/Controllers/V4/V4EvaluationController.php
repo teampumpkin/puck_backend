@@ -724,7 +724,7 @@ class V4EvaluationController extends Controller
     public function reorderCategories(Request $request): JsonResponse
     {
 
-         
+
         try {
             $validated = $request->validate([
                 'categories' => 'required|array',
@@ -985,14 +985,10 @@ class V4EvaluationController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function deleteQuestion(Request $request): JsonResponse
+    public function deleteQuestion(int $id): JsonResponse
     {
         try {
-            $validated = $request->validate([
-                'id' => 'required|integer|exists:evaluation_questions,id'
-            ]);
-
-            $question = EvaluationQuestion::findOrFail($validated['id']);
+            $question = EvaluationQuestion::findOrFail($id);
             $question->delete();
 
             return response()->json([
@@ -1008,7 +1004,7 @@ class V4EvaluationController extends Controller
         } catch (Exception $e) {
             Log::error('Error deleting question: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
-                'question_id' => $request->input('id'),
+                'question_id' => $id,
                 'trace' => $e->getTraceAsString()
             ]);
 
@@ -1030,17 +1026,17 @@ class V4EvaluationController extends Controller
     {
         try {
             $validated = $request->validate([
-                'category_id' => 'required|integer|exists:evaluation_categories,id',
+                'categoryId' => 'required|integer|exists:evaluation_categories,id',
                 'title' => 'required|string|max:255',
                 'question' => 'required|string',
                 'required' => 'nullable|boolean',
-                'sort_order' => 'nullable|integer|min:1',
+                'active' => 'sometimes|required|boolean',
                 'meta' => 'nullable|array',
                 'meta.*' => 'string'
             ]);
 
             // Check for duplicate title in the same category
-            $existingTitle = EvaluationQuestion::where('category_id', $validated['category_id'])
+            $existingTitle = EvaluationQuestion::where('category_id', $validated['categoryId'])
                 ->where('title', $validated['title'])
                 ->first();
 
@@ -1052,7 +1048,7 @@ class V4EvaluationController extends Controller
             }
 
             // Check for duplicate question text in the same category
-            $existingQuestion = EvaluationQuestion::where('category_id', $validated['category_id'])
+            $existingQuestion = EvaluationQuestion::where('category_id', $validated['categoryId'])
                 ->where('question', $validated['question'])
                 ->first();
 
@@ -1065,26 +1061,6 @@ class V4EvaluationController extends Controller
 
             // Set default values
             $validated['required'] = $validated['required'] ?? false;
-
-            // If sort_order not provided, get the next available order for this category
-            if (!isset($validated['sort_order'])) {
-                $maxSortOrder = EvaluationQuestion::where('category_id', $validated['category_id'])->max('sort_order') ?? 0;
-                $validated['sort_order'] = $maxSortOrder + 1;
-            } else {
-                // Check for duplicate sort_order in the same active category
-                $existingSortOrder = EvaluationQuestion::where('category_id', $validated['category_id'])
-                    ->where('sort_order', $validated['sort_order'])
-                    ->where('active', true)
-                    ->first();
-
-                if ($existingSortOrder) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Sort order already exists for an active question in this category'
-                    ], 400);
-                }
-            }
-
             // Handle meta data
             $meta = null;
             if (isset($validated['meta']) && is_array($validated['meta'])) {
@@ -1100,6 +1076,7 @@ class V4EvaluationController extends Controller
                 }
             }
             $validated['meta'] = $meta;
+            $validated['category_id'] = $validated['categoryId'];
 
             $question = EvaluationQuestion::create($validated);
             $question->load('category');
@@ -1121,6 +1098,11 @@ class V4EvaluationController extends Controller
                 ]
             ], 201);
         } catch (ValidationException $e) {
+            Log::error('Error Validation failed  creating question: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1155,7 +1137,7 @@ class V4EvaluationController extends Controller
                 'title' => 'sometimes|required|string|max:255',
                 'question' => 'sometimes|required|string',
                 'required' => 'sometimes|required|boolean',
-                'sort_order' => 'sometimes|required|integer|min:1',
+                'sortOrder' => 'sometimes|required|integer|min:1',
                 'active' => 'sometimes|required|boolean',
                 'meta' => 'sometimes|nullable|array',
                 'meta.*' => 'string'
@@ -1221,13 +1203,13 @@ class V4EvaluationController extends Controller
             }
 
             // Handle sort_order with duplicate check for active questions
-            if (isset($validated['sort_order'])) {
+            if (isset($validated['sortOrder'])) {
                 $activeToCheck = isset($validated['active']) ? $validated['active'] : $question->active;
                 $categoryIdToCheck = isset($validated['category_id']) ? $validated['category_id'] : $question->category_id;
 
                 if ($activeToCheck === true) {
                     $existingSortOrder = EvaluationQuestion::where('category_id', $categoryIdToCheck)
-                        ->where('sort_order', $validated['sort_order'])
+                        ->where('sort_order', $validated['sortOrder'])
                         ->where('id', '!=', $validated['id'])
                         ->where('active', true)
                         ->first();
@@ -1239,14 +1221,14 @@ class V4EvaluationController extends Controller
                         ], 400);
                     }
                 }
-                $updateData['sort_order'] = $validated['sort_order'];
+                $updateData['sort_order'] = $validated['sortOrder'];
                 $hasAtLeastOneField = true;
             }
 
             // Handle active field with sort_order validation
             if (isset($validated['active'])) {
                 if ($validated['active'] === true) {
-                    $sortOrderToCheck = isset($validated['sort_order']) ? $validated['sort_order'] : $question->sort_order;
+                    $sortOrderToCheck = isset($validated['sortOrder']) ? $validated['sortOrder'] : $question->sort_order;
                     $categoryIdToCheck = isset($validated['category_id']) ? $validated['category_id'] : $question->category_id;
 
                     $existingSortOrder = EvaluationQuestion::where('category_id', $categoryIdToCheck)
