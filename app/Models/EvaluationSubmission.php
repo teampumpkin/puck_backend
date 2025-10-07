@@ -20,9 +20,7 @@ class EvaluationSubmission extends Model
 
     const STATUS_UPLOADED = 'uploaded';
     const STATUS_ASSIGNED = 'assigned';
-    const STATUS_EVALUATING = 'evaluating';
     const STATUS_REJECTED = 'rejected';
-    const STATUS_ACCEPTED = 'accepted';
     const STATUS_COMPLETED = 'completed';
 
     protected $fillable = [
