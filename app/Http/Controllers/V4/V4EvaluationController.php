@@ -7,6 +7,7 @@ use App\Models\EvaluationCategory;
 use App\Models\EvaluationQuestion;
 use App\Models\EvaluationQuestionOption;
 use App\Models\V4User;
+use Illuminate\Support\Facades\Storage;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Psy\Readline\Hoa\Console;
 
 class V4EvaluationController extends Controller
 {
@@ -1593,76 +1595,110 @@ class V4EvaluationController extends Controller
      * @param int $userId (optional) - if provided, uses this user ID instead of authenticated user
      * @return JsonResponse
      */
-    public function uploadEvaluationVideo(Request $request, $userId = null): JsonResponse
+    public function uploadEvaluationVideo(Request $request): JsonResponse
     {
         try {
-            // Get user - either from parameter or authenticated user
-            if ($userId) {
-                $user = V4User::findOrFail($userId);
-            } else {
-                /** @var V4User $user */
-                $user = Auth::guard('v4api')->user();
-            }
+            $user = Auth::guard('v4api')->user();
 
-            // Validate request
-            $validated = $request->validate([
-                'video' => 'required|file|mimes:mp4,avi,mov,wmv,flv,webm|max:102400', // 100MB max
-                'title' => 'nullable|string|max:255',
-                'description' => 'nullable|string|max:1000'
-            ]);
+            // Debug: Log what we're receiving
+            error_log('=== UPLOAD DEBUG START ===');
+            error_log('User ID: ' . ($user ? $user->id : 'NULL'));
+            error_log('Has file video: ' . ($request->hasFile('video') ? 'YES' : 'NO'));
+            error_log('All files: ' . print_r($request->allFiles(), true));
+            error_log('All input: ' . print_r($request->all(), true));
+            error_log('Content-Type: ' . $request->header('Content-Type'));
+            error_log('Method: ' . $request->method());
+            error_log('POST data size: ' . strlen(file_get_contents('php://input')));
+            error_log('=== UPLOAD DEBUG END ===');
 
-            // Handle file upload
-            if ($request->hasFile('video')) {
-                $file = $request->file('video');
-                $mimeType = $file->getClientMimeType();
-                $fileSize = $file->getSize(); // Size in bytes
-
-                // Generate unique filename to prevent conflicts
-                $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-                // Store file in S3 under evaluation-videos directory
-                $path = $file->storeAs(
-                    'evaluation-videos/' . $user->id,
-                    $filename,
-                    's3'
-                );
-
-                $videoUrl = Storage::disk('s3')->url($path);
-                $originalName = $file->getClientOriginalName();
-
+            // Check if file exists first (REMOVE THE VALIDATION)
+            if (!$request->hasFile('video')) {
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Evaluation video uploaded successfully',
-                    'data' => [
-                        'video_url' => $videoUrl,
-                        'file_path' => $path,
-                        'title' => $validated['title'] ?? $originalName,
-                        'description' => $validated['description'],
-                        'original_name' => $originalName,
-                        'file_size' => $fileSize,
-                        'mime_type' => $mimeType,
-                        'uploaded_at' => now()->toISOString(),
-                        'user_id' => $user->id,
+                    'success' => false,
+                    'message' => 'No video file provided',
+                    'debug' => [
+                        'hasFile' => $request->hasFile('video'),
+                        'allFiles' => $request->allFiles(),
+                        'contentType' => $request->header('Content-Type'),
+                        'postData' => $request->all()
                     ]
-                ], 201);
+                ], 400);
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'No video file provided'
-            ], 400);
+            $file = $request->file('video');
+            
+            // Check if file upload was successful
+            if (!$file->isValid()) {
+                error_log('File upload failed: ' . $file->getError());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File upload failed: ' . $file->getError(),
+                    'debug' => [
+                        'errorCode' => $file->getError(),
+                        'errorMessage' => $file->getErrorMessage()
+                    ]
+                ], 422);
+            }
 
-        } catch (ValidationException $e) {
+            $mimeType = $file->getClientMimeType();
+            $fileSize = $file->getSize();
+
+            error_log('File details - MIME: ' . $mimeType . ', Size: ' . $fileSize);
+
+            // Check if it's a video file
+            if (!str_starts_with($mimeType, 'video/')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File must be a video',
+                    'debug' => [
+                        'mimeType' => $mimeType,
+                        'fileSize' => $fileSize,
+                        'originalName' => $file->getClientOriginalName()
+                    ]
+                ], 422);
+            }
+
+            // Check file size (100MB max)
+            $maxSizeInBytes = 100 * 1024 * 1024; // 100MB
+            if ($fileSize > $maxSizeInBytes) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Video file size must not exceed 100MB'
+                ], 422);
+            }
+
+            // Generate unique filename to prevent conflicts
+            $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            // Store file in S3 under evaluation-videos directory
+            $path = $file->storeAs(
+                'evaluation-videos/' . $user->id,
+                $filename,
+                's3'
+            );
+
+            $videoUrl = Storage::disk('s3')->url($path);
+            $originalName = $file->getClientOriginalName();
+
             return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
+                'success' => true,
+                'message' => 'Evaluation video uploaded successfully',
+                'data' => [
+                    'video_url' => $videoUrl,
+                    'file_path' => $path,
+                    'title' => $originalName,
+                    'description' => null,
+                    'original_name' => $originalName,
+                    'file_size' => $fileSize,
+                    'mime_type' => $mimeType,
+                    'uploaded_at' => now()->toISOString(),
+                    'user_id' => $user->id,
+                ]
+            ], 201);
+
         } catch (Exception $e) {
-            Log::error('Error uploading evaluation video: ' . $e->getMessage(), [
-                'user_id' => $userId ?? Auth::id(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            error_log('Upload error: ' . $e->getMessage());
+            error_log('Stack trace: ' . $e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
