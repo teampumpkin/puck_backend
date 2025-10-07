@@ -19,6 +19,7 @@ use Psy\Readline\Hoa\Console;
 use App\Models\EvaluationSubmission;
 use App\Models\EvaluationSubmissionVersion;
 use App\Models\V4PaymentRequest;
+use App\Models\EvaluatorAssignment;
 
 class V4EvaluationController extends Controller
 {
@@ -1670,6 +1671,7 @@ class V4EvaluationController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Already uploaded a video for evaluation',
+                        'submission_id' => $existingSubmission->id,
                         'current_status' => $existingSubmission->status
                     ], 400);
                 }
@@ -1821,6 +1823,188 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve evaluation videos',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Allot evaluator for submission
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function allotEvaluatorForSubmission(Request $request): JsonResponse
+    {
+        try {
+            // Validate required fields
+            $request->validate([
+                'evaluator_id' => 'required|integer|exists:v4_users,id',
+                'submission_id' => 'required|integer|exists:evaluation_submissions,id',
+            ]);
+
+            $evaluatorId = $request->input('evaluator_id');
+            $submissionId = $request->input('submission_id');
+
+            // Check if evaluator exists and has evaluator role
+            $evaluator = V4User::where('id', $evaluatorId)
+                ->where('role', 'evaluator')
+                ->first();
+
+            if (!$evaluator) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Evaluator not found or does not have evaluator role'
+                ], 404);
+            }
+
+            // Check if submission exists
+            $submission = EvaluationSubmission::find($submissionId);
+
+            if (!$submission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Submission not found'
+                ], 404);
+            }
+
+            // Check submission status - only allow if status is 'uploaded'
+            if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
+                $existingAssignment = EvaluatorAssignment::where('submission_id', $submissionId)->first();
+                return response()->json([
+                    'success' => false,
+                    'message' => "Submission already {$submission->status}",
+                    'submission_id' => $submissionId,
+                    'evaluator_id' => $existingAssignment->evaluator_id,
+                    'current_status' => $submission->status
+                ], 400);
+            }
+
+            // Create evaluator assignment
+            $assignment = EvaluatorAssignment::create([
+                'submission_id' => $submissionId,
+                'evaluator_id' => $evaluatorId,
+                'status' => EvaluatorAssignment::STATUS_PENDING,
+                'assigned_at' => now(),
+            ]);
+
+            // Update submission status to assigned
+            $submission->update([
+                'status' => EvaluationSubmission::STATUS_ASSIGNED,
+                'evaluator_assignment_id' => $assignment->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluator allotted successfully',
+                'data' => [
+                    'assignment_id' => $assignment->id,
+                    'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                    'assignment_status' => $assignment->status,
+                    'assigned_at' => $assignment->assigned_at->toISOString(),
+                    'submission_status' => $submission->status
+                ]
+            ], 201);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error allotting evaluator for submission: ' . $e->getMessage(), [
+                'evaluator_id' => $request->input('evaluator_id'),
+                'submission_id' => $request->input('submission_id'),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to allot evaluator',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get evaluator assignments filtered by status
+     * 
+     * @param Request $request
+     * @param string $status
+     * @return JsonResponse
+     */
+    public function getStatusFilteredEvaluatorAssignments(Request $request, $status): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate status parameter
+            if (!in_array($status, ['pending', 'completed'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid status. Must be pending or completed'
+                ], 400);
+            }
+
+            // Build query based on status and current user's evaluator ID
+            $query = EvaluatorAssignment::with([
+                'submission.player',
+                'submission.paymentRequest.inAppPurchase',
+                'evaluator'
+            ])->where('evaluator_id', $user->id);
+
+            if ($status === 'pending') {
+                $query->where('status', EvaluatorAssignment::STATUS_PENDING);
+            } else {
+                // For completed, include both completed and rejected
+                $query->whereIn('status', [
+                    EvaluatorAssignment::STATUS_COMPLETED,
+                    EvaluatorAssignment::STATUS_REJECTED
+                ]);
+            }
+
+            $assignments = $query->orderBy('assigned_at', 'desc')->get();
+
+            $formattedAssignments = $assignments->map(function ($assignment) {
+                return [
+                    'assignment_id' => $assignment->id,
+                    'status' => $assignment->status,
+                    'notes' => $assignment->notes,
+                    'submission_date' => $assignment->submission->updated_at->toISOString(),
+                    'player' => [
+                        'id' => $assignment->submission->player->id,
+                        'name' => $assignment->submission->player->first_name . ' ' . $assignment->submission->player->last_name,
+                        'role' => $assignment->submission->player->role,
+                    ],
+                    'in_app_purchase' => $assignment->submission->paymentRequest->inAppPurchase ? [
+                        'id' => $assignment->submission->paymentRequest->inAppPurchase->id,
+                        'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+                        'title' => $assignment->submission->paymentRequest->inAppPurchase->title,
+                        'active' => $assignment->submission->paymentRequest->inAppPurchase->active,
+                    ] : null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => "Evaluator assignments retrieved successfully",
+                'data' => [
+                    'assignments' => $formattedAssignments,
+                    'total_count' => $formattedAssignments->count(),
+                    'status_filter' => $status,
+                    'evaluator_id' => $user->id,
+                    'filters_applied' => $status === 'pending'
+                        ? ['status' => 'pending', 'evaluator_id' => $user->id]
+                        : ['status' => ['completed', 'rejected'], 'evaluator_id' => $user->id]
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve evaluator assignments',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }

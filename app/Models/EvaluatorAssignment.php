@@ -8,17 +8,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 /**
  * Assignment of a submission to an evaluator.
  *
- * Fields: id, submission_id, evaluator_id, status [pending, in_progress, completed, rejected], assigned_at, completed_at, notes
+ * Fields: id, submission_id, evaluator_id, status [pending, completed, rejected], assigned_at, completed_at, notes
  */
 class EvaluatorAssignment extends Model
 {
     use HasFactory;
 
     const STATUS_PENDING = 'pending';
-    const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_COMPLETED = 'completed';
     const STATUS_REJECTED = 'rejected';
-    const STATUS_ACCEPTED = 'accepted';
 
     protected $fillable = [
         'submission_id',
@@ -77,11 +75,6 @@ class EvaluatorAssignment extends Model
         return $q->where('status', self::STATUS_PENDING);
     }
 
-    public function scopeInProgress($q)
-    {
-        return $q->where('status', self::STATUS_IN_PROGRESS);
-    }
-
     public function scopeCompleted($q)
     {
         return $q->where('status', self::STATUS_COMPLETED);
@@ -102,27 +95,9 @@ class EvaluatorAssignment extends Model
         return $q->where('submission_id', $submissionId);
     }
 
-    public function scopeActive($q)
-    {
-        return $q->whereIn('status', [self::STATUS_PENDING, self::STATUS_IN_PROGRESS]);
-    }
-
     /* --------------------
      | Helper Methods
      --------------------*/
-    public function markInProgress()
-    {
-        $this->status = self::STATUS_IN_PROGRESS;
-        $this->save();
-
-        // Update submission status
-        if ($this->submission) {
-            $this->submission->status = EvaluationSubmission::STATUS_EVALUATING;
-            $this->submission->save();
-        }
-
-        return $this;
-    }
 
     public function markCompleted(array $resultReport = [])
     {
@@ -133,23 +108,6 @@ class EvaluatorAssignment extends Model
         // Update submission status
         if ($this->submission) {
             $this->submission->status = EvaluationSubmission::STATUS_COMPLETED;
-            if (!empty($resultReport)) {
-                $this->submission->result_report_meta = $resultReport;
-            }
-            $this->submission->save();
-        }
-
-        return $this;
-    }
-
-    public function markAccepted(array $resultReport = [])
-    {
-        $this->status = self::STATUS_ACCEPTED;
-        $this->save();
-
-        // Update submission status
-        if ($this->submission) {
-            $this->submission->status = EvaluationSubmission::STATUS_ACCEPTED;
             if (!empty($resultReport)) {
                 $this->submission->result_report_meta = $resultReport;
             }
@@ -208,11 +166,6 @@ class EvaluatorAssignment extends Model
         return $this->status === self::STATUS_PENDING;
     }
 
-    public function isInProgress()
-    {
-        return $this->status === self::STATUS_IN_PROGRESS;
-    }
-
     public function isCompleted()
     {
         return $this->status === self::STATUS_COMPLETED;
@@ -221,16 +174,6 @@ class EvaluatorAssignment extends Model
     public function isRejected()
     {
         return $this->status === self::STATUS_REJECTED;
-    }
-
-    public function isAccepted()
-    {
-        return $this->status === self::STATUS_ACCEPTED;
-    }
-
-    public function isActive()
-    {
-        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_IN_PROGRESS]);
     }
 
     /* --------------------
