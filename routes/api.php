@@ -6,7 +6,6 @@ use App\Http\Controllers\API\Admin\AdminScoutController;
 use App\Http\Controllers\API\Admin\AdminTeamController;
 use App\Http\Controllers\API\Admin\DashboardController;
 use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\API\Developer\DeveloperController;
 use App\Http\Controllers\API\EvaluatorController;
 use App\Http\Controllers\API\PlayerController;
@@ -268,24 +267,7 @@ Route::prefix('v4')->group(function () {
 
         Route::middleware('auth:v4api')->group(function () {
             Route::prefix('evaluation')->group(function () {
-                
-                // Get Questions Category by id
-                Route::get('/get-questions-category-by/{id}', [V4EvaluationController::class, 'getAllQuestionsById']);
-
-                // Create Question Category by id
-                Route::post('/question', [V4EvaluationController::class, 'createQuestion']);
-
-                // Update Question Category by id
-                Route::put('/question', [V4EvaluationController::class, 'updateQuestion']);
-
-                // Delete Question Category by id
-                Route::delete('/question/{id}', [V4EvaluationController::class, 'deleteQuestion']);
-
-
-                // Get Options Question by id
-                Route::get('/get-question-option-by/{id}', [V4EvaluationController::class, 'getQuestionOptionsById']);
-
-
+                /// Category
                 // Get All Categories
                 Route::get('/categories', [V4EvaluationController::class, 'getAllCategories']);
                 // Get Category by id
@@ -299,8 +281,38 @@ Route::prefix('v4')->group(function () {
                 // Re-Order Categories
                 Route::put('/categories/reorder', [V4EvaluationController::class, 'reorderCategories']);
 
+                /// Question
+                // Get Questions Category by id
+                Route::get('/questions/{id}', [V4EvaluationController::class, 'getAllQuestionsById']);
+
+                // Create Question Category by id
+                Route::post('/question', [V4EvaluationController::class, 'createQuestion']);
+
+                // Update Question Category by id
+                Route::put('/question', [V4EvaluationController::class, 'updateQuestion']);
+
+                // Delete Question Category by id
+                Route::delete('/question/{id}', [V4EvaluationController::class, 'deleteQuestion']);
+
+                // Re-Order Question Category by id
+                Route::put('/questions/reorder', [V4EvaluationController::class, 'reorderQuestions']);
 
 
+                /// Options Question
+                // Get All Options Question by id
+                Route::get('/question-options/{id}', [V4EvaluationController::class, 'getQuestionOptionsById']);
+
+                // Create Options Question by id
+                Route::post('/question-options', [V4EvaluationController::class, 'createQuestionOption']);
+
+                // Update Options Question by id
+                Route::put('/question-options', [V4EvaluationController::class, 'updateQuestionOption']);
+
+                // Delete Options Question by id
+                Route::delete('/question-options/{id}', [V4EvaluationController::class, 'deleteQuestionOption']);
+
+                // Re-Order Options Question by id
+                Route::put('/question-options/reorder', [V4EvaluationController::class, 'reorderQuestionOption']);
             });
         });
     });
@@ -326,7 +338,7 @@ Route::prefix('v4')->group(function () {
             Route::delete('/delete-rejection-reason', [EvaluationRejectionReasonController::class, 'delete']);
 
             // Categories
-            Route::get('/get-categories', [V4EvaluationController::class, 'getCategories']); 
+            Route::get('/get-categories', [V4EvaluationController::class, 'getCategories']);
 
             // Questions
             Route::get('/get-questions', [V4EvaluationController::class, 'getQuestions']);
@@ -338,7 +350,6 @@ Route::prefix('v4')->group(function () {
             // Question options
             Route::get('/get-question-options', [V4EvaluationController::class, 'getQuestionOptions']);
             Route::get('/get-question-option/{id}', [V4EvaluationController::class, 'getQuestionOption']);
-            Route::post('/create-question-option', [V4EvaluationController::class, 'createQuestionOption']);
             Route::put('/update-question-option', [V4EvaluationController::class, 'updateQuestionOption']);
             Route::delete('/delete-question-option', [V4EvaluationController::class, 'deleteQuestionOption']);
 
