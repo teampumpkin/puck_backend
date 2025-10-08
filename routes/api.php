@@ -364,6 +364,11 @@ Route::prefix('v4')->group(function () {
             // Video Evaluation
             Route::post('/upload-evaluation-video', [V4EvaluationController::class, 'uploadEvaluationVideo']);
             Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
+
+            // Evaluator Assignment
+            Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
+            Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
+
         });
 
 
