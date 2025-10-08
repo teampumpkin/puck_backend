@@ -8,6 +8,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
+use Carbon\Carbon;
+
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class V4User extends Authenticatable implements JWTSubject
@@ -51,7 +53,7 @@ class V4User extends Authenticatable implements JWTSubject
         'is_onboarded' => 'boolean'
     ];
 
-    protected $appends = ['block_status'];
+    protected $appends = ['block_status', 'name', 'age'];
 
     public function getJWTIdentifier()
     {
@@ -111,12 +113,12 @@ class V4User extends Authenticatable implements JWTSubject
 
     public function evaluatorProfile()
     {
-        return $this->hasOne(EvaluatorProfile::class);
+        return $this->hasOne(EvaluatorProfile::class, 'v4_user_id');
     }
 
     public function superAdminProfile()
     {
-        return $this->belongsTo(SuperAdminProfile::class);
+        return $this->hasOne(SuperAdminProfile::class, 'v4_user_id');
     }
 
     public function children()
@@ -202,6 +204,45 @@ class V4User extends Authenticatable implements JWTSubject
             'is_blocked' => $this->hasBlocked($currentUserId) || $this->isBlockedBy($currentUserId),
         ];
     }
+
+    public function getNameAttribute(): string
+    {
+        return $this->first_name . ' ' . $this->last_name;
+    }
+
+
+    public function getAgeAttribute(): ?int
+    {
+        if (!$this->date_of_birth) {
+            return null;
+        }
+        return Carbon::now()->diffInYears($this->date_of_birth);
+    }
+
+    public function getProfileDataAttribute()
+    {
+        $profileRelations = [
+            'playerProfile',
+            'coachProfile',
+            'teamProfile',
+            'scoutProfile',
+            'academyProfile',
+            'organizerProfile',
+            'adviserProfile',
+            'parentProfile',
+            'fanProfile',
+            'superAdminProfile',
+        ];
+
+        foreach ($profileRelations as $relation) {
+            if ($this->relationLoaded($relation) && $this->$relation) {
+                return $this->$relation;
+            }
+        }
+
+        return null;
+    }
+
 
     /**
      * Eager load block relationships for current user

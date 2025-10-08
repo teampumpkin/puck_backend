@@ -9,18 +9,25 @@ class EvaluatorProfile extends Model
 {
     use HasFactory;
 
-     protected $fillable = [
-         'user_id', 'level_hockey_played', 'current_involvement_level', 'leagues',
-         'current_sport_role', 'number_of_years_experience', 'resume', 'references'
-     ];
+    protected $fillable = [
+        'v4_user_id',
+        'level_hockey_played',
+        'current_involvement_level',
+        'leagues',
+        'current_sport_role',
+        'number_of_years_experience',
+        'resume',
+        'references',
+        'is_verified'
+    ];
 
-     protected $casts =[
-         'leagues' => 'array',
-         'references' => 'array',
-     ];
+    protected $casts = [
+        'leagues' => 'array',
+        'references' => 'array',
+    ];
 
-     public function user()
-     {
-         return $this->belongsTo(V4User::class);
-     }
+    public function user()
+    {
+        return $this->belongsTo(V4User::class, 'v4_user_id');
+    }
 }

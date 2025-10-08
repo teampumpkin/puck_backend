@@ -10,16 +10,23 @@ class TeamProfile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'team_name', 'administrator_first_name', 'administrator_last_name',
-        'email', 'leagues', 'website', 'address', 'team_years_running'
+        'v4_user_id',
+        'team_name',
+        'administrator_first_name',
+        'administrator_last_name',
+        'email',
+        'leagues',
+        'website',
+        'address',
+        'team_years_running'
     ];
 
     protected $casts = [
-        'leagues'=> 'array'
+        'leagues' => 'array'
     ];
 
     public function user()
     {
-        return $this->belongsTo(V4User::class);
+        return $this->belongsTo(V4User::class, 'v4_user_id');
     }
 }

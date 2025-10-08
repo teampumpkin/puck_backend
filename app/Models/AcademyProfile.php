@@ -10,9 +10,17 @@ class AcademyProfile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'academy_name', 'teams', 'administrator_first_name',
-        'administrator_last_name', 'email', 'leagues',
-        'website', 'address', 'academy_years_running', 'main_team_name'
+        'v4_user_id',
+        'academy_name',
+        'teams',
+        'administrator_first_name',
+        'administrator_last_name',
+        'email',
+        'leagues',
+        'website',
+        'address',
+        'academy_years_running',
+        'main_team_name'
     ];
 
     protected $casts = [
@@ -22,6 +30,6 @@ class AcademyProfile extends Model
 
     public function user()
     {
-        return $this->belongsTo(V4User::class);
+        return $this->belongsTo(V4User::class, 'v4_user_id');
     }
 }

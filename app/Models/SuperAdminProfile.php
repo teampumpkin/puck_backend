@@ -10,17 +10,11 @@ class SuperAdminProfile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-
-    ];
-
-    protected $casts = [
-        'leagues' => 'array',
-        'references' => 'array',
+        'v4_user_id',
     ];
 
     public function user()
     {
-        return $this->belongsTo(V4User::class);
+        return $this->belongsTo(V4User::class, 'v4_user_id');
     }
 }

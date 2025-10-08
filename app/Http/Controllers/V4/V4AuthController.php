@@ -123,16 +123,23 @@ class V4AuthController extends Controller
 
             $token = JWTAuth::fromUser($user);
 
+            $responseUser = [
+                'id'          => $user->id,
+                'role'        => $user->role,
+                'isOnboarded' => $user->is_onboarded,
+                'email'       => $user->email,
+                'phone'       => $user->phone,
+                'is_child'    => $user->is_child,
+            ];
+
+            if ($user->role === 'evaluator') {
+                $user->load('evaluatorProfile');
+                $responseUser['is_verified'] = $user->evaluatorProfile->is_verified;
+            }
+
             return response()->json([
                 'token' => $token,
-                'user'  => [
-                    'id'          => $user->id,
-                    'role'        => $user->role,
-                    'isOnboarded' => $user->is_onboarded,
-                    'email'       => $user->email,
-                    'phone'       => $user->phone,
-                    'is_child'    => $user->is_child,
-                ],
+                'user'  => $responseUser,
                 'message' => 'OTP verification successful',
             ]);
         } catch (ValidationException $e) {
@@ -158,7 +165,7 @@ class V4AuthController extends Controller
                 'first_name' => 'required|string',
                 'last_name' => 'required|string',
                 'email' => 'required|email|unique:v4_users,email',
-                'password' => 'required|string|min:8|confirmed',
+                'password' => 'required|string|min:8',
             ]);
 
             $user = V4User::create([
