@@ -114,6 +114,11 @@ class V4User extends Authenticatable implements JWTSubject
         return $this->hasOne(EvaluatorProfile::class);
     }
 
+    public function superAdminProfile()
+    {
+        return $this->belongsTo(SuperAdminProfile::class);
+    }
+
     public function children()
     {
         return $this->hasMany(V4User::class, 'parent_id');
