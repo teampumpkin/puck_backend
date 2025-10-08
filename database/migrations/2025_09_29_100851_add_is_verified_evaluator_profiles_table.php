@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateSuperAdminProfileTable extends Migration
+class AddIsVerifiedEvaluatorProfilesTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,10 +13,8 @@ class CreateSuperAdminProfileTable extends Migration
      */
     public function up()
     {
-        Schema::create('super_admin_profile', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('v4_user_id')->constrained('v4_users')->cascadeOnDelete();
-            $table->timestamps();
+        Schema::table('evaluator_profiles', function (Blueprint $table) {
+            $table->boolean('is_verified')->default(false);
         });
     }
 
@@ -27,6 +25,8 @@ class CreateSuperAdminProfileTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('super_admin_profile');
+        Schema::table('evaluator_profiles', function (Blueprint $table) {
+            $table->dropColumn('is_verified');
+        });
     }
 }

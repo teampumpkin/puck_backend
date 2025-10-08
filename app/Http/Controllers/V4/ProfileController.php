@@ -60,6 +60,10 @@ class ProfileController extends Controller
                     $user->load('fanProfile');
                     $profileData = $user->fanProfile;
                     break;
+                case 'evaluator':
+                    $user->load('evaluatorProfile');
+                    $profileData = $user->evaluatorProfile;
+                    break;
             }
 
             // Create a standardized response
@@ -86,8 +90,7 @@ class ProfileController extends Controller
                 'message' => 'Profile data retrieved successfully',
                 'user' => $userData,
             ]);
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve profile data',
@@ -98,7 +101,7 @@ class ProfileController extends Controller
 
     function updateProfile(Request $request)
     {
-        try{
+        try {
             /** @var V4User $user */
 
             $user = Auth::guard('v4api')->user();
@@ -141,7 +144,8 @@ class ProfileController extends Controller
             // Handle profile photo upload if present
             if ($request->hasFile('profile_photo')) {
                 $path = $request->file('profile_photo')->store(
-                    'profile_photos/'.$user->id, 's3'
+                    'profile_photos/' . $user->id,
+                    's3'
                 );
                 $photoUrl = Storage::disk('s3')->url($path);
                 $validated['profile_photo'] = $photoUrl;
@@ -209,7 +213,8 @@ class ProfileController extends Controller
 
                     if ($request->hasFile('resume')) {
                         $path = $request->file('resume')->store(
-                            'resume/'.$request->user()->id, 's3'
+                            'resume/' . $request->user()->id,
+                            's3'
                         );
                         $resumeUrl = Storage::disk('s3')->url($path);
 
@@ -273,11 +278,12 @@ class ProfileController extends Controller
                     ]);
                     if ($request->hasFile('resume')) {
                         $path = $request->file('resume')->store(
-                            'resume/'.$request->user()->id, 's3'
+                            'resume/' . $request->user()->id,
+                            's3'
                         );
-                         $resumeUrl = Storage::disk('s3')->url($path);
+                        $resumeUrl = Storage::disk('s3')->url($path);
 
-                         $adviserValidated['resume'] = $resumeUrl;
+                        $adviserValidated['resume'] = $resumeUrl;
                     }
                     $user->adviserProfile()->updateOrCreate([], $adviserValidated);
                     $user->load('adviserProfile');
@@ -300,9 +306,10 @@ class ProfileController extends Controller
                         'references.*.email' => 'required_with:references|email|max:255',
                         'references.*.phone' => 'required_with:references|string|max:20'
                     ]);
-                    if($request->hasFile('resume')) {
+                    if ($request->hasFile('resume')) {
                         $path = $request->file('resume')->store(
-                            'resume/'.$request->user()->id, 's3'
+                            'resume/' . $request->user()->id,
+                            's3'
                         );
                         $resumeUrl = Storage::disk('s3')->url($path);
                         $evaluatorValidated['resume'] = $resumeUrl;
@@ -369,14 +376,13 @@ class ProfileController extends Controller
                 'message' => 'Profile updated successfully',
                 'user' => $userData,
             ]);
-
-        }catch(ValidationException $e){
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return response()->json([
                 'message' => 'Profile update failed.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
@@ -384,7 +390,8 @@ class ProfileController extends Controller
         }
     }
 
-    function addChild(Request $request){
+    function addChild(Request $request)
+    {
         try {
             $parent = Auth::guard('v4api')->user();
 
@@ -411,7 +418,7 @@ class ProfileController extends Controller
             ]);
 
             // Use database transaction to ensure data consistency
-            $result = \DB::transaction(function() use ($parent, $validatedData) {
+            $result = \DB::transaction(function () use ($parent, $validatedData) {
                 // Create child user with parent's information
                 $child = V4User::create([
                     'parent_id' => $parent->id,
@@ -450,7 +457,7 @@ class ProfileController extends Controller
                     'can_view_messages' => true,
                     'can_accept_invites' => true,
                     'can_send_friend_requests' => true,
-                        'can_use_marketplace' => true,
+                    'can_use_marketplace' => true,
                 ];
 
                 $playerProfile->permissions = $permissions;
@@ -477,7 +484,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -512,13 +519,13 @@ class ProfileController extends Controller
                 'parent' => $result['parent'],
                 'child' => $result['child']
             ], 201);
-        } catch(ValidationException $e){
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return response()->json([
                 'message' => 'Child add failed.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
@@ -533,8 +540,8 @@ class ProfileController extends Controller
 
             // Verify this is the parent of the child
             $child = V4User::where('id', $childId)
-                          ->where('parent_id', $parent->id)
-                          ->first();
+                ->where('parent_id', $parent->id)
+                ->first();
 
             if (!$child) {
                 return response()->json([
@@ -587,13 +594,13 @@ class ProfileController extends Controller
                 'message' => 'Child permissions updated successfully',
                 'child' => $childData
             ]);
-        } catch(ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update child permissions',
@@ -610,8 +617,8 @@ class ProfileController extends Controller
 
             // Verify this is the parent of the child
             $child = V4User::where('id', $childId)
-                          ->where('parent_id', $parent->id)
-                          ->first();
+                ->where('parent_id', $parent->id)
+                ->first();
 
             if (!$child) {
                 return response()->json([
@@ -665,13 +672,13 @@ class ProfileController extends Controller
                 'message' => 'Child credentials updated successfully',
                 'child' => $childData
             ]);
-        } catch(ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update child credentials',
@@ -712,7 +719,7 @@ class ProfileController extends Controller
         if (!empty($searchTerm)) {
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                  ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                    ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
             });
         }
 
@@ -737,7 +744,7 @@ class ProfileController extends Controller
     public function getProfileBatchData(Request $request)
     {
         try {
-//validation
+            //validation
             $validated = $request->validate([
                 'convoIds' => 'required|array',
                 'convoIds.*' => 'required|array',
@@ -794,6 +801,209 @@ class ProfileController extends Controller
                 'success' => false,
                 'message' => 'Failed to retrieve batch profile data',
                 'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function searchAndSortUsers(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'q' => 'nullable|string|max:255',
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:1|max:100',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role',
+                'sort_order' => 'nullable|string|in:asc,desc',
+            ]);
+
+            $searchTerm = $validated['q'] ?? '';
+            $page = $validated['page'] ?? 1;
+            $perPage = $validated['per_page'] ?? 15;
+            $sortBy = $validated['sort_by'] ?? 'first_name';
+            $sortOrder = $validated['sort_order'] ?? 'asc';
+
+            $currentUser = Auth::guard('v4api')->user();
+
+            $query = V4User::query()
+                ->where('id', '!=', $currentUser->id)
+                ->whereNotIn('role', ['super-admin', 'admin', 'manager']);
+
+            if (!empty($searchTerm)) {
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('first_name', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                });
+            }
+
+            // Optimized eager loading: Only load relationship IDs or necessary fields
+            $query->with([
+                'playerProfile:id,v4_user_id,teams,leagues,handedness,weight,height,position,gender,permissions',
+                'coachProfile:id,v4_user_id,leagues,teams',
+                'teamProfile:id,v4_user_id,team_name,administrator_first_name,administrator_last_name,leagues,website,address,team_years_running',
+                'scoutProfile:id,v4_user_id,scouting_years,level_hockey_played,current_involvement_level,current_sport_role,leagues,teams,resume,references',
+                'academyProfile:id,v4_user_id',
+                'organizerProfile:id,v4_user_id',
+                'adviserProfile:id,v4_user_id',
+                'parentProfile:id,v4_user_id',
+                'fanProfile:id,v4_user_id',
+            ]);
+
+            $query->orderBy($sortBy, $sortOrder);
+
+            $users = $query->paginate($perPage, ['*'], 'page', $page);
+
+            $data = $users
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'status' => 'active',
+                        'role' => $user->role,
+                        'country' => $user->country,
+                        'createdAt' => $user->created_at,
+                        'age' => $user->age,
+                        'phone' => $user->phone,
+                        'avatar' => $user->profile_picture,
+                        'profileData' => $user->profile_data, // accessor
+                    ];
+                });
+
+            return response()->json([
+                'data' => $data,
+                'pagination' => [
+                    'total' => $users->total(),
+                    'per_page' => $users->perPage(),
+                    'current_page' => $users->currentPage(),
+                    'last_page' => $users->lastPage(),
+                    'from' => $users->firstItem() ?? 0,
+                    'to' => $users->lastItem() ?? 0,
+                    'has_more_pages' => $users->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+
+    public function searchAndSortAdminUsers(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'q' => 'nullable|string|max:255',
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:1|max:100',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role',
+                'sort_order' => 'nullable|string|in:asc,desc',
+            ]);
+
+            $searchTerm = $validated['q'] ?? '';
+            $page = $validated['page'] ?? 1;
+            $perPage = $validated['per_page'] ?? 15;
+            $sortBy = $validated['sort_by'] ?? 'first_name';
+            $sortOrder = $validated['sort_order'] ?? 'asc';
+
+            $currentUser = Auth::guard('v4api')->user();
+
+            $query = V4User::query()
+                ->where('id', '!=', $currentUser->id)
+                ->whereIn('role', ['super-admin', 'admin', 'manager']);
+
+            if (!empty($searchTerm)) {
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('first_name', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                });
+            }
+
+            // Optimized eager loading: Only load relationship IDs or necessary fields
+            $query->with([
+                'superAdminProfile:id,v4_user_id',
+            ]);
+
+            $query->orderBy($sortBy, $sortOrder);
+
+            $users = $query->paginate($perPage, ['*'], 'page', $page);
+
+            $data = $users
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'status' => 'active',
+                        'role' => $user->role,
+                        'country' => $user->country,
+                        'createdAt' => $user->created_at,
+                        'age' => $user->age,
+                        'phone' => $user->phone,
+                        'avatar' => $user->profile_picture,
+                        'profileData' => $user->profile_data, // accessor
+                    ];
+                });
+
+            return response()->json([
+                'data' => $data,
+                'pagination' => [
+                    'total' => $users->total(),
+                    'per_page' => $users->perPage(),
+                    'current_page' => $users->currentPage(),
+                    'last_page' => $users->lastPage(),
+                    'from' => $users->firstItem() ?? 0,
+                    'to' => $users->lastItem() ?? 0,
+                    'has_more_pages' => $users->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getAllUserDetailsById($id): JsonResponse
+    {
+        try {
+
+            $user = V4User::findOrFail($id);
+
+            $userData = $user;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile data retrieved successfully',
+                'user' => $userData,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

@@ -266,6 +266,12 @@ Route::prefix('v4')->group(function () {
 
 
         Route::middleware('auth:v4api')->group(function () {
+            Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
+            Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
+
+
+            Route::get('/user/{id}', [ProfileController::class, 'getAllUserDetailsById']);
+
             Route::prefix('evaluation')->group(function () {
                 /// Category
                 // Get All Categories
@@ -368,7 +374,6 @@ Route::prefix('v4')->group(function () {
             // Evaluator Assignment
             Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
-
         });
 
 
