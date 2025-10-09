@@ -270,7 +270,9 @@ Route::prefix('v4')->group(function () {
             Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
 
 
-            Route::get('/user/{id}', [ProfileController::class, 'getAllUserDetailsById']);
+            Route::get('/users/{id}', [ProfileController::class, 'getAllUserDetailsById']);
+
+            Route::post('/users/{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
 
             Route::prefix('evaluation')->group(function () {
                 /// Category

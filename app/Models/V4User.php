@@ -232,6 +232,7 @@ class V4User extends Authenticatable implements JWTSubject
             'parentProfile',
             'fanProfile',
             'superAdminProfile',
+            'evaluatorProfile',
         ];
 
         foreach ($profileRelations as $relation) {
