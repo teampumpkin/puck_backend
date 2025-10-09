@@ -23,6 +23,7 @@ class EvaluationQuestionOption extends Model
         'option',
         'rating',
         'sort_order',
+        'active',
         'meta',
     ];
 
@@ -34,6 +35,11 @@ class EvaluationQuestionOption extends Model
     public function question()
     {
         return $this->belongsTo(EvaluationQuestion::class, 'question_id');
+    }
+
+    public function scopeActive($q)
+    {
+        return $q->where('active', true)->orderBy('sort_order');
     }
 
     public function scopeOrdered($query)

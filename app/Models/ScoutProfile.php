@@ -10,9 +10,15 @@ class ScoutProfile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'scouting_years', 'level_hockey_played',
-        'current_involvement_level', 'current_sport_role',
-        'leagues', 'teams', 'resume', 'references'
+        'v4_user_id',
+        'scouting_years',
+        'level_hockey_played',
+        'current_involvement_level',
+        'current_sport_role',
+        'leagues',
+        'teams',
+        'resume',
+        'references'
     ];
 
     protected $casts = [
@@ -23,6 +29,6 @@ class ScoutProfile extends Model
 
     public function user()
     {
-        return $this->belongsTo(V4User::class);
+        return $this->belongsTo(V4User::class, 'v4_user_id');
     }
 }

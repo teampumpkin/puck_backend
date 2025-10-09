@@ -5,24 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class TeamProfile extends Model
+class SuperAdminProfile extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'v4_user_id',
-        'team_name',
-        'administrator_first_name',
-        'administrator_last_name',
-        'email',
-        'leagues',
-        'website',
-        'address',
-        'team_years_running'
-    ];
-
-    protected $casts = [
-        'leagues' => 'array'
     ];
 
     public function user()

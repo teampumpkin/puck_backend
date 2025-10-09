@@ -23,7 +23,7 @@ class V4AuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator',
+                'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
                 'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
@@ -57,10 +57,10 @@ class V4AuthController extends Controller
                 'otp_expiry'  => now()->addMinutes(10),
             ]);
 
-                //TODO: dispatch SMS job if $field === phone
-                //if ($field === 'email') {
-                // Mail::to($user->email)->send(new SendOtpMail($otp));
-                //}
+            //TODO: dispatch SMS job if $field === phone
+            //if ($field === 'email') {
+            // Mail::to($user->email)->send(new SendOtpMail($otp));
+            //}
 
             return response()->json([
                 'success' => true,
@@ -69,14 +69,12 @@ class V4AuthController extends Controller
                 $field    => $identifier,
                 'role'    => $user->role,
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors'  => $e->errors()
             ], 422);
-
         } catch (Exception $e) {
             Log::error('Send OTP error: ' . $e->getMessage());
 
@@ -104,11 +102,11 @@ class V4AuthController extends Controller
 
             if (
                 !$user ||
-                $user->otp !== $validated['otp'] ||
-                !$user->otp_expiry ||
-                now()->gt($user->otp_expiry)
+                $user->otp !== $validated['otp']
+                || !$user->otp_expiry
+                ||  now()->gt($user->otp_expiry)
             ) {
-                return response()->json(['message' => 'Invalid or expired OTP'], 401);
+                return response()->json(['message' => 'Invalid or expired OTP',], 401);
             }
 
             // Child players are not allowed via OTP
@@ -125,32 +123,136 @@ class V4AuthController extends Controller
 
             $token = JWTAuth::fromUser($user);
 
+            $responseUser = [
+                'id'          => $user->id,
+                'role'        => $user->role,
+                'isOnboarded' => $user->is_onboarded,
+                'email'       => $user->email,
+                'phone'       => $user->phone,
+                'is_child'    => $user->is_child,
+            ];
+
+            if ($user->role === 'evaluator') {
+                $user->load('evaluatorProfile');
+                $responseUser['is_verified'] = $user->evaluatorProfile->is_verified;
+            }
+
             return response()->json([
                 'token' => $token,
-                'user'  => [
-                    'id'          => $user->id,
-                    'role'        => $user->role,
-                    'isOnboarded' => $user->is_onboarded,
-                    'email'       => $user->email,
-                    'phone'       => $user->phone,
-                    'is_child'    => $user->is_child,
-                ],
+                'user'  => $responseUser,
                 'message' => 'OTP verification successful',
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors'  => $e->errors(),
             ], 422);
-
         } catch (Exception $e) {
             Log::error('OTP verification failed: ' . $e->getMessage());
 
             return response()->json([
                 'message' => 'OTP verification failed.',
                 'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function adminRegister(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'first_name' => 'required|string',
+                'last_name' => 'required|string',
+                'email' => 'required|email|unique:v4_users,email',
+                'password' => 'required|string|min:8',
+            ]);
+
+            $user = V4User::create([
+                'email'    => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role'     => 'super-admin',
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+            ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin registered successfully',
+                'user'    => [
+                    'id'    => $user->id,
+                    'email' => $user->email,
+                    'role'  => $user->role,
+                ],
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Admin Register Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to register admin. Please try again.',
+                'error'   => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function adminLogin(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string',
+            ]);
+
+            $user = V4User::where('email', $validated['email'])->first();
+
+            if (!$user || $user->role !== 'super-admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials or unauthorized role.',
+                ], 401);
+            }
+
+            if (!Hash::check($validated['password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials.',
+                ], 401);
+            }
+
+            $token = JWTAuth::fromUser($user);
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login successful',
+                'token' => $token,
+                'user'    => [
+                    'id'    => $user->id,
+                    'email' => $user->email,
+                    'role'  => $user->role,
+                    'firstName' => $user->first_name,
+                    'lastName' => $user->last_name,
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Admin Login Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Login failed. Please try again.',
+                'error'   => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -164,8 +266,8 @@ class V4AuthController extends Controller
         ]);
 
         $user = V4User::where('username', $request->username)
-                     ->where('is_child', true)
-                     ->first();
+            ->where('is_child', true)
+            ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
