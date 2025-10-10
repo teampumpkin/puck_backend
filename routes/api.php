@@ -332,7 +332,8 @@ Route::prefix('v4')->group(function () {
 
     Route::middleware('auth:v4api')->group(function () {
         Route::get('/profile', [ProfileController::class, 'getProfileData']);
-        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);;
+        Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);
+        ;
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
@@ -372,14 +373,15 @@ Route::prefix('v4')->group(function () {
 
             // Payment routes
             Route::post('/process-payment', [V4PaymentController::class, 'processPayment']);
-            Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
+            // Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
 
             // Video Evaluation
+            Route::post('/video-evaluation-status', [V4EvaluationController::class, 'videoEvaluationStatus']); // check paymnet and
             Route::post('/upload-evaluation-video', [V4EvaluationController::class, 'uploadEvaluationVideo']);
-            Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
+            // Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
 
             // Evaluator Assignment
-            Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
+            Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock api for allotment test from front-end
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
         });
 
