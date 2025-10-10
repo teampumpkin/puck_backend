@@ -12,6 +12,7 @@ use App\Models\EvaluatorAssignment;
 use App\Models\V4PaymentRequest;
 use App\Models\V4User;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -2238,6 +2239,208 @@ class V4EvaluationController extends Controller
         }
     }
 
+
+    public function getAllEvaluationRequests(Request $request): JsonResponse
+    {
+        try {
+
+            $validated = $request->validate([
+                'q'          => 'nullable|string|max:255',
+                'page'       => 'nullable|integer|min:1',
+                'per_page'   => 'nullable|integer|min:1|max:100',
+                // 'sort_by'    => 'nullable|string|in:first_name,last_name,role',
+                // 'sort_order' => 'nullable|string|in:asc,desc',
+            ]);
+
+            $searchTerm = $validated['q'] ?? '';
+            $page       = $validated['page'] ?? 1;
+            $perPage    = $validated['per_page'] ?? 15;
+            // $sortBy     = $validated['sort_by'] ?? 'created_at';
+            // $sortOrder  = $validated['sort_order'] ?? 'asc';
+
+            $query = EvaluationSubmission::query();
+
+            $query->with([
+                'player',
+                'paymentRequest',
+                'versions',
+                'currentVersion',
+                'evaluatorAssignment',
+                'evaluations'
+            ]);
+
+            // if (! empty($searchTerm)) {
+            //     $query->where(function ($q) use ($searchTerm) {
+            //         $q->where('first_name', 'ilike', "%{$searchTerm}%")
+            //             ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+            //     });
+            // }
+
+            // $query->orderBy($sortBy, $sortOrder);
+
+            $data =  collect();
+
+
+
+            $submissions = $query->paginate($perPage, ['*'], 'page', $page);
+
+            $data = $data->merge($submissions->map(function ($submission) {
+                $result =    [
+                    'id' => $submission->id,
+                    'playerId' => $submission->player->id,
+                    'playerName' => $submission->player->name,
+                    'type' => 'video_evaluation',
+                    'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
+                    // 'dueDate' => 'dueDate',
+                    'price' => $submission->paymentRequest->amount_cents,
+                    // 'notes' => 'notes',
+                ];
+
+                if ($submission->versions != []) {
+                    $result['materials'] = $submission->versions->map(function ($version) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'video',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'],
+                            'url' => $fileMeta['video_url'],
+                            'uploadedAt' => $fileMeta['uploaded_at'],
+                            // 'notes' => 'notes',
+                        ];
+                    });
+                }
+
+                if ($submission->evaluatorAssignment != null) {
+                    $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
+                    $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
+                    $result['status'] = $submission->status;
+                } else {
+                    $result['status'] = 'pending_assignment';
+                }
+
+                if ($submission['status'] === 'completed') {
+                    $result['completedDate'] = $submission->updated_at;
+                }
+                $result['submission'] = $submission;
+
+                return $result;
+            }));
+
+            return response()->json([
+                'data'  => $data,
+                'pagination' => [
+                    'total'          => $submissions->total(),
+                    'per_page'       => $submissions->perPage(),
+                    'current_page'   => $submissions->currentPage(),
+                    'last_page'      => $submissions->lastPage(),
+                    'from'           => $submissions->firstItem() ?? 0,
+                    'to'             => $submissions->lastItem() ?? 0,
+                    'has_more_pages' => $submissions->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error allotting evaluator for submission: ' . $e->getMessage(), [
+                'evaluator_id'  => $request->input('evaluator_id'),
+                'submission_id' => $request->input('submission_id'),
+                'trace'         => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to allot evaluator',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    public function getEvaluationRequestById(Request $request, int $id): JsonResponse
+    {
+        try {
+            // Validate that the ID is a valid integer and exists in the database.
+            // No need to validate as part of the request body anymore.
+            // The id is already passed as a route parameter.
+
+            // Fetch the specific submission by ID, with related models
+            $submission = EvaluationSubmission::with([
+                'player',
+                'paymentRequest',
+                'versions',
+                'currentVersion',
+                'evaluatorAssignment',
+                'evaluations'
+            ])->findOrFail($id); // This will automatically throw a 404 if not found
+
+            // Prepare the response data
+            $result = [
+                'playerId' => $submission->player->id,
+                'playerName' => $submission->player->name,
+                'type' => 'video_evaluation',
+                'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
+                'price' => $submission->paymentRequest->amount_cents,
+            ];
+
+            // Include the materials if available
+            if ($submission->versions->isNotEmpty()) {
+                $result['materials'] = $submission->versions->map(function ($version) {
+                    $fileMeta = $version->file_meta;
+                    return [
+                        'type' => 'video',
+                        'id' => $version->id,
+                        'name' => $fileMeta['original_name'],
+                        'url' => $fileMeta['video_url'],
+                        'uploadedAt' => $fileMeta['uploaded_at'],
+                    ];
+                });
+            }
+
+            // Include evaluator details if assigned
+            if ($submission->evaluatorAssignment) {
+                $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
+                $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
+                $result['status'] = $submission->status;
+            } else {
+                $result['status'] = 'pending_assignment';
+            }
+
+            // Add completed date if the status is 'completed'
+            if ($submission->status === 'completed') {
+                $result['completedDate'] = $submission->updated_at;
+            }
+
+            return response()->json([
+                'data' => $result,
+            ]);
+        } catch (ModelNotFoundException $e) {
+            // Handle case where the record is not found
+            Log::error('Evaluation Submission not found', [
+                'submission_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Evaluation submission not found',
+            ], 404);
+        } catch (Exception $e) {
+            // Log any other unexpected errors
+            Log::error('Error fetching evaluation submission by ID: ' . $e->getMessage(), [
+                'submission_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch evaluation submission',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * Allot evaluator for submission
      *
@@ -2281,13 +2484,15 @@ class V4EvaluationController extends Controller
             // Check submission status - only allow if status is 'uploaded'
             if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
                 $existingAssignment = EvaluatorAssignment::where('submission_id', $submissionId)->first();
-                return response()->json([
-                    'success' => false,
-                    'message' => "Submission already {$submission->status}",
-                    'submission_id'  => $submissionId,
-                    'evaluator_id'   => $existingAssignment->evaluator_id,
-                    'current_status' => $submission->status,
-                ], 400);
+                if ($existingAssignment) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Submission already {$submission->status}",
+                        'submission_id'  => $submissionId,
+                        'evaluator_id'   => $existingAssignment->evaluator_id,
+                        'current_status' => $submission->status,
+                    ], 400);
+                }
             }
 
             // Create evaluator assignment

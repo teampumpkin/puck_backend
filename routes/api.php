@@ -322,6 +322,11 @@ Route::prefix('v4')->group(function () {
                 // Re-Order Options Question by id
                 Route::put('/question-options/reorder', [V4EvaluationController::class, 'reorderQuestionOption']);
             });
+            Route::prefix('evaluations')->group(function () {
+                Route::get('/evaluation-requests', [V4EvaluationController::class, 'getAllEvaluationRequests']);
+                Route::get('/evaluation-requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
+                Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
+            });
         });
     });
 
