@@ -9,6 +9,8 @@ use App\Models\EvaluationQuestionOption;
 use App\Models\EvaluationSubmission;
 use App\Models\EvaluationSubmissionVersion;
 use App\Models\EvaluatorAssignment;
+use App\Models\Evaluation;
+use App\Models\EvaluationAnswer;
 use App\Models\V4PaymentRequest;
 use App\Models\V4User;
 use App\Models\V4InAppPurchase;
@@ -18,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -2577,6 +2580,7 @@ class V4EvaluationController extends Controller
                     'status' => $assignment->status,
                     'notes' => $assignment->notes,
                     'submission_date' => $assignment->submission->updated_at->toISOString(),
+                    'file_path' => $assignment->submission->currentVersion->file_path,
                     'player' => [
                         'id' => $assignment->submission->player->id,
                         'name' => $assignment->submission->player->first_name . ' ' . $assignment->submission->player->last_name,
@@ -2692,6 +2696,156 @@ class V4EvaluationController extends Controller
         } catch (Exception $e) {
             Log::error('Video evaluation status check failed', ['error' => $e->getMessage(), 'sku' => $request->input('sku'), 'user_id' => $request->input('user_id')]);
             return response()->json(['success' => false, 'message' => 'Failed to check video evaluation status', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * Submit evaluator assignment with answers and notes
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function submitEvaluatorAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'notes' => 'required|array',
+                'notes.*' => 'required|string',
+                'answers' => 'required|array',
+                'answers.*' => 'required|integer',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+            $notes = $validated['notes'];
+            $answers = $validated['answers'];
+
+            // Get assignment with submission in single query
+            $assignment = EvaluatorAssignment::with('submission')->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            if ($assignment->evaluator_id != $user->id) {
+                return response()->json(['success' => false, 'message' => 'This assignment not assigned to you'], 403);
+            }
+            // Check if assignment status is pending
+            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Assignment is already {$assignment->status}"
+                ], 400);
+            }
+
+            // Validate all category slugs in one query
+            $slugs = array_keys($notes);
+            $categories = EvaluationCategory::whereIn('slug', $slugs)->where('active', true)->get()->keyBy('slug');
+
+            $invalidSlugs = array_diff($slugs, $categories->keys()->toArray());
+            if (!empty($invalidSlugs)) {
+                return response()->json(['success' => false, 'message' => 'Invalid category slug: ' . implode(', ', $invalidSlugs)], 400);
+            }
+
+            // Fetch all questions and options in one query
+            $questionIds = array_keys($answers);
+            $questions = EvaluationQuestion::with(['category', 'options'])
+                ->whereIn('id', $questionIds)
+                ->get()
+                ->keyBy('id');
+
+            // Validate all questions exist and are active
+            $missingOrInactiveQuestions = array_diff($questionIds, $questions->keys()->toArray());
+            if (!empty($missingOrInactiveQuestions)) {
+                return response()->json(['success' => false, 'message' => 'Invalid or inactive question_id: ' . implode(', ', $missingOrInactiveQuestions)], 400);
+            }
+
+            // Validate options and prepare answer data
+            $evaluationAnswers = [];
+            foreach ($answers as $questionId => $optionId) {
+                $question = $questions[$questionId];
+                $option = $question->options->firstWhere('id', $optionId);
+
+                if (!$option) {
+                    return response()->json(['success' => false, 'message' => "Invalid option_id: {$optionId} for question_id: {$questionId}"], 400);
+                }
+
+                $categorySlug = $question->category->slug ?? null;
+                $evaluationAnswers[] = [
+                    'question_id' => $questionId,
+                    'question_option_id' => $optionId,
+                    'comment' => $categorySlug && isset($notes[$categorySlug]) ? $notes[$categorySlug] : null,
+                    'rating' => $option->rating,
+                ];
+            }
+
+            // Execute all database operations in transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignmentId,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_SUBMITTED,
+                ]);
+
+                // Bulk insert evaluation answers with timestamps
+                $timestamp = now();
+                $answersToInsert = array_map(function ($answer) use ($evaluation, $timestamp) {
+                    return array_merge($answer, [
+                        'evaluation_id' => $evaluation->id,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ]);
+                }, $evaluationAnswers);
+
+                EvaluationAnswer::insert($answersToInsert);
+
+                // Update assignment and submission in single update each
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_COMPLETED,
+                    'completed_at' => $timestamp,
+                ]);
+
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_COMPLETED,
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator assignment submitted successfully',
+                    'data' => [
+                        'evaluation_id' => $evaluation->id,
+                        'assignment_id' => $assignmentId,
+                        'submission_id' => $assignment->submission_id,
+                        'total_answers' => count($evaluationAnswers),
+                    ],
+                ], 201);
+
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (Exception $e) {
+            Log::error('Error submitting evaluator assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit evaluator assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
         }
     }
 }

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  *
  * Fields: id, submission_id, assignment_id, evaluator_id, overall_rating (float), notes, status, meta
  *
- * status: draft | submitted | rejected
+ * status: submitted | rejected
  */
 class Evaluation extends Model
 {
@@ -32,11 +32,6 @@ class Evaluation extends Model
     protected $casts = [
         'overall_rating' => 'float',
         'meta' => 'array',
-    ];
-
-    protected $attributes = [
-        'status' => self::STATUS_DRAFT,
-        'overall_rating' => 0.0,
     ];
 
     /* --------------------
@@ -65,10 +60,6 @@ class Evaluation extends Model
     /* --------------------
      | Scopes
      --------------------*/
-    public function scopeDraft($q)
-    {
-        return $q->where('status', self::STATUS_DRAFT);
-    }
 
     public function scopeSubmitted($q)
     {
@@ -130,15 +121,6 @@ class Evaluation extends Model
         if ($this->assignment) {
             $this->assignment->markRejected($reason);
         }
-
-        return $this;
-    }
-
-    public function saveDraft()
-    {
-        $this->status = self::STATUS_DRAFT;
-        $this->overall_rating = $this->computeAggregatedRating();
-        $this->save();
 
         return $this;
     }
@@ -213,10 +195,6 @@ class Evaluation extends Model
     /* --------------------
      | Status Checkers
      --------------------*/
-    public function isDraft()
-    {
-        return $this->status === self::STATUS_DRAFT;
-    }
 
     public function isSubmitted()
     {
@@ -226,11 +204,6 @@ class Evaluation extends Model
     public function isRejected()
     {
         return $this->status === self::STATUS_REJECTED;
-    }
-
-    public function canBeSubmitted()
-    {
-        return $this->isDraft() && $this->isComplete();
     }
 
     /* --------------------
