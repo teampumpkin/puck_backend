@@ -66,7 +66,7 @@ class V4PaymentController extends Controller
             // Handle payment_initiated status
             if ($latestPayment && $latestPayment->status === V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
                 return response()->json([
-                    'success' => true,
+                    'success' => false,
                     'message' => 'Payment already in process',
                     'data' => [
                         'sku' => $inAppPurchase->sku,
@@ -74,7 +74,7 @@ class V4PaymentController extends Controller
                         'payment_request_id' => $latestPayment->id,
                         'status' => $latestPayment->status
                     ]
-                ], 200);
+                ], 400);
             }
 
             // Handle paid status - check evaluation submission
