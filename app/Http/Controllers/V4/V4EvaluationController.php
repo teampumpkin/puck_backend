@@ -2374,6 +2374,7 @@ class V4EvaluationController extends Controller
                     'status' => $assignment->status,
                     'notes' => $assignment->notes,
                     'submission_date' => $assignment->submission->updated_at->toISOString(),
+                    'file_path' => $assignment->submission->currentVersion->file_path,
                     'player' => [
                         'id' => $assignment->submission->player->id,
                         'name' => $assignment->submission->player->first_name . ' ' . $assignment->submission->player->last_name,
