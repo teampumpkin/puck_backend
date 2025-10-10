@@ -19,11 +19,10 @@ class CreateEvaluationSubmissionsTable extends Migration
             $table->foreignId('payment_request_id')->nullable()->constrained('v4_payment_requests')->onDelete('set null');
             $table->unsignedBigInteger('current_version_id')->nullable(); // No foreign key constraint yet
             $table->enum('status', [
+                'pending',
                 'uploaded',
                 'assigned',
-                'evaluating',
                 'rejected',
-                'accepted',
                 'completed'
             ])->default('uploaded');
             $table->json('result_report_meta')->nullable();

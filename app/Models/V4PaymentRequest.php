@@ -25,7 +25,6 @@ class V4PaymentRequest extends Model
     use HasFactory, SoftDeletes;
 
     const STATUS_PENDING = 'pending';
-    const STATUS_PARENT_APPROVED = 'parent_approved';
     const STATUS_PARENT_REJECTED = 'parent_rejected';
     const STATUS_PAYMENT_INITIATED = 'payment_initiated';
     const STATUS_PAID = 'paid';

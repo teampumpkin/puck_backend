@@ -18,6 +18,7 @@ class EvaluationSubmission extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const STATUS_PENDING = 'pending';
     const STATUS_UPLOADED = 'uploaded';
     const STATUS_ASSIGNED = 'assigned';
     const STATUS_REJECTED = 'rejected';
@@ -98,11 +99,6 @@ class EvaluationSubmission extends Model
         return $q->where('status', self::STATUS_ASSIGNED);
     }
 
-    public function scopeEvaluating($q)
-    {
-        return $q->where('status', self::STATUS_EVALUATING);
-    }
-
     public function scopeCompleted($q)
     {
         return $q->where('status', self::STATUS_COMPLETED);
@@ -131,19 +127,6 @@ class EvaluationSubmission extends Model
         return $assignment;
     }
 
-    public function markEvaluating()
-    {
-        $this->status = self::STATUS_EVALUATING;
-        $this->save();
-
-        // Update assignment status if exists
-        if ($this->evaluatorAssignment) {
-            $this->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_IN_PROGRESS]);
-        }
-
-        return $this;
-    }
-
     public function markRejected(int $evaluatorId, int $reasonId = null, string $notes = null)
     {
         $this->status = self::STATUS_REJECTED;
@@ -162,20 +145,6 @@ class EvaluationSubmission extends Model
         // Update assignment status if exists
         if ($this->evaluatorAssignment) {
             $this->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_REJECTED]);
-        }
-
-        return $this;
-    }
-
-    public function markAccepted(array $reportMeta = [])
-    {
-        $this->status = self::STATUS_ACCEPTED;
-        $this->result_report_meta = $reportMeta;
-        $this->save();
-
-        // Update assignment status if exists
-        if ($this->evaluatorAssignment) {
-            $this->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_ACCEPTED]);
         }
 
         return $this;
