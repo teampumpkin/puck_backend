@@ -2646,4 +2646,113 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Reject evaluator assignment with reason
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function rejectEvaluatorAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate request
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'rejection_reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
+                'notes' => 'required|string',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+            $reasonId = $validated['rejection_reason_id'];
+            $notes = $validated['notes'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with('submission')->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // Check if assignment belongs to authenticated evaluator
+            if ($assignment->evaluator_id != $user->id) {
+                return response()->json(['success' => false, 'message' => 'This assignment not assigned to you'], 403);
+            }
+
+            // Check if assignment status is pending
+            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Assignment is already {$assignment->status}"
+                ], 400);
+            }
+
+            // Execute all database operations in transaction
+            DB::beginTransaction();
+            try {
+                $timestamp = now();
+
+                // Create evaluation entry with rejected status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignmentId,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_REJECTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'reason_id' => $reasonId,
+                        'notes' => $notes,
+                        'at' => $timestamp->toDateTimeString(),
+                    ],
+                ]);
+
+                // Update assignment status to rejected
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_REJECTED,
+                    'completed_at' => $timestamp,
+                ]);
+
+                // Update submission status to rejected
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_REJECTED,
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator assignment rejected successfully',
+                    'data' => [
+                        'evaluation_id' => $evaluation->id,
+                        'assignment_id' => $assignmentId,
+                        'submission_id' => $assignment->submission_id,
+                        'rejection_reason_id' => $reasonId,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                    ],
+                ], 201);
+
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (Exception $e) {
+            Log::error('Error rejecting evaluator assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject evaluator assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }
