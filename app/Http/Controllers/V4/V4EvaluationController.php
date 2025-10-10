@@ -2017,151 +2017,142 @@ class V4EvaluationController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
-            $playerId = $user->id; // Get user_id from token
+            $playerId = $user->id;
 
-            // Validate only video file is required
+            // Validate video file and SKU
             $request->validate([
                 'video' => 'required|file',
+                'sku' => 'required|string|exists:v4_in_app_purchases,sku',
             ]);
 
-            // Check if payment is completed for this player
+            // Get the in-app purchase by SKU
+            $inAppPurchase = V4InAppPurchase::where('sku', $request->sku)->active()->first();
+            if (!$inAppPurchase) {
+                return response()->json(['success' => false, 'message' => 'Invalid SKU'], 400);
+            }
+
+            // Get latest payment request for this player and SKU
             $paymentRequest = V4PaymentRequest::where('player_id', $playerId)
-                ->where('status', V4PaymentRequest::STATUS_PAID)
+                ->where('in_app_purchase_id', $inAppPurchase->id)
+                ->orderBy('updated_at', 'desc')
                 ->first();
 
-            if (!$paymentRequest) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment not completed for this player',
-                ], 400);
+            // Check payment request status
+            if (!$paymentRequest || in_array($paymentRequest->status, [V4PaymentRequest::STATUS_FAILED, V4PaymentRequest::STATUS_PARENT_REJECTED])) {
+                return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
             }
 
-            // Handle file upload
-            if (!$request->hasFile('video')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No video file provided',
-                ], 400);
+            if ($paymentRequest->status === V4PaymentRequest::STATUS_PENDING) {
+                return response()->json(['success' => false, 'message' => 'Payment pending from parent side'], 400);
             }
 
-            $file = $request->file('video');
-
-            // Check if file upload was successful
-            if (!$file->isValid()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'File upload failed: ' . $file->getError(),
-                ], 422);
+            if ($paymentRequest->status === V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
+                return response()->json(['success' => false, 'message' => 'Payment is under process'], 400);
             }
 
-            $mimeType = $file->getClientMimeType();
-            $fileSize = $file->getSize();
+            // If payment status is paid, check evaluation submission
+            if ($paymentRequest->status === V4PaymentRequest::STATUS_PAID) {
+                $submission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
+                    ->where('player_id', $playerId)
+                    ->first();
 
-            // Check if it's a video file
-            if (!str_starts_with($mimeType, 'video/')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'File must be a video',
-                ], 422);
-            }
+                // Check submission status
+                if ($submission) {
+                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED])) {
+                        return response()->json(['success' => false, 'message' => 'An evaluation is already in process'], 400);
+                    }
 
-            // Check file size (100MB max)
-            $maxSizeInBytes = 100 * 1024 * 1024; // 100MB
-            if ($fileSize > $maxSizeInBytes) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Video file size must not exceed 100MB',
-                ], 422);
-            }
-
-            // Check if submission already exists for this player
-            $existingSubmission = EvaluationSubmission::where('player_id', $playerId)
-                ->where('payment_request_id', $paymentRequest->id)
-                ->first();
-
-            if ($existingSubmission) {
-                // Only allow new version if status is rejected
-                if ($existingSubmission->status !== EvaluationSubmission::STATUS_REJECTED) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Already uploaded a video for evaluation',
-                        'submission_id' => $existingSubmission->id,
-                        'current_status' => $existingSubmission->status,
-                    ], 400);
+                    if (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED, EvaluationSubmission::STATUS_COMPLETED])) {
+                        return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
+                    }
                 }
-            }
 
-            // Generate unique filename to prevent conflicts
-            $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                // Handle file upload
+                if (!$request->hasFile('video')) {
+                    return response()->json(['success' => false, 'message' => 'No video file provided'], 400);
+                }
 
-            // Store file in S3 under evaluation-videos directory
-            $path = $file->storeAs(
-                'evaluation-videos/' . $playerId,
-                $filename,
-                's3'
-            );
+                $file = $request->file('video');
 
-            $videoUrl = Storage::disk('s3')->url($path);
-            $originalName = $file->getClientOriginalName();
+                // Validate file
+                if (!$file->isValid()) {
+                    return response()->json(['success' => false, 'message' => 'File upload failed: ' . $file->getError()], 422);
+                }
 
-            // Prepare file metadata
-            $fileMeta = [
-                'original_name' => $originalName,
-                'file_size' => $fileSize,
-                'mime_type' => $mimeType,
-                'video_url' => $videoUrl,
-                'uploaded_at' => now()->toISOString(),
-            ];
+                $mimeType = $file->getClientMimeType();
+                $fileSize = $file->getSize();
 
-            // Create or update submission
-            if ($existingSubmission) {
-                // Update existing submission status to uploaded
-                $existingSubmission->update([
-                    'status' => EvaluationSubmission::STATUS_UPLOADED,
-                ]);
-                $submission = $existingSubmission;
-            } else {
-                // Create new submission
-                $submission = EvaluationSubmission::create([
-                    'player_id' => $playerId,
-                    'payment_request_id' => $paymentRequest->id,
-                    'status' => EvaluationSubmission::STATUS_UPLOADED,
-                ]);
-            }
+                if (!str_starts_with($mimeType, 'video/')) {
+                    return response()->json(['success' => false, 'message' => 'File must be a video'], 422);
+                }
 
-            // Create submission version
-            $submissionVersion = EvaluationSubmissionVersion::create([
-                'submission_id' => $submission->id,
-                'file_path' => $videoUrl,
-                'file_meta' => $fileMeta,
-                'uploaded_by' => $user->id,
-            ]);
+                // Check file size (100MB max)
+                $maxSizeInBytes = 100 * 1024 * 1024;
+                if ($fileSize > $maxSizeInBytes) {
+                    return response()->json(['success' => false, 'message' => 'Video file size must not exceed 100MB'], 422);
+                }
 
-            // Update submission with current version ID
-            $submission->update([
-                'current_version_id' => $submissionVersion->id,
-            ]);
+                // Generate unique filename
+                $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Evaluation video uploaded successfully',
-                'data' => [
-                    'player_id' => $playerId,
-                    'submission_id' => $submission->id,
-                    'submission_version_id' => $submissionVersion->id,
-                    'status' => $submission->status,
-                    'video_url' => $videoUrl,
+                // Upload to S3
+                $path = $file->storeAs('evaluation-videos/' . $playerId, $filename, 's3');
+                $videoUrl = Storage::disk('s3')->url($path);
+                $originalName = $file->getClientOriginalName();
+
+                // Prepare file metadata
+                $fileMeta = [
+                    'original_name' => $originalName,
                     'file_size' => $fileSize,
                     'mime_type' => $mimeType,
+                    'video_url' => $videoUrl,
                     'uploaded_at' => now()->toISOString(),
-                ],
-            ], 201);
+                ];
+
+                // Create or update submission
+                if (!$submission) {
+                    // Create new submission if not found
+                    $submission = EvaluationSubmission::create([
+                        'player_id' => $playerId,
+                        'payment_request_id' => $paymentRequest->id,
+                        'status' => EvaluationSubmission::STATUS_UPLOADED,
+                    ]);
+                } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING) {
+                    // Update pending submission to uploaded
+                    $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                }
+
+                // Create submission version
+                $submissionVersion = EvaluationSubmissionVersion::create([
+                    'submission_id' => $submission->id,
+                    'file_path' => $videoUrl,
+                    'file_meta' => $fileMeta,
+                    'uploaded_by' => $user->id,
+                ]);
+
+                // Update submission with current version ID
+                $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluation video uploaded successfully',
+                    'data' => [
+                        'player_id' => $playerId,
+                        'submission_id' => $submission->id,
+                        'submission_version_id' => $submissionVersion->id,
+                        'status' => $submission->status,
+                        'video_url' => $videoUrl,
+                        'file_size' => $fileSize,
+                        'mime_type' => $mimeType,
+                        'uploaded_at' => now()->toISOString(),
+                    ],
+                ], 201);
+            }
+
+            return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
+
         } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error uploading evaluation video: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
