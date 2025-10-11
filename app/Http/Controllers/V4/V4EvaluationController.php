@@ -2065,7 +2065,7 @@ class V4EvaluationController extends Controller
                         return response()->json(['success' => false, 'message' => 'An evaluation is already in process'], 400);
                     }
 
-                    if (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED, EvaluationSubmission::STATUS_COMPLETED])) {
+                    if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
                         return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
                     }
                 }
@@ -2098,7 +2098,7 @@ class V4EvaluationController extends Controller
                 // Generate unique filename
                 $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
 
-                // Upload to S3
+                // Upload to S3 (before transaction)
                 $path = $file->storeAs('evaluation-videos/' . $playerId, $filename, 's3');
                 $videoUrl = Storage::disk('s3')->url($path);
                 $originalName = $file->getClientOriginalName();
@@ -2112,44 +2112,56 @@ class V4EvaluationController extends Controller
                     'uploaded_at' => now()->toISOString(),
                 ];
 
-                // Create or update submission
-                if (!$submission) {
-                    // Create new submission if not found
-                    $submission = EvaluationSubmission::create([
-                        'player_id' => $playerId,
-                        'payment_request_id' => $paymentRequest->id,
-                        'status' => EvaluationSubmission::STATUS_UPLOADED,
-                    ]);
-                } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING) {
-                    // Update pending submission to uploaded
-                    $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-                }
+                // Wrap all database operations in a transaction
+                DB::beginTransaction();
+                try {
+                    // Create or update submission
+                    if (!$submission) {
+                        // Create new submission if not found
+                        $submission = EvaluationSubmission::create([
+                            'player_id' => $playerId,
+                            'payment_request_id' => $paymentRequest->id,
+                            'status' => EvaluationSubmission::STATUS_UPLOADED,
+                        ]);
+                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING, EvaluationSubmission::STATUS_REJECTED])) {
+                        // Update pending or rejected submission to uploaded
+                        $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                    }
 
-                // Create submission version
-                $submissionVersion = EvaluationSubmissionVersion::create([
-                    'submission_id' => $submission->id,
-                    'file_path' => $videoUrl,
-                    'file_meta' => $fileMeta,
-                    'uploaded_by' => $user->id,
-                ]);
-
-                // Update submission with current version ID
-                $submission->update(['current_version_id' => $submissionVersion->id]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Evaluation video uploaded successfully',
-                    'data' => [
-                        'player_id' => $playerId,
+                    // Create submission version
+                    $submissionVersion = EvaluationSubmissionVersion::create([
                         'submission_id' => $submission->id,
-                        'submission_version_id' => $submissionVersion->id,
-                        'status' => $submission->status,
-                        'video_url' => $videoUrl,
-                        'file_size' => $fileSize,
-                        'mime_type' => $mimeType,
-                        'uploaded_at' => now()->toISOString(),
-                    ],
-                ], 201);
+                        'file_path' => $videoUrl,
+                        'file_meta' => $fileMeta,
+                        'uploaded_by' => $user->id,
+                    ]);
+
+                    // Update submission with current version ID
+                    $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Evaluation video uploaded successfully',
+                        'data' => [
+                            'player_id' => $playerId,
+                            'submission_id' => $submission->id,
+                            'submission_version_id' => $submissionVersion->id,
+                            'status' => $submission->status,
+                            'video_url' => $videoUrl,
+                            'file_size' => $fileSize,
+                            'mime_type' => $mimeType,
+                            'uploaded_at' => now()->toISOString(),
+                        ],
+                    ], 201);
+
+                } catch (Exception $e) {
+                    DB::rollBack();
+                    // Optionally delete uploaded file from S3 if DB transaction fails
+                    Storage::disk('s3')->delete($path);
+                    throw $e;
+                }
             }
 
             return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
@@ -2429,9 +2441,7 @@ class V4EvaluationController extends Controller
                 'user_id' => 'sometimes|integer|exists:v4_users,id'
             ]);
 
-            $sku = $request->input('sku');
             $userId = $request->input('user_id') ?? Auth::guard('v4api')->id();
-
             if (!$userId) {
                 return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
             }
@@ -2441,7 +2451,7 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Access denied. Only players can check evaluation status.'], 403);
             }
 
-            $inAppPurchase = V4InAppPurchase::where('sku', $sku)->active()->first();
+            $inAppPurchase = V4InAppPurchase::where('sku', $request->input('sku'))->active()->first();
             if (!$inAppPurchase) {
                 return response()->json(['success' => false, 'message' => 'Invalid SKU'], 400);
             }
@@ -2451,39 +2461,40 @@ class V4EvaluationController extends Controller
                 ->orderBy('updated_at', 'desc')
                 ->first();
 
-            // Handle payment statuses
+            // Payment status checks
             if (!$paymentRequest || in_array($paymentRequest->status, [V4PaymentRequest::STATUS_FAILED, V4PaymentRequest::STATUS_PARENT_REJECTED])) {
                 return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
             }
 
-            if ($paymentRequest->status === V4PaymentRequest::STATUS_PENDING) {
-                return response()->json(['success' => true, 'redirect' => 'payment_approval_pending'], 200);
+            $statusMap = [
+                V4PaymentRequest::STATUS_PENDING => 'payment_approval_pending',
+                V4PaymentRequest::STATUS_PAYMENT_INITIATED => 'payment_in_process',
+            ];
+
+            if (isset($statusMap[$paymentRequest->status])) {
+                return response()->json(['success' => true, 'redirect' => $statusMap[$paymentRequest->status]], 200);
             }
 
-            if ($paymentRequest->status === V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
-                return response()->json(['success' => true, 'redirect' => 'payment_in_process'], 200);
-            }
-
-            // Handle paid status - check evaluation submission
+            // Handle paid status
             if ($paymentRequest->status === V4PaymentRequest::STATUS_PAID) {
-                $evaluationSubmission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
+                $submission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
                     ->where('player_id', $userId)
                     ->first();
 
-                if (!$evaluationSubmission || $evaluationSubmission->status === EvaluationSubmission::STATUS_PENDING) {
+                if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
                     return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit_video'], 200);
                 }
 
-                if (in_array($evaluationSubmission->status, [EvaluationSubmission::STATUS_REJECTED, EvaluationSubmission::STATUS_COMPLETED])) {
+                if ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                    return response()->json(['success' => true, 'status' => 'rejected', 'redirect' => 'submit_video'], 200);
+                }
+
+                if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
                     return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
                 }
 
-                if ($evaluationSubmission->status === EvaluationSubmission::STATUS_ASSIGNED) {
-                    return response()->json(['success' => true, 'status' => 'assigned', 'redirect' => 'evaluation_in_process'], 200);
-                }
-
-                if ($evaluationSubmission->status === EvaluationSubmission::STATUS_UPLOADED) {
-                    return response()->json(['success' => true, 'status' => 'uploaded', 'redirect' => 'evaluation_in_process'], 200);
+                if (in_array($submission->status, [EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_UPLOADED])) {
+                    return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'evaluation_in_process'], 200);
                 }
             }
 
