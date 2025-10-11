@@ -2766,4 +2766,144 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get submission result with evaluation details
+     *
+     * @param Request $request
+     * @param int $evaluationId
+     * @return JsonResponse
+     */
+    public function getEvaluationReport(Request $request, int $evaluationId): JsonResponse
+    {
+        try {
+            // Get evaluation with all related data
+            $evaluation = Evaluation::with([
+                'submission.player.playerProfile',
+                'submission.currentVersion',
+                'evaluator',
+                'answers.question.category',
+                'answers.option'
+            ])->find($evaluationId);
+
+            if (!$evaluation) {
+                return response()->json(['success' => false, 'message' => 'Evaluation not found'], 404);
+            }
+
+            $player = $evaluation->submission->player;
+            $playerProfile = $player->playerProfile;
+            $submissionVersion = $evaluation->submission->currentVersion;
+
+            // Group answers by category
+            $categorizedAnswers = [];
+
+            foreach ($evaluation->answers as $answer) {
+                $category = $answer->question->category;
+                $categorySlug = $category->slug;
+
+                // Initialize category if not exists
+                if (!isset($categorizedAnswers[$categorySlug])) {
+                    $categorizedAnswers[$categorySlug] = [
+                        'category_id' => $category->id,
+                        'category_name' => $category->name,
+                        'category_slug' => $categorySlug,
+                        'note' => null,
+                        'average_rating' => 0,
+                        'total_rating' => 0,
+                        'question_count' => 0,
+                        'questions' => []
+                    ];
+                }
+
+                // Add question and answer details
+                $categorizedAnswers[$categorySlug]['questions'][] = [
+                    'question_id' => $answer->question->id,
+                    'question_title' => $answer->question->title,
+                    'question_text' => $answer->question->question,
+                    'selected_option_id' => $answer->question_option_id,
+                    'selected_option_text' => $answer->option->option ?? null,
+                    'rating' => $answer->rating,
+                ];
+
+                // Accumulate ratings for average calculation
+                $categorizedAnswers[$categorySlug]['total_rating'] += $answer->rating;
+                $categorizedAnswers[$categorySlug]['question_count']++;
+
+                // Set note for category (same for all questions in category)
+                if ($answer->comment && !$categorizedAnswers[$categorySlug]['note']) {
+                    $categorizedAnswers[$categorySlug]['note'] = $answer->comment;
+                }
+            }
+
+            // Calculate average rating for each category and clean up temporary fields
+            foreach ($categorizedAnswers as $slug => &$category) {
+                if ($category['question_count'] > 0) {
+                    $category['average_rating'] = round($category['total_rating'] / $category['question_count'], 1);
+                }
+                // Remove temporary calculation fields
+                unset($category['total_rating']);
+                unset($category['question_count']);
+            }
+
+            // Convert to indexed array
+            $categories = array_values($categorizedAnswers);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Submission result retrieved successfully',
+                'data' => [
+                    'evaluation' => [
+                        'evaluation_id' => $evaluation->id,
+                        'status' => $evaluation->status,
+                        'video_url' => $submissionVersion->file_path ?? null,
+                        'video_meta' => $submissionVersion->file_meta ?? null,
+                        'created_at' => $evaluation->created_at->toISOString(),
+                        'updated_at' => $evaluation->updated_at->toISOString(),
+                    ],
+                    'player' => [
+                        'user_id' => $player->id,
+                        'first_name' => $player->first_name,
+                        'last_name' => $player->last_name,
+                        'email' => $player->email,
+                        'date_of_birth' => $player->date_of_birth,
+                        'profile_photo' => $player->profile_photo,
+                        'profile' => [
+                            'teams' => $playerProfile->teams ?? null,
+                            'leagues' => $playerProfile->leagues ?? null,
+                            'position' => $playerProfile->position ?? null,
+                            'handedness' => $playerProfile->handedness ?? null,
+                            'height' => $playerProfile->height ?? null,
+                            'weight' => $playerProfile->weight ?? null,
+                            'gender' => $playerProfile->gender ?? null,
+                        ]
+                    ],
+                    'evaluator' => [
+                        'evaluator_id' => $evaluation->evaluator->id,
+                        'first_name' => $evaluation->evaluator->first_name,
+                        'last_name' => $evaluation->evaluator->last_name,
+                        'profile_photo' => $evaluation->evaluator->profile_photo,
+                        'country' => $evaluation->evaluator->country,
+                        'state' => $evaluation->evaluator->state,
+                        'city' => $evaluation->evaluator->city,
+                        'zip' => $evaluation->evaluator->zip,
+                        'email' => $evaluation->evaluator->email,
+                        'phone' => $evaluation->evaluator->phone,
+                    ],
+                    'categories' => $categories,
+                ],
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Error retrieving submission result: ' . $e->getMessage(), [
+                'evaluation_id' => $evaluationId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve submission result',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }
