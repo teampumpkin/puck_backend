@@ -1083,4 +1083,131 @@ class ProfileController extends Controller
             ], 500);
         }
     }
+
+    public function getAllAvailableEvaluators(Request $request): JsonResponse
+    {
+        try {
+            // Validate incoming request
+            $validated = $request->validate([
+                'q'          => 'nullable|string|max:255',
+                'page'       => 'nullable|integer|min:1',
+                'per_page'   => 'nullable|integer|min:1|max:100',
+                'sort_by'    => 'nullable|string|in:first_name,last_name,role',
+                'sort_order' => 'nullable|string|in:asc,desc',
+            ]);
+
+            // Assign variables with default values
+            $searchTerm = $validated['q'] ?? '';
+            $page       = $validated['page'] ?? 1;
+            $perPage    = $validated['per_page'] ?? 15;
+            $sortBy     = $validated['sort_by'] ?? 'first_name';
+            $sortOrder  = $validated['sort_order'] ?? 'asc';
+
+            // Build query for evaluators
+            $query = V4User::query()
+                ->where('role', 'evaluator')
+                ->with('evaluatorProfile')
+                ->whereHas('evaluatorProfile', function ($q) {
+                    $q->where('is_verified', true); // Ensure only verified evaluators are included
+                });
+
+            // Apply search filter if provided
+            if (!empty($searchTerm)) {
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('first_name', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                });
+            }
+
+            // Apply sorting
+            $query->orderBy($sortBy, $sortOrder);
+
+            // Fetch paginated users
+            $users = $query->paginate($perPage, ['*'], 'page', $page);
+
+            // Apply the map function on the items (not the paginator)
+            $data = $users->items(); // Get the items collection
+            $data = collect($data)->map(function ($user) {
+                return [
+                    'id'   => $user->id,
+                    'fullName' => $user->name,
+                    'status' => 'active',
+                    "basicInfo" => [
+                        "email" =>  "email",
+                        "phone" => "phone",
+                        "country" => "country",
+                        "province" => "province",
+                        "city" => "city",
+                        "specialties" => ["Video Analysis", "Performance Metrics", "Skill Assessment"],
+                        "rating" => 4.8,
+                        "currentWorkload" => 3,
+                        "totalEvaluations" => 150,
+                        "experience" => "12 years",
+                        "credentials" => "PhD in Sports Science, NHL Scout Certification",
+                        "certifications" => [
+                            [
+                                "id" => "cert1",
+                                "name" => "NHL Scout Certification.pdf",
+                                "uploadedAt" => "2024-01-15",
+                                "size" =>  "2.3 MB"
+                            ]
+                        ],
+                        "socialStats" => [
+                            "followers" => 3456,
+                            "following" => 234,
+                        ],
+                        "recentEvaluations" => [[
+                            "id" => "eval1",
+                            "playerName" => "Connor McDavid Jr.",
+                            "type" => "Video Analysis",
+                            "completedAt" => "2024-01-15",
+                            "rating" => 5,
+                            "status" => "completed"
+                        ], [
+                            "id" => "eval2",
+                            "playerName" => "Sidney Crosby III",
+                            "type" => "Performance Metrics",
+                            "completedAt" => "2024-01-12",
+                            "rating" => 4.5,
+                            "status" => "completed"
+                        ]],
+                    ]
+                ];
+            });
+
+            // Return JSON response with data and pagination
+            return response()->json([
+                'data' => $data,
+                'pagination' => [
+                    'total'          => $users->total(),
+                    'per_page'       => $users->perPage(),
+                    'current_page'   => $users->currentPage(),
+                    'last_page'      => $users->lastPage(),
+                    'from'           => $users->firstItem() ?? 0,
+                    'to'             => $users->lastItem() ?? 0,
+                    'has_more_pages' => $users->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            // Return validation error response
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            // Log the error for better debugging
+            Log::error('Error fetching evaluators: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request'   => $request->all(),
+            ]);
+
+            // Return generic error response
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
 }

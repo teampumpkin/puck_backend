@@ -269,6 +269,9 @@ Route::prefix('v4')->group(function () {
             Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
             Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
 
+            Route::prefix('evaluators')->group(function () {
+                Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
+            });
 
             Route::get('/users/{id}', [ProfileController::class, 'getAllUserDetailsById']);
 
@@ -333,7 +336,6 @@ Route::prefix('v4')->group(function () {
     Route::middleware('auth:v4api')->group(function () {
         Route::get('/profile', [ProfileController::class, 'getProfileData']);
         Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);
-        ;
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
