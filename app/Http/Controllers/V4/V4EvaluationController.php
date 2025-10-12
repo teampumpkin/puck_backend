@@ -2065,7 +2065,7 @@ class V4EvaluationController extends Controller
                         return response()->json(['success' => false, 'message' => 'An evaluation is already in process'], 400);
                     }
 
-                    if (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED, EvaluationSubmission::STATUS_COMPLETED])) {
+                    if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
                         return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
                     }
                 }
@@ -2098,7 +2098,7 @@ class V4EvaluationController extends Controller
                 // Generate unique filename
                 $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
 
-                // Upload to S3
+                // Upload to S3 (before transaction)
                 $path = $file->storeAs('evaluation-videos/' . $playerId, $filename, 's3');
                 $videoUrl = Storage::disk('s3')->url($path);
                 $originalName = $file->getClientOriginalName();
@@ -2112,44 +2112,56 @@ class V4EvaluationController extends Controller
                     'uploaded_at' => now()->toISOString(),
                 ];
 
-                // Create or update submission
-                if (!$submission) {
-                    // Create new submission if not found
-                    $submission = EvaluationSubmission::create([
-                        'player_id' => $playerId,
-                        'payment_request_id' => $paymentRequest->id,
-                        'status' => EvaluationSubmission::STATUS_UPLOADED,
-                    ]);
-                } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING) {
-                    // Update pending submission to uploaded
-                    $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-                }
+                // Wrap all database operations in a transaction
+                DB::beginTransaction();
+                try {
+                    // Create or update submission
+                    if (!$submission) {
+                        // Create new submission if not found
+                        $submission = EvaluationSubmission::create([
+                            'player_id' => $playerId,
+                            'payment_request_id' => $paymentRequest->id,
+                            'status' => EvaluationSubmission::STATUS_UPLOADED,
+                        ]);
+                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING, EvaluationSubmission::STATUS_REJECTED])) {
+                        // Update pending or rejected submission to uploaded
+                        $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                    }
 
-                // Create submission version
-                $submissionVersion = EvaluationSubmissionVersion::create([
-                    'submission_id' => $submission->id,
-                    'file_path' => $videoUrl,
-                    'file_meta' => $fileMeta,
-                    'uploaded_by' => $user->id,
-                ]);
-
-                // Update submission with current version ID
-                $submission->update(['current_version_id' => $submissionVersion->id]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Evaluation video uploaded successfully',
-                    'data' => [
-                        'player_id' => $playerId,
+                    // Create submission version
+                    $submissionVersion = EvaluationSubmissionVersion::create([
                         'submission_id' => $submission->id,
-                        'submission_version_id' => $submissionVersion->id,
-                        'status' => $submission->status,
-                        'video_url' => $videoUrl,
-                        'file_size' => $fileSize,
-                        'mime_type' => $mimeType,
-                        'uploaded_at' => now()->toISOString(),
-                    ],
-                ], 201);
+                        'file_path' => $videoUrl,
+                        'file_meta' => $fileMeta,
+                        'uploaded_by' => $user->id,
+                    ]);
+
+                    // Update submission with current version ID
+                    $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Evaluation video uploaded successfully',
+                        'data' => [
+                            'player_id' => $playerId,
+                            'submission_id' => $submission->id,
+                            'submission_version_id' => $submissionVersion->id,
+                            'status' => $submission->status,
+                            'video_url' => $videoUrl,
+                            'file_size' => $fileSize,
+                            'mime_type' => $mimeType,
+                            'uploaded_at' => now()->toISOString(),
+                        ],
+                    ], 201);
+
+                } catch (Exception $e) {
+                    DB::rollBack();
+                    // Optionally delete uploaded file from S3 if DB transaction fails
+                    Storage::disk('s3')->delete($path);
+                    throw $e;
+                }
             }
 
             return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
@@ -2632,9 +2644,7 @@ class V4EvaluationController extends Controller
                 'user_id' => 'sometimes|integer|exists:v4_users,id'
             ]);
 
-            $sku = $request->input('sku');
             $userId = $request->input('user_id') ?? Auth::guard('v4api')->id();
-
             if (!$userId) {
                 return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
             }
@@ -2644,7 +2654,7 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Access denied. Only players can check evaluation status.'], 403);
             }
 
-            $inAppPurchase = V4InAppPurchase::where('sku', $sku)->active()->first();
+            $inAppPurchase = V4InAppPurchase::where('sku', $request->input('sku'))->active()->first();
             if (!$inAppPurchase) {
                 return response()->json(['success' => false, 'message' => 'Invalid SKU'], 400);
             }
@@ -2654,39 +2664,40 @@ class V4EvaluationController extends Controller
                 ->orderBy('updated_at', 'desc')
                 ->first();
 
-            // Handle payment statuses
+            // Payment status checks
             if (!$paymentRequest || in_array($paymentRequest->status, [V4PaymentRequest::STATUS_FAILED, V4PaymentRequest::STATUS_PARENT_REJECTED])) {
                 return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
             }
 
-            if ($paymentRequest->status === V4PaymentRequest::STATUS_PENDING) {
-                return response()->json(['success' => true, 'redirect' => 'payment_approval_pending'], 200);
+            $statusMap = [
+                V4PaymentRequest::STATUS_PENDING => 'payment_approval_pending',
+                V4PaymentRequest::STATUS_PAYMENT_INITIATED => 'payment_in_process',
+            ];
+
+            if (isset($statusMap[$paymentRequest->status])) {
+                return response()->json(['success' => true, 'redirect' => $statusMap[$paymentRequest->status]], 200);
             }
 
-            if ($paymentRequest->status === V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
-                return response()->json(['success' => true, 'redirect' => 'payment_in_process'], 200);
-            }
-
-            // Handle paid status - check evaluation submission
+            // Handle paid status
             if ($paymentRequest->status === V4PaymentRequest::STATUS_PAID) {
-                $evaluationSubmission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
+                $submission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
                     ->where('player_id', $userId)
                     ->first();
 
-                if (!$evaluationSubmission || $evaluationSubmission->status === EvaluationSubmission::STATUS_PENDING) {
+                if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
                     return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit_video'], 200);
                 }
 
-                if (in_array($evaluationSubmission->status, [EvaluationSubmission::STATUS_REJECTED, EvaluationSubmission::STATUS_COMPLETED])) {
+                if ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                    return response()->json(['success' => true, 'status' => 'rejected', 'redirect' => 'submit_video'], 200);
+                }
+
+                if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
                     return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
                 }
 
-                if ($evaluationSubmission->status === EvaluationSubmission::STATUS_ASSIGNED) {
-                    return response()->json(['success' => true, 'status' => 'assigned', 'redirect' => 'evaluation_in_process'], 200);
-                }
-
-                if ($evaluationSubmission->status === EvaluationSubmission::STATUS_UPLOADED) {
-                    return response()->json(['success' => true, 'status' => 'uploaded', 'redirect' => 'evaluation_in_process'], 200);
+                if (in_array($submission->status, [EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_UPLOADED])) {
+                    return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'evaluation_in_process'], 200);
                 }
             }
 
@@ -2844,6 +2855,255 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to submit evaluator assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject evaluator assignment with reason
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function rejectEvaluatorAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate request
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'rejection_reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
+                'notes' => 'required|string',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+            $reasonId = $validated['rejection_reason_id'];
+            $notes = $validated['notes'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with('submission')->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // Check if assignment belongs to authenticated evaluator
+            if ($assignment->evaluator_id != $user->id) {
+                return response()->json(['success' => false, 'message' => 'This assignment not assigned to you'], 403);
+            }
+
+            // Check if assignment status is pending
+            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Assignment is already {$assignment->status}"
+                ], 400);
+            }
+
+            // Execute all database operations in transaction
+            DB::beginTransaction();
+            try {
+                $timestamp = now();
+
+                // Create evaluation entry with rejected status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignmentId,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_REJECTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'reason_id' => $reasonId,
+                        'notes' => $notes,
+                        'at' => $timestamp->toDateTimeString(),
+                    ],
+                ]);
+
+                // Update assignment status to rejected
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_REJECTED,
+                    'completed_at' => $timestamp,
+                ]);
+
+                // Update submission status to rejected
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_REJECTED,
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator assignment rejected successfully',
+                    'data' => [
+                        'evaluation_id' => $evaluation->id,
+                        'assignment_id' => $assignmentId,
+                        'submission_id' => $assignment->submission_id,
+                        'rejection_reason_id' => $reasonId,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                    ],
+                ], 201);
+
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (Exception $e) {
+            Log::error('Error rejecting evaluator assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject evaluator assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get submission result with evaluation details
+     *
+     * @param Request $request
+     * @param int $evaluationId
+     * @return JsonResponse
+     */
+    public function getEvaluationReport(Request $request, int $evaluationId): JsonResponse
+    {
+        try {
+            // Get evaluation with all related data
+            $evaluation = Evaluation::with([
+                'submission.player.playerProfile',
+                'submission.currentVersion',
+                'evaluator',
+                'answers.question.category',
+                'answers.option'
+            ])->find($evaluationId);
+
+            if (!$evaluation) {
+                return response()->json(['success' => false, 'message' => 'Evaluation not found'], 404);
+            }
+
+            $player = $evaluation->submission->player;
+            $playerProfile = $player->playerProfile;
+            $submissionVersion = $evaluation->submission->currentVersion;
+
+            // Group answers by category
+            $categorizedAnswers = [];
+
+            foreach ($evaluation->answers as $answer) {
+                $category = $answer->question->category;
+                $categorySlug = $category->slug;
+
+                // Initialize category if not exists
+                if (!isset($categorizedAnswers[$categorySlug])) {
+                    $categorizedAnswers[$categorySlug] = [
+                        'category_id' => $category->id,
+                        'category_name' => $category->name,
+                        'category_slug' => $categorySlug,
+                        'note' => null,
+                        'average_rating' => 0,
+                        'total_rating' => 0,
+                        'question_count' => 0,
+                        'questions' => []
+                    ];
+                }
+
+                // Add question and answer details
+                $categorizedAnswers[$categorySlug]['questions'][] = [
+                    'question_id' => $answer->question->id,
+                    'question_title' => $answer->question->title,
+                    'question_text' => $answer->question->question,
+                    'selected_option_id' => $answer->question_option_id,
+                    'selected_option_text' => $answer->option->option ?? null,
+                    'rating' => $answer->rating,
+                ];
+
+                // Accumulate ratings for average calculation
+                $categorizedAnswers[$categorySlug]['total_rating'] += $answer->rating;
+                $categorizedAnswers[$categorySlug]['question_count']++;
+
+                // Set note for category (same for all questions in category)
+                if ($answer->comment && !$categorizedAnswers[$categorySlug]['note']) {
+                    $categorizedAnswers[$categorySlug]['note'] = $answer->comment;
+                }
+            }
+
+            // Calculate average rating for each category and clean up temporary fields
+            foreach ($categorizedAnswers as $slug => &$category) {
+                if ($category['question_count'] > 0) {
+                    $category['average_rating'] = round($category['total_rating'] / $category['question_count'], 1);
+                }
+                // Remove temporary calculation fields
+                unset($category['total_rating']);
+                unset($category['question_count']);
+            }
+
+            // Convert to indexed array
+            $categories = array_values($categorizedAnswers);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Submission result retrieved successfully',
+                'data' => [
+                    'evaluation' => [
+                        'evaluation_id' => $evaluation->id,
+                        'status' => $evaluation->status,
+                        'video_url' => $submissionVersion->file_path ?? null,
+                        'video_meta' => $submissionVersion->file_meta ?? null,
+                        'created_at' => $evaluation->created_at->toISOString(),
+                        'updated_at' => $evaluation->updated_at->toISOString(),
+                    ],
+                    'player' => [
+                        'user_id' => $player->id,
+                        'first_name' => $player->first_name,
+                        'last_name' => $player->last_name,
+                        'email' => $player->email,
+                        'date_of_birth' => $player->date_of_birth,
+                        'profile_photo' => $player->profile_photo,
+                        'profile' => [
+                            'teams' => $playerProfile->teams ?? null,
+                            'leagues' => $playerProfile->leagues ?? null,
+                            'position' => $playerProfile->position ?? null,
+                            'handedness' => $playerProfile->handedness ?? null,
+                            'height' => $playerProfile->height ?? null,
+                            'weight' => $playerProfile->weight ?? null,
+                            'gender' => $playerProfile->gender ?? null,
+                        ]
+                    ],
+                    'evaluator' => [
+                        'evaluator_id' => $evaluation->evaluator->id,
+                        'first_name' => $evaluation->evaluator->first_name,
+                        'last_name' => $evaluation->evaluator->last_name,
+                        'profile_photo' => $evaluation->evaluator->profile_photo,
+                        'country' => $evaluation->evaluator->country,
+                        'state' => $evaluation->evaluator->state,
+                        'city' => $evaluation->evaluator->city,
+                        'zip' => $evaluation->evaluator->zip,
+                        'email' => $evaluation->evaluator->email,
+                        'phone' => $evaluation->evaluator->phone,
+                    ],
+                    'categories' => $categories,
+                ],
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Error retrieving submission result: ' . $e->getMessage(), [
+                'evaluation_id' => $evaluationId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve submission result',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }

@@ -378,7 +378,7 @@ Route::prefix('v4')->group(function () {
             // Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
 
             // Video Evaluation
-            Route::post('/video-evaluation-status', [V4EvaluationController::class, 'videoEvaluationStatus']); // check paymnet and
+            Route::post('/video-evaluation-status', [V4EvaluationController::class, 'videoEvaluationStatus']);
             Route::post('/upload-evaluation-video', [V4EvaluationController::class, 'uploadEvaluationVideo']);
             // Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
 
@@ -386,6 +386,8 @@ Route::prefix('v4')->group(function () {
             Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock api for allotment test from front-end
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
             Route::post('/submit-evaluator-assignment', [V4EvaluationController::class, 'submitEvaluatorAssignment']);
+            Route::post('/reject-evaluator-assignment', [V4EvaluationController::class, 'rejectEvaluatorAssignment']);
+            Route::get('/get-evaluation-report/{evaluation_id}', [V4EvaluationController::class, 'getEvaluationReport']);
         });
 
 
