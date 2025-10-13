@@ -29,6 +29,7 @@ use App\Http\Controllers\V4\V4PaymentController;
 use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\V4AuthController;
+use App\Http\Controllers\V4\NotificationController;
 use App\Http\Controllers\WebSocketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -376,6 +377,7 @@ Route::prefix('v4')->group(function () {
             Route::get('/get-categories-questions-options', [V4EvaluationController::class, 'getCategoriesQuestionsOptions']);
 
             // Payment routes
+            Route::post('/request-payment', [V4PaymentController::class, 'requestPaymentToParent']);
             Route::post('/process-payment', [V4PaymentController::class, 'processPayment']);
             // Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
 
@@ -390,6 +392,25 @@ Route::prefix('v4')->group(function () {
             Route::post('/submit-evaluator-assignment', [V4EvaluationController::class, 'submitEvaluatorAssignment']);
             Route::post('/reject-evaluator-assignment', [V4EvaluationController::class, 'rejectEvaluatorAssignment']);
             Route::get('/get-evaluation-report/{evaluation_id}', [V4EvaluationController::class, 'getEvaluationReport']);
+
+            Route::prefix('notifications')->group(function () {
+                Route::get('/', [NotificationController::class, 'getAdminNotifications']);
+                Route::get('/dashboard-statistics', [NotificationController::class, 'getAdminDashboardStatistics']);
+                Route::get('/user-statistics/{userId}', [NotificationController::class, 'getAdminUserStatistics']);
+                Route::get('/{id}', [NotificationController::class, 'getAdminNotification']);
+
+                // Send notifications
+                Route::post('/send', [NotificationController::class, 'sendAdminNotification']);
+                Route::post('/broadcast', [NotificationController::class, 'broadcastAdminNotification']);
+
+                // Bulk operations
+                Route::post('/bulk-operations', [NotificationController::class, 'adminBulkOperations']);
+
+                // Delete operations
+                Route::delete('/{id}', [NotificationController::class, 'deleteAdminNotification']);
+                Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
+                Route::post('/{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
+            });
         });
 
 
@@ -431,6 +452,32 @@ Route::prefix('v4')->group(function () {
             // Route::get('/group-chats', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getGroupChats']);
             // Route::post('/add-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'addParticipants']);
             // Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
+        });
+
+
+        Route::prefix('notifications')->group(function () {
+            // Basic CRUD operations
+            Route::get('/', [NotificationController::class, 'getUserNotifications']);
+            Route::get('/trashed', [NotificationController::class, 'getUserTrashedNotifications']);
+            Route::get('/unread-count', [NotificationController::class, 'getUserUnreadCount']);
+            Route::get('/statistics', [NotificationController::class, 'getUserNotificationStatistics']);
+            Route::get('/{id}', [NotificationController::class, 'getUserNotification']);
+
+            // Mark as read operations
+            Route::post('/mark-all-read', [NotificationController::class, 'markAllUserNotificationsAsRead']);
+            Route::post('/{id}/mark-read', [NotificationController::class, 'markUserNotificationAsRead']);
+
+            // Soft delete operations
+            Route::delete('/{id}', [NotificationController::class, 'deleteUserNotification']);
+            Route::delete('/', [NotificationController::class, 'clearAllUserNotifications']);
+
+            // Restore operations
+            Route::post('/{id}/restore', [NotificationController::class, 'restoreUserNotification']);
+            Route::post('/restore-all', [NotificationController::class, 'restoreAllUserNotifications']);
+
+            // Permanent delete operations
+            Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteUserNotification']);
+            Route::delete('/empty-trash', [NotificationController::class, 'emptyUserTrash']);
         });
     });
 });

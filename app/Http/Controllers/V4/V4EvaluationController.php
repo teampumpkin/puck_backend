@@ -8,12 +8,14 @@ use App\Models\EvaluationQuestion;
 use App\Models\EvaluationQuestionOption;
 use App\Models\EvaluationSubmission;
 use App\Models\EvaluationSubmissionVersion;
+use App\Models\EvaluationRejectionReason;
 use App\Models\EvaluatorAssignment;
 use App\Models\Evaluation;
 use App\Models\EvaluationAnswer;
 use App\Models\V4PaymentRequest;
 use App\Models\V4User;
 use App\Models\V4InAppPurchase;
+use App\Services\NotificationService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +29,14 @@ use Illuminate\Validation\ValidationException;
 
 class V4EvaluationController extends Controller
 {
+
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Get all evaluation questions with categories and options
      *
@@ -2826,6 +2836,8 @@ class V4EvaluationController extends Controller
                     'status' => EvaluationSubmission::STATUS_COMPLETED,
                 ]);
 
+                $this->sendEvaluationCompleteNotification($evaluation, $assignment);
+
                 DB::commit();
 
                 return response()->json([
@@ -2881,6 +2893,8 @@ class V4EvaluationController extends Controller
             $reasonId = $validated['rejection_reason_id'];
             $notes = $validated['notes'];
 
+            $rejectionReason = EvaluationRejectionReason::find($reasonId);
+
             // Get assignment with submission
             $assignment = EvaluatorAssignment::with('submission')->find($assignmentId);
 
@@ -2930,6 +2944,9 @@ class V4EvaluationController extends Controller
                 $assignment->submission->update([
                     'status' => EvaluationSubmission::STATUS_REJECTED,
                 ]);
+
+                // Send rejection notification to video owner
+                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment);
 
                 DB::commit();
 
@@ -3103,5 +3120,64 @@ class V4EvaluationController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment)
+    {
+        $user = $assignment->submission->player;
+        $title = "Video Evaluation Rejected";
+        $message = "Your Personalized Video Evaluation is Rejected by the evaluator";
+
+        $data = [
+            'evaluation_id' => $evaluation->id,
+            'submission_id' => $assignment->submission_id,
+            'rejection_reason' => $rejectionReason,
+            'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+        ];
+
+        // Send notification with appropriate icon
+        $notification = $this->notificationService->sendToUserWithMaterialIcon(
+            $user,
+            $title,
+            $message,
+            'cancel', // Material icon for rejection
+            '#F44336', // Red color for rejection
+            $data,
+            'video_evaluation_rejected',
+            "/video-evaluations/{$evaluation->id}", // Redirect to evaluation details
+            'video_evaluation_action',
+            $evaluation // Reference to evaluation model
+        );
+
+        return $notification;
+    }
+
+    protected function sendEvaluationCompleteNotification(Evaluation $evaluation, EvaluatorAssignment $assignment)
+    {
+        $user = $assignment->submission->player;
+        $title = "🎉 Video Evaluation Complete!";
+        $message = "Your Personalized Video Evaluation is Completed";
+
+        $data = [
+            'evaluation_id' => $evaluation->id,
+            'submission_id' => $assignment->submission_id,
+            'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+        ];
+
+        // Send notification with appropriate icon
+        $notification = $this->notificationService->sendToUserWithMaterialIcon(
+            $user,
+            $title,
+            $message,
+            'task_alt', // Material icon for rejection
+            '#4CAF50', // Red color for rejection
+            $data,
+            'video_evaluation_completed',
+            "/video-evaluations/{$evaluation->id}/results", // Redirect to evaluation details
+            'video_evaluation_results_action',
+            $evaluation // Reference to evaluation model
+        );
+
+        return $notification;
     }
 }
