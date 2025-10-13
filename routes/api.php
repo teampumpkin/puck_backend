@@ -269,8 +269,15 @@ Route::prefix('v4')->group(function () {
             Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
             Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
 
+            Route::prefix('evaluators')->group(function () {
+                Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
+            });
 
-            Route::get('/user/{id}', [ProfileController::class, 'getAllUserDetailsById']);
+            Route::get('/users/{id}', [ProfileController::class, 'getUserDetailsById']);
+
+            Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
+
+            Route::post('/users/{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
 
             Route::prefix('evaluation')->group(function () {
                 /// Category
@@ -320,13 +327,17 @@ Route::prefix('v4')->group(function () {
                 // Re-Order Options Question by id
                 Route::put('/question-options/reorder', [V4EvaluationController::class, 'reorderQuestionOption']);
             });
+            Route::prefix('evaluations')->group(function () {
+                Route::get('/evaluation-requests', [V4EvaluationController::class, 'getAllEvaluationRequests']);
+                Route::get('/evaluation-requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
+                Route::post('/evaluation-requests/{id}/assign', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
+            });
         });
     });
 
     Route::middleware('auth:v4api')->group(function () {
         Route::get('/profile', [ProfileController::class, 'getProfileData']);
         Route::post('/profile-batch', [ProfileController::class, 'getProfileBatchData']);
-        ;
         Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
