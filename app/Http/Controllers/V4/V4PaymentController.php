@@ -8,6 +8,7 @@ use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\EvaluationSubmission;
 use App\Models\V4User;
+use App\Services\NotificationService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,16 @@ use Illuminate\Validation\ValidationException;
 
 class V4PaymentController extends Controller
 {
+
+
+
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Process payment for in-app purchase
      *
@@ -230,7 +241,6 @@ class V4PaymentController extends Controller
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
@@ -297,7 +307,6 @@ class V4PaymentController extends Controller
                     ]
                 ], 404);
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -317,5 +326,113 @@ class V4PaymentController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
+    }
+
+
+    public function requestPaymentToParent(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            $validated = $request->validate([
+                'sku' => 'required|string|exists:v4_in_app_purchases,sku',
+            ]);
+
+            $sku = $validated['sku'];
+
+            $inAppPurchase = V4InAppPurchase::where('sku', $sku)->where('active', true)->first();
+            if (!$inAppPurchase) {
+                return response()->json(['success' => false, 'message' => 'In-app purchase not found or inactive'], 404);
+            }
+
+            $payerId = '83'; //$user->parent_id;
+            $playerId = $user->id;
+
+            $player = $user;
+
+            if (!$player) {
+                return response()->json(['success' => false, 'message' => 'Player not found'], 404);
+            }
+
+            if ($player->is_child) {
+                if (!$player->parent_id || $player->parent_id != $payerId) {
+                    return response()->json(['success' => false, 'message' => 'Unauthorized. Only the parent can make payment for this child.'], 403);
+                }
+            }
+
+            $paymentRequestData = [
+                'payer_id' => $payerId,
+                'player_id' => $playerId,
+                'in_app_purchase_id' => $inAppPurchase->id,
+                'amount_cents' => $inAppPurchase->amount_cents,
+                'currency' => $inAppPurchase->currency,
+                'status' => V4PaymentRequest::STATUS_PENDING,
+            ];
+            $paymentRequest = V4PaymentRequest::create($paymentRequestData);
+
+
+            $notification = $this->sendPaymentRequestNotification($paymentRequest, $user, $sku);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment request sent to parent',
+                'data' => [
+                    'payment_request' => $paymentRequest,
+                    'notification_sent' => (bool) $notification,
+                ]
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (Exception $e) {
+            Log::error('Error processing payment: ' . $e->getMessage(), ['user_id' => Auth::id(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => 'Failed to process payment', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+        }
+    }
+
+
+    protected function sendPaymentRequestNotification(V4PaymentRequest $paymentRequest, V4User $user, String $sku)
+    {
+        $parent = $paymentRequest->parent_id;
+        $child = $user;
+
+
+
+
+        $amount = $paymentRequest->amount_cents;
+        $currency = $paymentRequest->currency;
+        $purpose = "video_evaluation_payment_request";
+
+        $title = "💰 Payment Request from {$child->name}";
+        $message = "There is a payment approval request from your child $child->name}";
+
+        $data = [
+            'payment_request_id' => $paymentRequest->id,
+            'sku' => $sku,
+            'child' => $user,
+            'amount' => $amount,
+            'currency' => $currency,
+            'purpose' => $purpose,
+            'status' => 'pending',
+            'action_required' => true,
+            'quick_actions' => ['approve', 'decline',],
+            'parent' => $parent,
+        ];
+        $icon = 'payments';
+        $color = '#2196F3'; // Blue for low urgency
+
+
+        $notification = $this->notificationService->sendToUserWithMaterialIcon(
+            $parent,
+            $title,
+            $message,
+            $icon,
+            $color,
+            $data,
+            'payment_request_received',
+            "/payment-requests/{$paymentRequest->id}", // Redirect to payment request details
+            'payment_request_action',
+            $paymentRequest
+        );
+
+        return $notification;
     }
 }
