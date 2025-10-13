@@ -232,6 +232,7 @@ class V4User extends Authenticatable implements JWTSubject
             'parentProfile',
             'fanProfile',
             'superAdminProfile',
+            'evaluatorProfile',
         ];
 
         foreach ($profileRelations as $relation) {
@@ -258,5 +259,10 @@ class V4User extends Authenticatable implements JWTSubject
                 $query->where('blocker_id', $currentUserId)->active();
             }
         ]);
+    }
+
+    public function evaluatorAssignments()
+    {
+        return $this->hasMany(EvaluatorAssignment::class, 'evaluator_id');
     }
 }
