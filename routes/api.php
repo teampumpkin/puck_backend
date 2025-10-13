@@ -273,7 +273,9 @@ Route::prefix('v4')->group(function () {
                 Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
             });
 
-            Route::get('/users/{id}', [ProfileController::class, 'getAllUserDetailsById']);
+            Route::get('/users/{id}', [ProfileController::class, 'getUserDetailsById']);
+
+            Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
 
             Route::post('/users/{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
 
@@ -328,7 +330,7 @@ Route::prefix('v4')->group(function () {
             Route::prefix('evaluations')->group(function () {
                 Route::get('/evaluation-requests', [V4EvaluationController::class, 'getAllEvaluationRequests']);
                 Route::get('/evaluation-requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
-                Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
+                Route::post('/evaluation-requests/{id}/assign', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
             });
         });
     });

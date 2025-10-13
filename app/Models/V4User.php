@@ -260,4 +260,9 @@ class V4User extends Authenticatable implements JWTSubject
             }
         ]);
     }
+
+    public function evaluatorAssignments()
+    {
+        return $this->hasMany(EvaluatorAssignment::class, 'evaluator_id');
+    }
 }

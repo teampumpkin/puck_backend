@@ -824,11 +824,7 @@ class ProfileController extends Controller
             $sortBy     = $validated['sort_by'] ?? 'first_name';
             $sortOrder  = $validated['sort_order'] ?? 'asc';
 
-            $currentUser = Auth::guard('v4api')->user();
-
-
             $query = V4User::query()
-                ->where('id', '!=', $currentUser->id)
                 ->whereNotIn('role', ['super-admin', 'admin', 'manager']);
 
             if (! empty($searchTerm)) {
@@ -917,10 +913,7 @@ class ProfileController extends Controller
             $sortBy     = $validated['sort_by'] ?? 'first_name';
             $sortOrder  = $validated['sort_order'] ?? 'asc';
 
-            $currentUser = Auth::guard('v4api')->user();
-
             $query = V4User::query()
-                ->where('id', '!=', $currentUser->id)
                 ->whereIn('role', ['super-admin', 'admin', 'manager']);
 
             if (! empty($searchTerm)) {
@@ -932,7 +925,7 @@ class ProfileController extends Controller
 
             // Optimized eager loading: Only load relationship IDs or necessary fields
             $query->with([
-                'superAdminProfile:id,v4_user_id',
+                'superAdminProfile:id,v4_user_id,is_verified',
             ]);
 
             $query->orderBy($sortBy, $sortOrder);
@@ -1056,7 +1049,35 @@ class ProfileController extends Controller
         }
     }
 
-    public function getAllUserDetailsById($id): JsonResponse
+    public function getAdminUserDetailsById($id): JsonResponse
+    {
+        try {
+
+            $user = V4User::findOrFail($id);
+
+            $userData = $user;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile data retrieved successfully',
+                'user'    => $userData,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserDetailsById($id): JsonResponse
     {
         try {
 
@@ -1099,14 +1120,17 @@ class ProfileController extends Controller
             // Assign variables with default values
             $searchTerm = $validated['q'] ?? '';
             $page       = $validated['page'] ?? 1;
-            $perPage    = $validated['per_page'] ?? 15;
+            $perPage    = $validated['per_page'] ?? 1000;
             $sortBy     = $validated['sort_by'] ?? 'first_name';
             $sortOrder  = $validated['sort_order'] ?? 'asc';
 
             // Build query for evaluators
             $query = V4User::query()
                 ->where('role', 'evaluator')
-                ->with('evaluatorProfile')
+                ->with([
+                    'evaluatorProfile',
+                    'evaluatorAssignments'
+                ])
                 ->whereHas('evaluatorProfile', function ($q) {
                     $q->where('is_verified', true); // Ensure only verified evaluators are included
                 });
@@ -1128,50 +1152,25 @@ class ProfileController extends Controller
             // Apply the map function on the items (not the paginator)
             $data = $users->items(); // Get the items collection
             $data = collect($data)->map(function ($user) {
+                $incompleteAssignmentCount = $user->evaluatorAssignments
+                    ->filter(fn($a) => $a->status === 'pending')
+                    ->count();
+
+                $completeAssignmentCount = $user->evaluatorAssignments
+                    ->filter(fn($a) => in_array($a->status, ['complete', 'rejected']))
+                    ->count();
                 return [
                     'id'   => $user->id,
-                    'fullName' => $user->name,
-                    'status' => 'active',
-                    "basicInfo" => [
-                        "email" =>  "email",
-                        "phone" => "phone",
-                        "country" => "country",
-                        "province" => "province",
-                        "city" => "city",
-                        "specialties" => ["Video Analysis", "Performance Metrics", "Skill Assessment"],
-                        "rating" => 4.8,
-                        "currentWorkload" => 3,
-                        "totalEvaluations" => 150,
-                        "experience" => "12 years",
-                        "credentials" => "PhD in Sports Science, NHL Scout Certification",
-                        "certifications" => [
-                            [
-                                "id" => "cert1",
-                                "name" => "NHL Scout Certification.pdf",
-                                "uploadedAt" => "2024-01-15",
-                                "size" =>  "2.3 MB"
-                            ]
-                        ],
-                        "socialStats" => [
-                            "followers" => 3456,
-                            "following" => 234,
-                        ],
-                        "recentEvaluations" => [[
-                            "id" => "eval1",
-                            "playerName" => "Connor McDavid Jr.",
-                            "type" => "Video Analysis",
-                            "completedAt" => "2024-01-15",
-                            "rating" => 5,
-                            "status" => "completed"
-                        ], [
-                            "id" => "eval2",
-                            "playerName" => "Sidney Crosby III",
-                            "type" => "Performance Metrics",
-                            "completedAt" => "2024-01-12",
-                            "rating" => 4.5,
-                            "status" => "completed"
-                        ]],
-                    ]
+                    'name' => $user->name,
+                    'status' => 'pending_assignment',
+                    'isAvailable' => true,
+                    'specializations' => ['video_evaluation'],
+                    "profileData" => [
+                        'is_verified' => $user->evaluatorProfile->is_verified,
+                    ],
+                    "currentWorkload" => $incompleteAssignmentCount,
+                    "rating" => 4.8,
+                    "completedEvaluations" => $completeAssignmentCount,
                 ];
             });
 

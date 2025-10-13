@@ -2155,7 +2155,6 @@ class V4EvaluationController extends Controller
                             'uploaded_at' => now()->toISOString(),
                         ],
                     ], 201);
-
                 } catch (Exception $e) {
                     DB::rollBack();
                     // Optionally delete uploaded file from S3 if DB transaction fails
@@ -2453,17 +2452,16 @@ class V4EvaluationController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function allotEvaluatorForSubmission(Request $request): JsonResponse
+    public function allotEvaluatorForSubmission(Request $request, int $id): JsonResponse
     {
         try {
             // Validate required fields
             $request->validate([
-                'evaluator_id' => 'required|integer|exists:v4_users,id',
-                'submission_id' => 'required|integer|exists:evaluation_submissions,id',
+                'evaluatorId' => 'required|integer|exists:v4_users,id',
             ]);
 
-            $evaluatorId = $request->input('evaluator_id');
-            $submissionId = $request->input('submission_id');
+            $evaluatorId = $request->input('evaluatorId');
+            $submissionId = $id;
 
             // Check if evaluator exists and has evaluator role
             $evaluator = V4User::where('id', $evaluatorId)
@@ -2837,12 +2835,10 @@ class V4EvaluationController extends Controller
                         'total_answers' => count($evaluationAnswers),
                     ],
                 ], 201);
-
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
@@ -2946,12 +2942,10 @@ class V4EvaluationController extends Controller
                         'submission_status' => $assignment->submission->status,
                     ],
                 ], 201);
-
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
@@ -3094,7 +3088,6 @@ class V4EvaluationController extends Controller
                     'categories' => $categories,
                 ],
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error retrieving submission result: ' . $e->getMessage(), [
                 'evaluation_id' => $evaluationId,

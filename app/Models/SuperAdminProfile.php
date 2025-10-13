@@ -11,6 +11,7 @@ class SuperAdminProfile extends Model
 
     protected $fillable = [
         'v4_user_id',
+        'is_verified',
     ];
 
     public function user()
