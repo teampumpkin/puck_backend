@@ -1941,7 +1941,8 @@ class V4EvaluationController extends Controller
      */
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
-        try {;
+        try {
+            ;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2260,16 +2261,16 @@ class V4EvaluationController extends Controller
         try {
 
             $validated = $request->validate([
-                'q'          => 'nullable|string|max:255',
-                'page'       => 'nullable|integer|min:1',
-                'per_page'   => 'nullable|integer|min:1|max:100',
+                'q' => 'nullable|string|max:255',
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:1|max:100',
                 // 'sort_by'    => 'nullable|string|in:first_name,last_name,role',
                 // 'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
-            $page       = $validated['page'] ?? 1;
-            $perPage    = $validated['per_page'] ?? 15;
+            $page = $validated['page'] ?? 1;
+            $perPage = $validated['per_page'] ?? 15;
             // $sortBy     = $validated['sort_by'] ?? 'created_at';
             // $sortOrder  = $validated['sort_order'] ?? 'asc';
 
@@ -2293,14 +2294,14 @@ class V4EvaluationController extends Controller
 
             // $query->orderBy($sortBy, $sortOrder);
 
-            $data =  collect();
+            $data = collect();
 
 
 
             $submissions = $query->paginate($perPage, ['*'], 'page', $page);
 
             $data = $data->merge($submissions->map(function ($submission) {
-                $result =    [
+                $result = [
                     'id' => $submission->id,
                     'playerId' => $submission->player->id,
                     'playerName' => $submission->player->name,
@@ -2342,14 +2343,14 @@ class V4EvaluationController extends Controller
             }));
 
             return response()->json([
-                'data'  => $data,
+                'data' => $data,
                 'pagination' => [
-                    'total'          => $submissions->total(),
-                    'per_page'       => $submissions->perPage(),
-                    'current_page'   => $submissions->currentPage(),
-                    'last_page'      => $submissions->lastPage(),
-                    'from'           => $submissions->firstItem() ?? 0,
-                    'to'             => $submissions->lastItem() ?? 0,
+                    'total' => $submissions->total(),
+                    'per_page' => $submissions->perPage(),
+                    'current_page' => $submissions->currentPage(),
+                    'last_page' => $submissions->lastPage(),
+                    'from' => $submissions->firstItem() ?? 0,
+                    'to' => $submissions->lastItem() ?? 0,
                     'has_more_pages' => $submissions->hasMorePages(),
                 ],
             ]);
@@ -2357,19 +2358,19 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             Log::error('Error allotting evaluator for submission: ' . $e->getMessage(), [
-                'evaluator_id'  => $request->input('evaluator_id'),
+                'evaluator_id' => $request->input('evaluator_id'),
                 'submission_id' => $request->input('submission_id'),
-                'trace'         => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to allot evaluator',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -2502,8 +2503,8 @@ class V4EvaluationController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => "Submission already {$submission->status}",
-                        'submission_id'  => $submissionId,
-                        'evaluator_id'   => $existingAssignment->evaluator_id,
+                        'submission_id' => $submissionId,
+                        'evaluator_id' => $existingAssignment->evaluator_id,
                         'current_status' => $submission->status,
                     ], 400);
                 }
@@ -2605,6 +2606,8 @@ class V4EvaluationController extends Controller
                         'id' => $assignment->submission->player->id,
                         'name' => $assignment->submission->player->first_name . ' ' . $assignment->submission->player->last_name,
                         'role' => $assignment->submission->player->role,
+                        'profile_photo' => $assignment->submission->player->profile_photo,
+                        'location' => $assignment->submission->player->state . ', ' . $assignment->submission->player->country,
                     ],
                     'in_app_purchase' => $assignment->submission->paymentRequest->inAppPurchase ? [
                         'id' => $assignment->submission->paymentRequest->inAppPurchase->id,
