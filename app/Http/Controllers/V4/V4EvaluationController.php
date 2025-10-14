@@ -1941,8 +1941,7 @@ class V4EvaluationController extends Controller
      */
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
-        try {
-            ;
+        try {;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2137,6 +2136,7 @@ class V4EvaluationController extends Controller
                     } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING, EvaluationSubmission::STATUS_REJECTED])) {
                         // Update pending or rejected submission to uploaded
                         $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                        $submission->evaluatorAssignment->update(['status' => EvaluationSubmission::STATUS_PENDING]);
                     }
 
                     // Create submission version
@@ -2946,7 +2946,7 @@ class V4EvaluationController extends Controller
                 ]);
 
                 // Send rejection notification to video owner
-                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment);
+                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment, $notes);
 
                 DB::commit();
 
@@ -3122,7 +3122,7 @@ class V4EvaluationController extends Controller
         }
     }
 
-    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment)
+    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment, $notes)
     {
         $user = $assignment->submission->player;
         $title = "Video Evaluation Rejected";
@@ -3133,6 +3133,7 @@ class V4EvaluationController extends Controller
             'submission_id' => $assignment->submission_id,
             'rejection_reason' => $rejectionReason,
             'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+            'notes' => $notes,
         ];
 
         // Send notification with appropriate icon
