@@ -15,6 +15,7 @@ class EvaluatorAssignment extends Model
     use HasFactory;
 
     const STATUS_PENDING = 'pending';
+    const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_COMPLETED = 'completed';
     const STATUS_REJECTED = 'rejected';
 
@@ -164,6 +165,23 @@ class EvaluatorAssignment extends Model
     public function isPending()
     {
         return $this->status === self::STATUS_PENDING;
+    }
+
+    public function markInProgress()
+    {
+        $this->status = self::STATUS_IN_PROGRESS;
+        $this->save();
+        return $this;
+    }
+
+    public function isInProgress()
+    {
+        return $this->status === self::STATUS_IN_PROGRESS;
+    }
+
+    public function scopeInProgress($query)
+    {
+        return $query->where('status', self::STATUS_IN_PROGRESS);
     }
 
     public function isCompleted()
