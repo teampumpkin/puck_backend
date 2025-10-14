@@ -2135,8 +2135,7 @@ class V4EvaluationController extends Controller
                         ]);
                     } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING, EvaluationSubmission::STATUS_REJECTED])) {
                         // Update pending or rejected submission to uploaded
-                        $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-                        $submission->evaluatorAssignment->update(['status' => EvaluationSubmission::STATUS_PENDING]);
+                        $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
                     }
 
                     // Create submission version
