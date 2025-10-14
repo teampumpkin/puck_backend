@@ -19,6 +19,7 @@ class EvaluationSubmission extends Model
     use HasFactory, SoftDeletes;
 
     const STATUS_PENDING = 'pending';
+    const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_UPLOADED = 'uploaded';
     const STATUS_ASSIGNED = 'assigned';
     const STATUS_REJECTED = 'rejected';
