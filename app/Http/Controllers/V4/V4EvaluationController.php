@@ -1941,8 +1941,7 @@ class V4EvaluationController extends Controller
      */
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
-        try {
-            ;
+        try {;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2946,7 +2945,7 @@ class V4EvaluationController extends Controller
                 ]);
 
                 // Send rejection notification to video owner
-                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment);
+                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment, $notes);
 
                 DB::commit();
 
@@ -3122,7 +3121,7 @@ class V4EvaluationController extends Controller
         }
     }
 
-    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment)
+    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment, $notes)
     {
         $user = $assignment->submission->player;
         $title = "Video Evaluation Rejected";
@@ -3133,6 +3132,7 @@ class V4EvaluationController extends Controller
             'submission_id' => $assignment->submission_id,
             'rejection_reason' => $rejectionReason,
             'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+            'notes' => $notes,
         ];
 
         // Send notification with appropriate icon
