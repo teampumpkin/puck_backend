@@ -15,3 +15,5 @@ yarn-error.log
 /.vscode
 docker-compose.yml
 postgres-data/*
+
+.DS_Store

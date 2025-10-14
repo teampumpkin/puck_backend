@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Listeners\MessageSendingListener;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Auth\Events\Registered;
+use App\Events\InvalidFcmToken;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
+use App\Listeners\HandleInvalidFcmToken;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use App\Models\User;
 use App\Observers\UserObserver;
@@ -24,6 +26,7 @@ class EventServiceProvider extends ServiceProvider
         MessageSending::class => [
             MessageSendingListener::class
         ],
+        InvalidFcmToken::class => [HandleInvalidFcmToken::class]
     ];
 
     /**

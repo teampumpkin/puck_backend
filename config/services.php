@@ -38,5 +38,9 @@ return [
     'zapier' => [
         'user_webhook' => env('ZAPIER_USER_WEBHOOK_URL'),
     ],
-
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY', ''),
+        'sender_id' => env('FCM_SENDER_ID', ''),
+        'project_id' => env('FCM_PROJECT_ID', ''),
+    ],
 ];
