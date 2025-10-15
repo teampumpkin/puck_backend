@@ -1941,7 +1941,8 @@ class V4EvaluationController extends Controller
      */
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
-        try {;
+        try {
+            ;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2717,7 +2718,7 @@ class V4EvaluationController extends Controller
 
                     if ($latestEvaluation && !empty($latestEvaluation->meta) && isset($latestEvaluation->meta['reason_id'])) {
                         $rejectionReason = EvaluationRejectionReason::find($latestEvaluation->meta['reason_id']);
-                        $notes =  $latestEvaluation->meta['notes'];
+                        $notes = $latestEvaluation->meta['notes'];
                     }
                     return response()->json([
                         'success' => true,
@@ -2850,7 +2851,7 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'This assignment not assigned to you'], 403);
             }
             // Check if assignment status is pending
-            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING) {
+            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING && $assignment->status !== EvaluatorAssignment::STATUS_IN_PROGRESS) {
                 return response()->json([
                     'success' => false,
                     'message' => "Assignment is already {$assignment->status}"
@@ -3003,7 +3004,7 @@ class V4EvaluationController extends Controller
             }
 
             // Check if assignment status is pending
-            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING) {
+            if ($assignment->status !== EvaluatorAssignment::STATUS_PENDING && $assignment->status !== EvaluatorAssignment::STATUS_IN_PROGRESS) {
                 return response()->json([
                     'success' => false,
                     'message' => "Assignment is already {$assignment->status}"
