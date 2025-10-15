@@ -1083,7 +1083,69 @@ class ProfileController extends Controller
 
             $user = V4User::findOrFail($id);
 
-            $userData = $user;
+            $profileData = null;
+            switch ($user->role) {
+                case 'player':
+                    $user->load('playerProfile');
+                    $profileData = $user->playerProfile;
+                    break;
+                case 'coach':
+                    $user->load('coachProfile');
+                    $profileData = $user->coachProfile;
+                    break;
+                case 'team':
+                    $user->load('teamProfile');
+                    $profileData = $user->teamProfile;
+                    break;
+                case 'scout':
+                    $user->load('scoutProfile');
+                    $profileData = $user->scoutProfile;
+                    break;
+                case 'academy':
+                    $user->load('academyProfile');
+                    $profileData = $user->academyProfile;
+                    break;
+                case 'organizer':
+                    $user->load('organizerProfile');
+                    $profileData = $user->organizerProfile;
+                    break;
+                case 'adviser':
+                    $user->load('adviserProfile');
+                    $profileData = $user->adviserProfile;
+                    break;
+                case 'parent':
+                    $user->load('parentProfile');
+                    $profileData = $user->parentProfile;
+                    $user->load('children.playerProfile');
+                    break;
+                case 'fan':
+                    $user->load('fanProfile');
+                    $profileData = $user->fanProfile;
+                    break;
+                case 'evaluator':
+                    $user->load('evaluatorProfile');
+                    $profileData = $user->evaluatorProfile;
+                    break;
+            }
+
+            // Create a standardized response
+            $userData = $user->toArray();
+
+            // Remove the specific profile fields to avoid duplication
+            unset(
+                $userData['player_profile'],
+                $userData['coach_profile'],
+                $userData['team_profile'],
+                $userData['scout_profile'],
+                $userData['academy_profile'],
+                $userData['organizer_profile'],
+                $userData['adviser_profile'],
+                $userData['parent_profile'],
+                $userData['fan_profile']
+            );
+
+            // Add the profile data under a standardized field name
+            $userData['profile'] = $profileData;
 
             return response()->json([
                 'success' => true,
