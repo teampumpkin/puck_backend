@@ -1941,8 +1941,7 @@ class V4EvaluationController extends Controller
      */
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
-        try {
-            ;
+        try {;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2068,6 +2067,7 @@ class V4EvaluationController extends Controller
             if ($paymentRequest->status === V4PaymentRequest::STATUS_PAID) {
                 $submission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
                     ->where('player_id', $playerId)
+                    ->with(['evaluatorAssignment'])
                     ->first();
 
                 // Check submission status
@@ -2134,9 +2134,13 @@ class V4EvaluationController extends Controller
                             'payment_request_id' => $paymentRequest->id,
                             'status' => EvaluationSubmission::STATUS_UPLOADED,
                         ]);
-                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING, EvaluationSubmission::STATUS_REJECTED])) {
+                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING])) {
                         // Update pending or rejected submission to uploaded
                         $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED])) {
+                        // Update pending or rejected submission to uploaded
+                        $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
+                        $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
                     }
 
                     // Create submission version
@@ -2569,7 +2573,7 @@ class V4EvaluationController extends Controller
             $user = Auth::guard('v4api')->user();
 
             // Validate status parameter
-            if (!in_array($status, ['pending', 'completed'])) {
+            if (!in_array($status, ['pending', 'completed', 'in_progress'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid status. Must be pending or completed',
@@ -2585,6 +2589,8 @@ class V4EvaluationController extends Controller
 
             if ($status === 'pending') {
                 $query->where('status', EvaluatorAssignment::STATUS_PENDING);
+            } else if ($status === 'in_progress') {
+                $query->where('status', EvaluatorAssignment::STATUS_IN_PROGRESS);
             } else {
                 // For completed, include both completed and rejected
                 $query->whereIn('status', [
@@ -2693,6 +2699,7 @@ class V4EvaluationController extends Controller
             if ($paymentRequest->status === V4PaymentRequest::STATUS_PAID) {
                 $submission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
                     ->where('player_id', $userId)
+                    ->with(['evaluatorAssignment', 'evaluations'])
                     ->first();
 
                 if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
@@ -2700,11 +2707,33 @@ class V4EvaluationController extends Controller
                 }
 
                 if ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
-                    return response()->json(['success' => true, 'status' => 'rejected', 'redirect' => 'submit_video'], 200);
+                    $latestEvaluation = $submission->evaluations
+                        ->sortByDesc('created_at')
+                        ->first();
+
+
+                    $rejectionReason = null;
+                    $notes = null;
+
+                    if ($latestEvaluation && !empty($latestEvaluation->meta) && isset($latestEvaluation->meta['reason_id'])) {
+                        $rejectionReason = EvaluationRejectionReason::find($latestEvaluation->meta['reason_id']);
+                        $notes =  $latestEvaluation->meta['notes'];
+                    }
+                    return response()->json([
+                        'success' => true,
+                        'status' => 'rejected',
+                        'redirect' => 'redo_video',
+                        'rejection_reason' => $rejectionReason,
+                        'notes' => $notes
+                    ], 200);
                 }
 
                 if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
-                    return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
+                    return response()->json([
+                        'success' => true,
+                        'redirect' => 'make_payment',
+
+                    ], 200);
                 }
 
                 if (in_array($submission->status, [EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_UPLOADED])) {
@@ -2718,6 +2747,72 @@ class V4EvaluationController extends Controller
         } catch (Exception $e) {
             Log::error('Video evaluation status check failed', ['error' => $e->getMessage(), 'sku' => $request->input('sku'), 'user_id' => $request->input('user_id')]);
             return response()->json(['success' => false, 'message' => 'Failed to check video evaluation status', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+        }
+    }
+
+
+    public function makeEvaluationInProgress(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+            ]);
+            $assignment = EvaluatorAssignment::with(['submission'])->findOrFail($request->assignment_id);
+
+            // ✅ Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // ✅ Prevent changing if already in progress or completed
+            if (!$assignment->isPending()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only pending assignments can be started.',
+                ], 400);
+            }
+
+            // ✅ Optional: Prevent duplicate evaluations
+            // if ($assignment->evaluation()->exists()) {
+            //     return response()->json([
+            //         'success' => false,
+            //         'message' => 'An evaluation already exists for this assignment.',
+            //     ], 409);
+            // }
+
+            // ✅ Mark the assignment as in progress
+            $assignment->submission->update([
+                'status' => EvaluationSubmission::STATUS_IN_PROGRESS,
+            ]);
+            $assignment->markInProgress();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Assignment status updated to in progress.',
+                'data' => $assignment,
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error updating assignment to in_progress: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update assignment status',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
         }
     }
 
@@ -2946,7 +3041,7 @@ class V4EvaluationController extends Controller
                 ]);
 
                 // Send rejection notification to video owner
-                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment);
+                $this->sendEvaluationRejectedNotification($evaluation, $rejectionReason, $assignment, $notes);
 
                 DB::commit();
 
@@ -3122,7 +3217,7 @@ class V4EvaluationController extends Controller
         }
     }
 
-    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment)
+    protected function sendEvaluationRejectedNotification(Evaluation $evaluation, EvaluationRejectionReason $rejectionReason, EvaluatorAssignment $assignment, $notes)
     {
         $user = $assignment->submission->player;
         $title = "Video Evaluation Rejected";
@@ -3133,6 +3228,7 @@ class V4EvaluationController extends Controller
             'submission_id' => $assignment->submission_id,
             'rejection_reason' => $rejectionReason,
             'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+            'notes' => $notes,
         ];
 
         // Send notification with appropriate icon
