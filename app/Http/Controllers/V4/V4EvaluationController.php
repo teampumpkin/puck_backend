@@ -2573,42 +2573,45 @@ class V4EvaluationController extends Controller
         try {
             $user = Auth::guard('v4api')->user();
 
+            $statusMap = [
+                'pending' => [EvaluatorAssignment::STATUS_PENDING],
+                'in_progress' => [EvaluatorAssignment::STATUS_IN_PROGRESS],
+                'completed' => [
+                    EvaluatorAssignment::STATUS_COMPLETED,
+                    EvaluatorAssignment::STATUS_REJECTED,
+                ],
+            ];
+
             // Validate status parameter
-            if (!in_array($status, ['pending', 'completed', 'in_progress'])) {
+            if (!array_key_exists($status, $statusMap)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid status. Must be pending or completed',
+                    'message' => 'Invalid status. Must be pending, in_progress, or completed',
                 ], 400);
             }
 
             // Build query based on status and current user's evaluator ID
             $query = EvaluatorAssignment::with([
                 'submission.player',
+                'submission.currentVersion',
                 'submission.paymentRequest.inAppPurchase',
                 'evaluator',
-            ])->where('evaluator_id', $user->id);
-
-            if ($status === 'pending') {
-                $query->where('status', EvaluatorAssignment::STATUS_PENDING);
-            } else if ($status === 'in_progress') {
-                $query->where('status', EvaluatorAssignment::STATUS_IN_PROGRESS);
-            } else {
-                // For completed, include both completed and rejected
-                $query->whereIn('status', [
-                    EvaluatorAssignment::STATUS_COMPLETED,
-                    EvaluatorAssignment::STATUS_REJECTED,
-                ]);
-            }
+            ])->where('evaluator_id', $user->id)
+                ->whereIn('status', $statusMap[$status]);
 
             $assignments = $query->orderBy('assigned_at', 'desc')->get();
 
             $formattedAssignments = $assignments->map(function ($assignment) {
+                if (!$assignment->submission || !$assignment->submission->player) {
+                    return null; // skip invalid ones
+                }
+
                 return [
                     'assignment_id' => $assignment->id,
                     'status' => $assignment->status,
                     'notes' => $assignment->notes,
-                    'submission_date' => $assignment->submission->updated_at->toISOString(),
-                    'file_path' => $assignment->submission->currentVersion->file_path,
+                    'submission_date' => optional($assignment->submission->updated_at)->toISOString(),
+                    'file_path' => optional($assignment->submission->currentVersion)->file_path,
                     'player' => [
                         'id' => $assignment->submission->player->id,
                         'name' => $assignment->submission->player->first_name . ' ' . $assignment->submission->player->last_name,
@@ -2616,26 +2619,27 @@ class V4EvaluationController extends Controller
                         'profile_photo' => $assignment->submission->player->profile_photo,
                         'location' => $assignment->submission->player->state . ', ' . $assignment->submission->player->country,
                     ],
-                    'in_app_purchase' => $assignment->submission->paymentRequest->inAppPurchase ? [
+                    'in_app_purchase' => optional(optional($assignment->submission->paymentRequest)->inAppPurchase) ? [
                         'id' => $assignment->submission->paymentRequest->inAppPurchase->id,
                         'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
                         'title' => $assignment->submission->paymentRequest->inAppPurchase->title,
                         'active' => $assignment->submission->paymentRequest->inAppPurchase->active,
                     ] : null,
                 ];
-            });
+            })->filter(); // remove null entries
 
             return response()->json([
                 'success' => true,
                 'message' => "Evaluator assignments retrieved successfully",
                 'data' => [
-                    'assignments' => $formattedAssignments,
+                    'assignments' => $formattedAssignments->values(),
                     'total_count' => $formattedAssignments->count(),
                     'status_filter' => $status,
                     'evaluator_id' => $user->id,
-                    'filters_applied' => $status === 'pending'
-                        ? ['status' => 'pending', 'evaluator_id' => $user->id]
-                        : ['status' => ['completed', 'rejected'], 'evaluator_id' => $user->id],
+                    'filters_applied' => [
+                        'status' => $statusMap[$status],
+                        'evaluator_id' => $user->id,
+                    ],
                 ],
             ], 200);
         } catch (Exception $e) {
