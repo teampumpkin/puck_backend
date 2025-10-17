@@ -265,4 +265,47 @@ class V4User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(EvaluatorAssignment::class, 'evaluator_id');
     }
+
+
+    /**
+     * Users that this user is following.
+     */
+    public function following()
+    {
+        return $this->belongsToMany(
+            self::class,
+            'v4_follows',
+            'follower_id',
+            'followed_id'
+        )->withTimestamps();
+    }
+
+    /**
+     * Users that follow this user.
+     */
+    public function followers()
+    {
+        return $this->belongsToMany(
+            V4User::class,
+            'v4_follows',
+            'followed_id',
+            'follower_id'
+        )->withTimestamps();
+    }
+
+    /**
+     * Direct relationship with the follow model (initiated follows)
+     */
+    public function followRequestsSent()
+    {
+        return $this->hasMany(V4Follow::class, 'follower_id');
+    }
+
+    /**
+     * Direct relationship with the follow model (received follows)
+     */
+    public function followRequestsReceived()
+    {
+        return $this->hasMany(V4Follow::class, 'followed_id');
+    }
 }
