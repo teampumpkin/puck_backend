@@ -456,6 +456,14 @@ class NotificationService
     }
 
     /**
+     * Mark notification as unread
+     */
+    public function markAsUnRead(Notification $notification)
+    {
+        return $notification->markAsUnRead();
+    }
+
+    /**
      * Mark all notifications as read for user
      */
     public function markAllAsRead(V4User $user)

@@ -156,15 +156,13 @@ class NotificationController extends Controller
      */
     public function markUserNotificationAsRead($id)
     {
-
-
         $notification = Notification::findOrFail($id);
 
         // Check if notification belongs to user
-        if ($notification->v4_user_id !== Auth::id()) {
+        if ((int) $notification->v4_user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized'
+                'message' => 'Unauthorized',
             ], 403);
         }
 
@@ -172,7 +170,7 @@ class NotificationController extends Controller
         if ($notification->isRead()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Notification is already marked as read'
+                'message' => 'Notification is already marked as read',
             ]);
         }
 
@@ -193,26 +191,27 @@ class NotificationController extends Controller
         $notification = Notification::findOrFail($id);
 
         // Check if notification belongs to user
-        if ($notification->v4_user_id !== Auth::id()) {
+        if ((int) $notification->v4_user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized'
             ], 403);
         }
 
-        // Check if notification is already read
-        if ($notification->isRead()) {
+        // Check if notification is already unread
+        if (!$notification->isRead()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Notification is already read',
+                'message' => 'Notification is already unread',
             ]);
         }
 
-        $this->notificationService->markAsRead($notification);
+        // ✅ Corrected method call
+        $this->notificationService->markAsUnRead($notification);
 
         return response()->json([
             'success' => true,
-            'message' => 'Notification marked as read',
+            'message' => 'Notification marked as unread', // ✅ Corrected message
             'data' => $this->formatUserNotificationResponse($notification)
         ]);
     }
