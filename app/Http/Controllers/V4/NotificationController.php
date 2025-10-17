@@ -168,6 +168,46 @@ class NotificationController extends Controller
             ], 403);
         }
 
+        // Check if notification is already read
+        if ($notification->isRead()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Notification is already marked as read'
+            ]);
+        }
+
+        $this->notificationService->markAsRead($notification);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification marked as read',
+            'data' => $this->formatUserNotificationResponse($notification)
+        ]);
+    }
+
+    /**
+     * Mark user notification as read (Flutter App)
+     */
+    public function markUserNotificationAsUnRead($id)
+    {
+        $notification = Notification::findOrFail($id);
+
+        // Check if notification belongs to user
+        if ($notification->v4_user_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        // Check if notification is already read
+        if ($notification->isRead()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Notification is already read',
+            ]);
+        }
+
         $this->notificationService->markAsRead($notification);
 
         return response()->json([

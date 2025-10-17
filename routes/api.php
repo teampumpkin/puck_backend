@@ -468,6 +468,7 @@ Route::prefix('v4')->group(function () {
             // Mark as read operations
             Route::post('/mark-all-read', [NotificationController::class, 'markAllUserNotificationsAsRead']);
             Route::post('/{id}/mark-read', [NotificationController::class, 'markUserNotificationAsRead']);
+            Route::post('/{id}/mark-unread', [NotificationController::class, 'markUserNotificationAsUnRead']);
 
             // Soft delete operations
             Route::delete('/{id}', [NotificationController::class, 'deleteUserNotification']);
