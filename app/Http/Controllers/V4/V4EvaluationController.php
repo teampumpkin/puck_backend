@@ -1942,7 +1942,6 @@ class V4EvaluationController extends Controller
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
         try {
-            ;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2269,15 +2268,15 @@ class V4EvaluationController extends Controller
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
-                // 'sort_by'    => 'nullable|string|in:first_name,last_name,role',
-                // 'sort_order' => 'nullable|string|in:asc,desc',
+                'sort_by'    => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
+                'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
             $page = $validated['page'] ?? 1;
             $perPage = $validated['per_page'] ?? 15;
-            // $sortBy     = $validated['sort_by'] ?? 'created_at';
-            // $sortOrder  = $validated['sort_order'] ?? 'asc';
+            $sortBy     = $validated['sort_by'] ?? 'current_version_updated_at';
+            $sortOrder  = $validated['sort_order'] ?? 'desc';
 
             $query = EvaluationSubmission::query();
 
@@ -2297,11 +2296,16 @@ class V4EvaluationController extends Controller
             //     });
             // }
 
-            // $query->orderBy($sortBy, $sortOrder);
+            // Handle sorting by related model field
+            if ($sortBy === 'current_version_updated_at') {
+                $query->leftJoin('evaluation_submission_versions as current_versions', 'current_versions.id', '=', 'evaluation_submissions.current_version_id')
+                    ->orderBy('current_versions.updated_at', $sortOrder)
+                    ->select('evaluation_submissions.*'); // Important to avoid overriding base model fields
+            } else {
+                $query->orderBy($sortBy, $sortOrder);
+            }
 
             $data = collect();
-
-
 
             $submissions = $query->paginate($perPage, ['*'], 'page', $page);
 
@@ -2315,6 +2319,7 @@ class V4EvaluationController extends Controller
                     // 'dueDate' => 'dueDate',
                     'price' => $submission->paymentRequest->amount_cents,
                     // 'notes' => 'notes',
+                    'updated_at' => $submission->updated_at,
                 ];
 
                 if ($submission->versions != []) {

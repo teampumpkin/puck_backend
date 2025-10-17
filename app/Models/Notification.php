@@ -163,6 +163,11 @@ class Notification extends Model
         return !is_null($this->read_at);
     }
 
+    public function isUnread()
+    {
+        return $this->read_at === null;
+    }
+
     // Soft delete instead of permanent delete
     public function softDelete()
     {

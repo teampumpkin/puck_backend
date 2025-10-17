@@ -333,6 +333,25 @@ Route::prefix('v4')->group(function () {
                 Route::get('/evaluation-requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
                 Route::post('/evaluation-requests/{id}/assign', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
             });
+
+            Route::prefix('notifications')->group(function () {
+                Route::get('/', [NotificationController::class, 'getAdminNotifications']);
+                Route::get('/dashboard-statistics', [NotificationController::class, 'getAdminDashboardStatistics']);
+                Route::get('/user-statistics/{userId}', [NotificationController::class, 'getAdminUserStatistics']);
+                Route::get('/{id}', [NotificationController::class, 'getAdminNotification']);
+
+                // Send notifications
+                Route::post('/send', [NotificationController::class, 'sendAdminNotification']);
+                Route::post('/broadcast', [NotificationController::class, 'broadcastAdminNotification']);
+
+                // Bulk operations
+                Route::post('/bulk-operations', [NotificationController::class, 'adminBulkOperations']);
+
+                // Delete operations
+                Route::delete('/{id}', [NotificationController::class, 'deleteAdminNotification']);
+                Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
+                Route::post('/{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
+            });
         });
     });
 
@@ -394,25 +413,6 @@ Route::prefix('v4')->group(function () {
             Route::post('/reject-evaluator-assignment', [V4EvaluationController::class, 'rejectEvaluatorAssignment']);
             Route::get('/get-evaluation-report/{evaluation_id}', [V4EvaluationController::class, 'getEvaluationReport']);
             Route::post('/make-evaluation-in-progress', [V4EvaluationController::class, 'makeEvaluationInProgress']);
-
-            Route::prefix('notifications')->group(function () {
-                Route::get('/', [NotificationController::class, 'getAdminNotifications']);
-                Route::get('/dashboard-statistics', [NotificationController::class, 'getAdminDashboardStatistics']);
-                Route::get('/user-statistics/{userId}', [NotificationController::class, 'getAdminUserStatistics']);
-                Route::get('/{id}', [NotificationController::class, 'getAdminNotification']);
-
-                // Send notifications
-                Route::post('/send', [NotificationController::class, 'sendAdminNotification']);
-                Route::post('/broadcast', [NotificationController::class, 'broadcastAdminNotification']);
-
-                // Bulk operations
-                Route::post('/bulk-operations', [NotificationController::class, 'adminBulkOperations']);
-
-                // Delete operations
-                Route::delete('/{id}', [NotificationController::class, 'deleteAdminNotification']);
-                Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
-                Route::post('/{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
-            });
         });
 
 
@@ -468,6 +468,7 @@ Route::prefix('v4')->group(function () {
             // Mark as read operations
             Route::post('/mark-all-read', [NotificationController::class, 'markAllUserNotificationsAsRead']);
             Route::post('/{id}/mark-read', [NotificationController::class, 'markUserNotificationAsRead']);
+            Route::post('/{id}/mark-unread', [NotificationController::class, 'markUserNotificationAsUnRead']);
 
             // Soft delete operations
             Route::delete('/{id}', [NotificationController::class, 'deleteUserNotification']);
