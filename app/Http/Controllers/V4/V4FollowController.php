@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\V4Follow;
@@ -47,28 +47,39 @@ class V4FollowController extends Controller
 
         try {
             // Check if already followed or pending
-            $existing = V4Follow::where('follower_id', $authUser->id)
+            $existing = V4Follow::withTrashed()
+                ->where('follower_id', $authUser->id)
                 ->where('following_id', $user->id)
                 ->first();
 
+            $status = $user->enable_private_account ? 'pending' : 'accepted';
+
+            DB::beginTransaction();
+
             if ($existing) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Already following or follow request is pending',
-                    'data'    => $existing
-                ], 409);
+                if ($existing->trashed()) {
+                    // Restore soft-deleted relationship (re-follow)
+                    $existing->restore();
+                    $existing->update(['status' => $status]);
+                    $follow = $existing;
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Already following or follow request pending.',
+                    ], 409);
+                }
+            } else {
+                $follow = V4Follow::create([
+                    'follower_id' => $authUser->id,
+                    'following_id' => $user->id,
+                    'status' => $status,
+                ]);
             }
 
-            $status = $user->is_private ? 'pending' : 'accepted';
-
-            $follow = V4Follow::create([
-                'follower_id' => $authUser->id,
-                'following_id' => $user->id,
-                'status' => $status,
-            ]);
+            DB::commit();
 
             // Send notification
-            if ($user->is_private) {
+            if ($user->enable_private_account) {
                 $this->sendRequestFollowingNotification($authUser, $user, $follow);
             } else {
                 $this->sendFollowAcceptedNotification($authUser, $user, $follow);
@@ -76,16 +87,22 @@ class V4FollowController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $user->is_private ? 'Follow request sent successfully.' : 'User followed successfully.',
-                'data'    => $follow,
+                'message' => $user->enable_private_account
+                    ? 'Follow request sent successfully.'
+                    : 'User followed successfully.',
+                'data' => $follow,
             ]);
         } catch (ValidationException $e) {
+            DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
+            DB::rollBack();
+
             Log::error('Follow failed: ' . $e->getMessage(), [
                 'user_id' => $authUser->id,
                 'target_user_id' => $user->id,
@@ -95,7 +112,7 @@ class V4FollowController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while trying to follow the user.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -123,17 +140,23 @@ class V4FollowController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'You are not following this user',
-                    'data'    => null,
                 ], 409);
             }
 
+            DB::beginTransaction();
+
+            // Soft delete follow record
             $follow->delete();
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Unfollowed successfully',
             ]);
         } catch (Exception $e) {
+            DB::rollBack();
+
             Log::error('Unfollow failed: ' . $e->getMessage(), [
                 'user_id' => $authUser->id,
                 'target_user_id' => $user->id,
@@ -143,10 +166,11 @@ class V4FollowController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while trying to unfollow the user.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
+
 
     /**
      * Accept a follow request (for private account)
@@ -162,12 +186,19 @@ class V4FollowController extends Controller
             ], 401);
         }
 
+        if ($authUser->id === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot follow yourself',
+            ], 400);
+        }
+
         try {
             $follow = V4Follow::where([
                 'follower_id'  => $user->id,         // $user is the follower
                 'following_id' => $authUser->id,     // Auth user is the one being followed
                 'status'       => 'pending',
-            ])->firstOrFail();
+            ])->first();
 
             if (! $follow) {
                 return response()->json(['message' => 'No pending request found'], 404);
@@ -281,11 +312,73 @@ class V4FollowController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Followers retrieved successfully.',
-                'data'    => $followers,
+                'data'    => $followers->items(),
+                'pagination' => [
+                    'total'          => $followers->total(),
+                    'per_page'       => $followers->perPage(),
+                    'current_page'   => $followers->currentPage(),
+                    'last_page'      => $followers->lastPage(),
+                    'from'           => $followers->firstItem() ?? 0,
+                    'to'             => $followers->lastItem() ?? 0,
+                    'has_more_pages' => $followers->hasMorePages(),
+                ],
             ]);
         } catch (Exception $e) {
             Log::error('Fetching followers failed: ' . $e->getMessage(), [
                 'user_id' => $user->id,
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve followers.',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * List followers
+     */
+    public function myFollowers(Request $request): JsonResponse
+    {
+
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min($perPage, 100)); // Ensure perPage is between 1 and 100
+
+        try {
+            $followers = V4Follow::with('follower')
+                ->where('following_id', $authUser->id)
+                ->where('status', 'accepted')
+                ->latest()
+                ->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followers retrieved successfully.',
+                'data'    => $followers->items(),
+                'pagination' => [
+                    'total'          => $followers->total(),
+                    'per_page'       => $followers->perPage(),
+                    'current_page'   => $followers->currentPage(),
+                    'last_page'      => $followers->lastPage(),
+                    'from'           => $followers->firstItem() ?? 0,
+                    'to'             => $followers->lastItem() ?? 0,
+                    'has_more_pages' => $followers->hasMorePages(),
+                ],
+            ]);
+        } catch (Exception $e) {
+            Log::error('Fetching followers failed: ' . $e->getMessage(), [
+                'user_id' => $authUser->id,
                 'trace'   => $e->getTraceAsString(),
             ]);
 
@@ -315,11 +408,68 @@ class V4FollowController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Following list retrieved successfully.',
-                'data'    => $following,
+                'data'    => $following->items(),
+                'pagination' => [
+                    'total'          => $following->total(),
+                    'per_page'       => $following->perPage(),
+                    'current_page'   => $following->currentPage(),
+                    'last_page'      => $following->lastPage(),
+                    'from'           => $following->firstItem() ?? 0,
+                    'to'             => $following->lastItem() ?? 0,
+                    'has_more_pages' => $following->hasMorePages(),
+                ],
             ]);
         } catch (Exception $e) {
             Log::error('Fetching following list failed: ' . $e->getMessage(), [
                 'user_id' => $user->id,
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve following list.',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    public function myFollowing(Request $request): JsonResponse
+    {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min($perPage, 100)); // Ensure perPage is between 1 and 100
+
+        try {
+            $following = V4Follow::with('following')
+                ->where('follower_id', $authUser->id)
+                ->where('status', 'accepted')
+                ->latest()
+                ->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Following list retrieved successfully.',
+                'data'    => $following->items(),
+                'pagination' => [
+                    'total'          => $following->total(),
+                    'per_page'       => $following->perPage(),
+                    'current_page'   => $following->currentPage(),
+                    'last_page'      => $following->lastPage(),
+                    'from'           => $following->firstItem() ?? 0,
+                    'to'             => $following->lastItem() ?? 0,
+                    'has_more_pages' => $following->hasMorePages(),
+                ],
+            ]);
+        } catch (Exception $e) {
+            Log::error('Fetching following list failed: ' . $e->getMessage(), [
+                'user_id' => $authUser->id,
                 'trace'   => $e->getTraceAsString(),
             ]);
 

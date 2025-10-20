@@ -15,24 +15,30 @@ class CreateV4FollowsTable extends Migration
     {
         Schema::create('v4_follows', function (Blueprint $table) {
             $table->bigIncrements('id');
-            // follower and followed using foreignId with constraints
-            $table->foreignId('follower_id')
-                ->constrained('v4_users')
-                ->cascadeOnDelete()
-                ->index(); // who initiated the follow
 
-            $table->foreignId('following_id')
-                ->constrained('v4_users')
-                ->cascadeOnDelete()
-                ->index(); // who is being followed
+            // Define columns once
+            $table->unsignedBigInteger('follower_id');
+            $table->unsignedBigInteger('following_id');
+
             $table->enum('status', ['pending', 'accepted', 'rejected', 'blocked'])->default('pending');
             $table->timestamp('accepted_at')->nullable();
             $table->timestamp('rejected_at')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            // prevent duplicates
-            $table->unique(['follower_id', 'followed_id']);
+            // Indexes
+            $table->index('follower_id');
+            $table->index('following_id');
+
+            // Unique constraint to prevent duplicate follows
+            $table->unique(['follower_id', 'following_id']);
+
+            // Foreign key constraints (with names for PostgreSQL)
+            $table->foreign('follower_id', 'fk_follows_follower')
+                ->references('id')->on('v4_users')->onDelete('cascade');
+
+            $table->foreign('following_id', 'fk_follows_following')
+                ->references('id')->on('v4_users')->onDelete('cascade');
         });
     }
 

@@ -37,7 +37,9 @@ class V4User extends Authenticatable implements JWTSubject
         'is_onboarded',
         'otp',
         'otp_expiry',
-        'profile_photo'
+        'profile_photo',
+        'followers_count',
+        'followings_count',
     ];
 
     protected $hidden = [
@@ -273,11 +275,12 @@ class V4User extends Authenticatable implements JWTSubject
     public function following()
     {
         return $this->belongsToMany(
-            self::class,
+            V4User::class,
             'v4_follows',
             'follower_id',
-            'followed_id'
-        )->withTimestamps();
+            'following_id'
+        )->wherePivot('status', 'accepted')
+            ->withTimestamps();
     }
 
     /**
@@ -288,24 +291,61 @@ class V4User extends Authenticatable implements JWTSubject
         return $this->belongsToMany(
             V4User::class,
             'v4_follows',
-            'followed_id',
+            'following_id',
             'follower_id'
-        )->withTimestamps();
+        )->wherePivot('status', 'accepted')
+            ->withTimestamps();
     }
 
     /**
-     * Direct relationship with the follow model (initiated follows)
+     * Pending Follow Requests — requests awaiting this user's approval
      */
-    public function followRequestsSent()
+    public function pendingFollowRequests()
     {
-        return $this->hasMany(V4Follow::class, 'follower_id');
+        return $this->hasMany(V4Follow::class, 'following_id')
+            ->where('status', 'pending');
     }
 
     /**
-     * Direct relationship with the follow model (received follows)
+     * Follow Requests Sent — requests this user sent to others
      */
-    public function followRequestsReceived()
+    public function sentFollowRequests()
     {
-        return $this->hasMany(V4Follow::class, 'followed_id');
+        return $this->hasMany(V4Follow::class, 'follower_id')
+            ->where('status', 'pending');
+    }
+
+    /**
+     * Check if current user follows another user.
+     */
+    public function isFollowing($userId): bool
+    {
+        return V4Follow::where('follower_id', $this->id)
+            ->where('following_id', $userId)
+            ->where('status', 'accepted')
+            ->exists();
+    }
+
+
+    /**
+     * Check if another user follows this user.
+     */
+    public function isFollowedBy($userId): bool
+    {
+        return V4Follow::where('follower_id', $userId)
+            ->where('following_id', $this->id)
+            ->where('status', 'accepted')
+            ->exists();
+    }
+
+    /**
+     * Check if user has pending request to follow another user.
+     */
+    public function hasPendingRequest($userId): bool
+    {
+        return V4Follow::where('follower_id', $this->id)
+            ->where('following_id', $userId)
+            ->where('status', 'pending')
+            ->exists();
     }
 }

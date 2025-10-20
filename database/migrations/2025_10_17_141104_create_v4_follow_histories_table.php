@@ -17,7 +17,7 @@ class CreateV4FollowHistoriesTable extends Migration
             $table->id();
             $table->foreignId('follower_id')->constrained('v4_users')->onDelete('cascade');
             $table->foreignId('following_id')->constrained('v4_users')->onDelete('cascade');
-            $table->enum('action', ['follow', 'unfollow', 'request', 'accept', 'reject']);
+            $table->enum('action', ['pending', 'accepted', 'rejected', 'blocked']);
             $table->json('meta')->nullable(); // optional: store device info, IP, etc.
             $table->timestamps();
             $table->softDeletes();

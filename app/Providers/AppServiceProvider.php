@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\DB;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,7 +28,21 @@ class AppServiceProvider extends ServiceProvider
         require_once app_path() . '/Helpers/helpers.php';
 
         if (env('APP_DOMAIN') === '' || empty(env('APP_DOMAIN'))) {
-            URL::forceScheme('https');          
+            URL::forceScheme('https');
         }
+
+        if ($this->isProduction()) {
+            DB::prohibitDestructiveCommands();
+        }
+    }
+
+    /**
+     * Custom method to check if production environment.
+     *
+     * @return bool
+     */
+    protected function isProduction()
+    {
+        return config('app.env') === 'production';
     }
 }
