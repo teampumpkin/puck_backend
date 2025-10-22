@@ -372,13 +372,13 @@ Route::prefix('v4')->group(function () {
             Route::get('my/followers', [V4FollowController::class, 'myFollowers']);
             Route::get('my/following', [V4FollowController::class, 'myFollowing']);
 
-            Route::post('{user}/follow', [V4FollowController::class, 'follow']);
-            Route::delete('{user}/unfollow', [V4FollowController::class, 'unfollow']);
-            Route::post('{user}/follow/accept', [V4FollowController::class, 'acceptFollow']);
-            Route::delete('{user}/follow/reject', [V4FollowController::class, 'rejectFollow']);
+            Route::post('{userId}/follow', [V4FollowController::class, 'follow']);
+            Route::delete('{userId}/unfollow', [V4FollowController::class, 'unfollow']);
+            Route::post('{userId}/follow/accept', [V4FollowController::class, 'acceptFollow']);
+            Route::delete('{userId}/follow/reject', [V4FollowController::class, 'rejectFollow']);
 
-            Route::get('{user}/followers', [V4FollowController::class, 'followers']);
-            Route::get('{user}/following', [V4FollowController::class, 'following']);
+            Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
+            Route::get('{userId}/following', [V4FollowController::class, 'following']);
         });
 
 
