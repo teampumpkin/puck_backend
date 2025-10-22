@@ -265,4 +265,20 @@ class V4User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(EvaluatorAssignment::class, 'evaluator_id');
     }
+
+    // posts
+    public function posts()
+    {
+        return $this->hasMany(V4Post::class, 'user_id');
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(V4PostLike::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(V4PostComment::class);
+    }
 }

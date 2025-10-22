@@ -24,6 +24,11 @@ use App\Http\Controllers\GuardianController;
 use App\Http\Controllers\PlayableController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\V4MediaController;
+use App\Http\Controllers\V4\V4PostController;
+use App\Http\Controllers\V4\V4FeedController;
+use App\Http\Controllers\V4\V4PostLikeController;
+use App\Http\Controllers\V4\V4PostCommentController;
+use App\Http\Controllers\V4\V4PostShareController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\V4\V4PaymentController;
 use App\Http\Controllers\V4\UserBlockController;
@@ -481,6 +486,30 @@ Route::prefix('v4')->group(function () {
             // Permanent delete operations
             Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteUserNotification']);
             Route::delete('/empty-trash', [NotificationController::class, 'emptyUserTrash']);
+        });
+
+
+        Route::prefix('posts')->group(function () {
+            Route::get('/my', [V4PostController::class, 'getMyPosts']);
+            Route::get('/my/{post}', [V4PostController::class, 'getMyPost']);
+
+            Route::put('/my/{post}', [V4PostController::class, 'editPost']);
+            Route::delete('/my/{post}', [V4PostController::class, 'deletePost']);
+
+            Route::post('/upload', [V4PostController::class, 'uploadPost']);
+
+            Route::post('{post}/like', [V4PostLikeController::class, 'like']);
+            Route::delete('{post}/unlike', [V4PostLikeController::class, 'unlike']);
+            Route::get('{post}/likes', [V4PostLikeController::class, 'postLikes']);
+
+
+            Route::get('{post}/comments', [V4PostCommentController::class, 'index']);
+            Route::post('{post}/comments', [V4PostCommentController::class, 'store']);
+            Route::delete('comments/{comment}', [V4PostCommentController::class, 'destroy']);
+        });
+
+        Route::prefix('feeds')->group(function () {
+            Route::get('/recent', [V4FeedController::class, 'getRecentFeeds']);
         });
     });
 });
