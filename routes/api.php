@@ -491,10 +491,10 @@ Route::prefix('v4')->group(function () {
 
         Route::prefix('posts')->group(function () {
             Route::get('/my', [V4PostController::class, 'getMyPosts']);
-            Route::get('/my/{post}', [V4PostController::class, 'getMyPost']);
+            Route::get('/my/{postId}', [V4PostController::class, 'getMyPost']);
 
-            Route::put('/my/{post}', [V4PostController::class, 'editPost']);
-            Route::delete('/my/{post}', [V4PostController::class, 'deletePost']);
+            Route::put('/my/{postId}', [V4PostController::class, 'editPost']);
+            Route::delete('/my/{postId}', [V4PostController::class, 'deletePost']);
 
             Route::post('/upload', [V4PostController::class, 'uploadPost']);
 
