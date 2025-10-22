@@ -36,6 +36,7 @@ use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V4\EvaluationRejectionReasonController;
 use App\Http\Controllers\V4\V4EvaluationController;
+use App\Http\Controllers\V4\V4FollowController;
 
 /*
 |--------------------------------------------------------------------------
@@ -364,6 +365,23 @@ Route::prefix('v4')->group(function () {
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
         Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
+
+
+        Route::prefix('users')->group(function () {
+
+            Route::get('my/followers', [V4FollowController::class, 'myFollowers']);
+            Route::get('my/following', [V4FollowController::class, 'myFollowing']);
+
+            Route::post('{userId}/follow', [V4FollowController::class, 'follow']);
+            Route::delete('{userId}/unfollow', [V4FollowController::class, 'unfollow']);
+            Route::post('{userId}/follow/accept', [V4FollowController::class, 'acceptFollow']);
+            Route::delete('{userId}/follow/reject', [V4FollowController::class, 'rejectFollow']);
+
+            Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
+            Route::get('{userId}/following', [V4FollowController::class, 'following']);
+        });
+
+
 
         // Evaluation
         Route::prefix('evaluation')->group(function () {

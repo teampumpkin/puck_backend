@@ -134,7 +134,7 @@ class V4AuthController extends Controller
 
             if ($user->role === 'evaluator') {
                 $user->load('evaluatorProfile');
-                $responseUser['is_verified'] = $user->evaluatorProfile->is_verified;
+                $responseUser['is_verified'] = $user->evaluatorProfile->is_verified ?? null;
             }
 
             return response()->json([

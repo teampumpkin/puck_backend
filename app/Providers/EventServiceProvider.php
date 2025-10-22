@@ -10,7 +10,9 @@ use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use App\Listeners\HandleInvalidFcmToken;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use App\Models\User;
+use App\Models\V4Follow;
 use App\Observers\UserObserver;
+use App\Observers\V4FollowObserver;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -37,5 +39,6 @@ class EventServiceProvider extends ServiceProvider
     public function boot()
     {
         User::observe(UserObserver::class);
+        V4Follow::observe(V4FollowObserver::class);
     }
 }
