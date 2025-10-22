@@ -22,8 +22,13 @@ class DatabaseSeeder extends Seeder
         //        $this->call(SyncZohoPlanSeeder::class);
         $this->call(AssessmentDataSeeder::class);
         $this->call(AssessmentStatementSeeder::class);
-        $this->call(CountrySeeder::class);
-        $this->call(StateSeeder::class);
-        $this->call(CitySeeder::class);
+        // $this->call(CountrySeeder::class);
+        // $this->call(StateSeeder::class);
+        // $this->call(CitySeeder::class);
+        $this->call(EvaluationRejectionReasonSeeder::class);
+        $this->call(EvaluationCategorySeeder::class);
+        $this->call(EvaluationQuestionSeeder::class);
+        $this->call(EvaluationQuestionOptionSeeder::class);
+        $this->call(V4InAppPurchaseSeeder::class);
     }
 }
