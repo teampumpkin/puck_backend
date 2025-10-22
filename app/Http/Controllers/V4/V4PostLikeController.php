@@ -23,7 +23,7 @@ class V4PostLikeController extends Controller
     /**
      * Like a post
      */
-    public function like(Request $request, $post): JsonResponse
+    public function like(Request $request, $postId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
 
@@ -31,7 +31,7 @@ class V4PostLikeController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $validator = Validator::make(['post_id' => $post], [
+        $validator = Validator::make(['post_id' => $postId], [
             'post_id' => 'required|exists:v4_posts,id',
         ]);
 
@@ -42,14 +42,25 @@ class V4PostLikeController extends Controller
                 'errors' => $validator->errors(),
             ], 422);
         }
-        try {
-            $post = V4Post::findOrFail($post);
 
-            $existingLike = V4PostLike::where('user_id', $authUser->id)
-                ->where('post_id', $post)
+        try {
+            $post = V4Post::findOrFail($postId);
+
+            $existingLike = V4PostLike::withTrashed()
+                ->where('user_id', $authUser->id)
+                ->where('post_id', $post->id)
                 ->first();
 
             if ($existingLike) {
+                if ($existingLike->trashed()) {
+                    $existingLike->restore(); // Triggers observer to log "liked"
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Post liked again.',
+                        'data' => $existingLike,
+                    ]);
+                }
+
                 return response()->json([
                     'success' => false,
                     'message' => 'You already liked this post.',
@@ -58,7 +69,7 @@ class V4PostLikeController extends Controller
 
             $like = V4PostLike::create([
                 'user_id' => $authUser->id,
-                'post_id' => $post,
+                'post_id' => $post->id,
             ]);
 
             // Send notification to post owner
@@ -81,6 +92,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while liking the post.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -88,7 +100,7 @@ class V4PostLikeController extends Controller
     /**
      * Unlike a post
      */
-    public function unlike(Request $request, $post): JsonResponse
+    public function unlike(Request $request, $postId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
 
@@ -96,9 +108,21 @@ class V4PostLikeController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
+        $validator = Validator::make(['post_id' => $postId], [
+            'post_id' => 'required|exists:v4_posts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         try {
             $like = V4PostLike::where('user_id', $authUser->id)
-                ->where('post_id', $post)
+                ->where('post_id', $postId)
                 ->first();
 
             if (!$like) {
@@ -126,11 +150,31 @@ class V4PostLikeController extends Controller
     /**
      * Get all likes for a post
      */
-    public function postLikes($post): JsonResponse
+    public function postLikes($postId): JsonResponse
     {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $validator = Validator::make(['post_id' => $postId], [
+            'post_id' => 'required|exists:v4_posts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         try {
-            $likes = V4PostLike::with('user:id,username,profile_picture')
-                ->where('post_id', $post)
+            $post = V4Post::findOrFail($postId);
+
+            $likes = V4PostLike::with('user:id,username,profile_photo,first_name,last_name,date_of_birth')
+                ->where('post_id', $post->id)
                 ->get();
 
             return response()->json([
@@ -142,6 +186,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch likes.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
