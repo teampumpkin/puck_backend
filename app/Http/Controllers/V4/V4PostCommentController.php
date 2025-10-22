@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 
 use App\Models\V4Post;
 use App\Models\V4PostComment;
+use App\Models\V4PostCommentHistory;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,14 +29,19 @@ class V4PostCommentController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $validator = Validator::make($request->all(), [
-            'body' => 'required|string|max:2000',
-            'parent_id' => 'nullable|exists:v4_comments,id',
-        ]);
+        $validator = Validator::make(
+            array_merge($request->all(), ['post_id' => $postId]),
+            [
+                'post_id' => 'required|integer|exists:v4_posts,id',
+                'body' => 'required|string|max:2000',
+                'parent_id' => 'nullable|exists:v4_post_comments,id',
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
+                'message' => 'Invalid post.',
                 'errors' => $validator->errors(),
             ], 422);
         }
@@ -70,6 +76,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to add comment.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -104,6 +111,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to delete comment.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -113,9 +121,33 @@ class V4PostCommentController extends Controller
      */
     public function index($postId): JsonResponse
     {
+        $validator = Validator::make(['post_id' => $postId], [
+            'post_id' => 'required|integer|exists:v4_posts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post ID.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         try {
-            $comments = V4PostComment::with(['user:id,username,profile_picture', 'replies.user:id,username,profile_picture'])
-                ->where('post_id', $postId)
+            $post = V4Post::find($postId);
+
+            if (!$post) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Post not found.',
+                ], 404);
+            }
+
+            $comments = V4PostComment::with([
+                'user:id,username,profile_picture',
+                'replies.user:id,username,profile_picture'
+            ])
+                ->where('post_id', $post->id)
                 ->whereNull('parent_id')
                 ->latest()
                 ->get();
@@ -129,6 +161,61 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch comments.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function update(Request $request, $postId, $commentId): JsonResponse
+    {
+
+        $user = Auth::guard('v4api')->user();
+
+        $validator = Validator::make(
+            array_merge($request->all(), ['post_id' => $postId,]),
+            [
+                'post_id' => 'required|integer|exists:v4_posts,id',
+                'body' => 'required|string|max:2000',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $comment = V4PostComment::findOrFail($commentId);
+
+            if ($comment->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only edit your own comment.',
+                ], 403);
+            }
+
+            // Save previous body (optional, for history tracking)
+            $oldBody = $comment->body;
+
+            $comment->update([
+                'body' => $request->input('body'),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Comment updated successfully.',
+                'data' => $comment->fresh('user'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Comment update failed', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to update comment.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

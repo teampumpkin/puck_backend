@@ -15,5 +15,6 @@ class V4PostCommentHistory extends Model
         'post_id',
         'comment_id',
         'action',
+        'old_body'
     ];
 }
