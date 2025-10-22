@@ -150,11 +150,31 @@ class V4PostLikeController extends Controller
     /**
      * Get all likes for a post
      */
-    public function postLikes($post): JsonResponse
+    public function postLikes($postId): JsonResponse
     {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $validator = Validator::make(['post_id' => $postId], [
+            'post_id' => 'required|exists:v4_posts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         try {
-            $likes = V4PostLike::with('user:id,username,profile_picture')
-                ->where('post_id', $post)
+            $post = V4Post::findOrFail($postId);
+
+            $likes = V4PostLike::with('user:id,username,profile_photo,first_name,last_name,date_of_birth')
+                ->where('post_id', $post->id)
                 ->get();
 
             return response()->json([
@@ -166,6 +186,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch likes.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
