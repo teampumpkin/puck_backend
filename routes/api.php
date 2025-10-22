@@ -36,6 +36,7 @@ use App\Http\Controllers\V4\V4PaymentController;
 use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
+use App\Http\Controllers\V4\V4FollowController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -363,6 +364,23 @@ Route::prefix('v4')->group(function () {
         Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
 
+
+        Route::prefix('users')->group(function () {
+
+            Route::get('my/followers', [V4FollowController::class, 'myFollowers']);
+            Route::get('my/following', [V4FollowController::class, 'myFollowing']);
+
+            Route::post('{userId}/follow', [V4FollowController::class, 'follow']);
+            Route::delete('{userId}/unfollow', [V4FollowController::class, 'unfollow']);
+            Route::post('{userId}/follow/accept', [V4FollowController::class, 'acceptFollow']);
+            Route::delete('{userId}/follow/reject', [V4FollowController::class, 'rejectFollow']);
+
+            Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
+            Route::get('{userId}/following', [V4FollowController::class, 'following']);
+        });
+
+
+
         // Evaluation
         Route::prefix('evaluation')->group(function () {
 
@@ -481,10 +499,10 @@ Route::prefix('v4')->group(function () {
 
         Route::prefix('posts')->group(function () {
             Route::get('/my', [V4PostController::class, 'getMyPosts']);
-            Route::get('/my/{post}', [V4PostController::class, 'getMyPost']);
+            Route::get('/my/{postId}', [V4PostController::class, 'getMyPost']);
 
-            Route::put('/my/{post}', [V4PostController::class, 'editPost']);
-            Route::delete('/my/{post}', [V4PostController::class, 'deletePost']);
+            Route::put('/my/{postId}', [V4PostController::class, 'editPost']);
+            Route::delete('/my/{postId}', [V4PostController::class, 'deletePost']);
 
             Route::post('/upload', [V4PostController::class, 'uploadPost']);
 
