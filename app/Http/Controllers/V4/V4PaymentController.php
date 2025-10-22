@@ -401,12 +401,6 @@ class V4PaymentController extends Controller
     protected function sendPaymentRequestNotification(V4PaymentRequest $paymentRequest, String $sku)
     {
         try {
-
-
-            Log::info('loadSendPaymentRequestNotification', [
-                'parent_id' => $paymentRequest->parent_id
-            ]);
-
             $child  = $paymentRequest->player;
             $parent = $child->parent;
 
