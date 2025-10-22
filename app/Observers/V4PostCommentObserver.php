@@ -25,7 +25,7 @@ class V4PostCommentObserver
             'user_id' => $v4PostComment->user_id,
             'post_id' => $v4PostComment->post_id,
             'comment_id' => $v4PostComment->id,
-            'action' => 'create',
+            'action' => 'created',
         ]);
     }
 
@@ -37,7 +37,15 @@ class V4PostCommentObserver
      */
     public function updated(V4PostComment $v4PostComment)
     {
-        //
+        if ($v4PostComment->isDirty('body')) {
+            V4PostCommentHistory::create([
+                'user_id' => $v4PostComment->user_id,
+                'post_id' => $v4PostComment->post_id,
+                'comment_id' => $v4PostComment->id,
+                'action' => 'edited',
+                'old_body' => $v4PostComment->getOriginal('body'), // This is correct
+            ]);
+        }
     }
 
     /**
@@ -57,7 +65,7 @@ class V4PostCommentObserver
             'user_id' => $v4PostComment->user_id,
             'post_id' => $v4PostComment->post_id,
             'comment_id' => $v4PostComment->id,
-            'action' => 'delete',
+            'action' => 'deleted',
         ]);
     }
 

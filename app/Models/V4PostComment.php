@@ -35,6 +35,6 @@ class V4PostComment extends Model
 
     public function replies()
     {
-        return $this->hasMany(V4PostComment::class, 'parent_id');
+        return $this->hasMany(V4PostComment::class, 'parent_id')->with('user');
     }
 }

@@ -15,6 +15,7 @@ class CreateV4PostCommentHistoriesTable extends Migration
     {
         Schema::create('v4_post_comment_histories', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->unsignedBigInteger('post_id')->index();
             $table->unsignedBigInteger('comment_id')->index();
             $table->unsignedBigInteger('user_id')->index(); // who did the action
             $table->enum('action', ['created', 'edited', 'deleted']);
@@ -22,6 +23,7 @@ class CreateV4PostCommentHistoriesTable extends Migration
             $table->timestamps();
 
             $table->foreign('comment_id')->references('id')->on('v4_post_comments')->onDelete('cascade');
+            $table->foreign('post_id')->references('id')->on('v4_posts')->onDelete('cascade');
         });
     }
 

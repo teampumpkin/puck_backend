@@ -24,6 +24,7 @@ class CreateV4PostCommentsTable extends Migration
 
             $table->foreign('user_id')->references('id')->on('v4_users')->onDelete('cascade');
             $table->foreign('post_id')->references('id')->on('v4_posts')->onDelete('cascade');
+            $table->foreign('parent_id')->references('id')->on('v4_post_comments')->onDelete('cascade');
         });
     }
 

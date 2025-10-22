@@ -22,25 +22,22 @@ use App\Http\Controllers\API\Zapier\ZapierController;
 use App\Http\Controllers\AuthController as ControllersAuthController;
 use App\Http\Controllers\GuardianController;
 use App\Http\Controllers\PlayableController;
-use App\Http\Controllers\V4\ProfileController;
-use App\Http\Controllers\V4\V4MediaController;
-use App\Http\Controllers\V4\V4PostController;
-use App\Http\Controllers\V4\V4FeedController;
-use App\Http\Controllers\V4\V4PostLikeController;
-use App\Http\Controllers\V4\V4PostCommentController;
-use App\Http\Controllers\V4\V4PostShareController;
-use App\Http\Controllers\V4\Chat\V4ChatMediaController;
-use App\Http\Controllers\V4\V4PaymentController;
-use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\StripeController;
-use App\Http\Controllers\V4\V4AuthController;
-use App\Http\Controllers\V4\NotificationController;
-use App\Http\Controllers\WebSocketController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Broadcast;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\V4\EvaluationRejectionReasonController;
+use App\Http\Controllers\V4\NotificationController;
+use App\Http\Controllers\V4\ProfileController;
+use App\Http\Controllers\V4\UserBlockController;
+use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\V4\V4EvaluationController;
+use App\Http\Controllers\V4\V4FeedController;
+use App\Http\Controllers\V4\V4MediaController;
+use App\Http\Controllers\V4\V4PaymentController;
+use App\Http\Controllers\V4\V4PostCommentController;
+use App\Http\Controllers\V4\V4PostController;
+use App\Http\Controllers\V4\V4PostLikeController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -73,13 +70,12 @@ Route::get('terms-and-conditions', function () {
 // Broadcasting authentication route (dev-only bypass if WS_AUTH_BYPASS=true)
 if (env('WS_AUTH_BYPASS', false)) {
     Route::post('broadcasting/auth', function (Request $request) {
-        $channel = $request->input('channel_name');
+        $channel  = $request->input('channel_name');
         $socketId = $request->input('socket_id');
-        $sig = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
+        $sig      = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
         return response()->json(['auth' => env('PUSHER_APP_KEY') . ':' . $sig]);
     });
 }
-
 
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -259,7 +255,6 @@ Route::get("no-cache/verify-account/{token}", [ControllersAuthController::class,
 Route::get('no-cache/accept/{token}', [GuardianController::class, 'acceptRequest']);
 Route::get('no-cache/{token}', [GuardianController::class, 'rejectRequest']);
 
-
 //V4-Routes
 Route::prefix('v4')->group(function () {
     Route::post('send-login-otp', [V4AuthController::class, 'sendLoginOtp']);
@@ -269,7 +264,6 @@ Route::prefix('v4')->group(function () {
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
-
 
         Route::middleware('auth:v4api')->group(function () {
             Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
@@ -315,7 +309,6 @@ Route::prefix('v4')->group(function () {
 
                 // Re-Order Question Category by id
                 Route::put('/questions/reorder', [V4EvaluationController::class, 'reorderQuestions']);
-
 
                 /// Options Question
                 // Get All Options Question by id
@@ -420,7 +413,6 @@ Route::prefix('v4')->group(function () {
             Route::post('/make-evaluation-in-progress', [V4EvaluationController::class, 'makeEvaluationInProgress']);
         });
 
-
         // Media routes
         Route::post('/upload-media', [V4MediaController::class, 'uploadMedia']);
         Route::get('/all-media', [V4MediaController::class, 'getAllMedia']);
@@ -461,7 +453,6 @@ Route::prefix('v4')->group(function () {
             // Route::post('/remove-participants', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'removeParticipants']);
         });
 
-
         Route::prefix('notifications')->group(function () {
             // Basic CRUD operations
             Route::get('/', [NotificationController::class, 'getUserNotifications']);
@@ -488,7 +479,6 @@ Route::prefix('v4')->group(function () {
             Route::delete('/empty-trash', [NotificationController::class, 'emptyUserTrash']);
         });
 
-
         Route::prefix('posts')->group(function () {
             Route::get('/my', [V4PostController::class, 'getMyPosts']);
             Route::get('/my/{post}', [V4PostController::class, 'getMyPost']);
@@ -502,10 +492,10 @@ Route::prefix('v4')->group(function () {
             Route::delete('{postId}/unlike', [V4PostLikeController::class, 'unlike']);
             Route::get('{postId}/likes', [V4PostLikeController::class, 'postLikes']);
 
-
-            Route::get('{post}/comments', [V4PostCommentController::class, 'index']);
-            Route::post('{post}/comments', [V4PostCommentController::class, 'store']);
-            Route::delete('comments/{comment}', [V4PostCommentController::class, 'destroy']);
+            Route::get('{postId}/comments', [V4PostCommentController::class, 'index']);
+            Route::post('{postId}/comments', [V4PostCommentController::class, 'store']);
+            Route::put('{postId}/comments/{commentId}', [V4PostCommentController::class, 'update']);
+            Route::delete('{postId}/comments/{commentId}', [V4PostCommentController::class, 'destroy']);
         });
 
         Route::prefix('feeds')->group(function () {
