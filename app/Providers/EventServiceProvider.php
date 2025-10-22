@@ -2,17 +2,23 @@
 
 namespace App\Providers;
 
-use App\Listeners\MessageSendingListener;
-use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Auth\Events\Registered;
 use App\Events\InvalidFcmToken;
-use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use App\Listeners\HandleInvalidFcmToken;
-use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use App\Listeners\MessageSendingListener;
 use App\Models\User;
 use App\Models\V4Follow;
+use App\Models\V4PostComment;
+use App\Models\V4PostLike;
+use App\Models\V4PostShare;
 use App\Observers\UserObserver;
 use App\Observers\V4FollowObserver;
+use App\Observers\V4PostCommentObserver;
+use App\Observers\V4PostLikeObserver;
+use App\Observers\V4PostShareObserver;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
+use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Mail\Events\MessageSending;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -22,13 +28,13 @@ class EventServiceProvider extends ServiceProvider
      * @var array
      */
     protected $listen = [
-        Registered::class => [
+        Registered::class      => [
             SendEmailVerificationNotification::class,
         ],
-        MessageSending::class => [
-            MessageSendingListener::class
+        MessageSending::class  => [
+            MessageSendingListener::class,
         ],
-        InvalidFcmToken::class => [HandleInvalidFcmToken::class]
+        InvalidFcmToken::class => [HandleInvalidFcmToken::class],
     ];
 
     /**
@@ -40,5 +46,8 @@ class EventServiceProvider extends ServiceProvider
     {
         User::observe(UserObserver::class);
         V4Follow::observe(V4FollowObserver::class);
+        V4PostComment::observe(V4PostCommentObserver::class);
+        V4PostLike::observe(V4PostLikeObserver::class);
+        V4PostShare::observe(V4PostShareObserver::class);
     }
 }

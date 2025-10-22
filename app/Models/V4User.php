@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Support\Facades\Log;
 
 use Carbon\Carbon;
 
@@ -39,14 +40,11 @@ class V4User extends Authenticatable implements JWTSubject
         'otp_expiry',
         'profile_photo',
         'followers_count',
-        'followings_count',
+        'followings_count'
     ];
+    protected $hidden   = ['password'];
 
-    protected $hidden = [
-        'password'
-    ];
-
-    protected $casts = [
+    protected $casts    = [
         'date_of_birth' => 'date',
         'is_child' => 'boolean',
         'enable_private_account' => 'boolean',
@@ -55,7 +53,11 @@ class V4User extends Authenticatable implements JWTSubject
         'is_onboarded' => 'boolean'
     ];
 
-    protected $appends = ['block_status', 'name', 'age'];
+    protected $appends = [
+        // 'block_status',
+        'name',
+        // 'age'
+    ];
 
     public function getJWTIdentifier()
     {
@@ -137,6 +139,7 @@ class V4User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(V4Media::class, 'v4_user_id');
     }
+
     /**
      * Get users blocked by this user
      */
@@ -207,9 +210,14 @@ class V4User extends Authenticatable implements JWTSubject
         ];
     }
 
-    public function getNameAttribute(): string
+    public function getNameAttribute(): ?string
     {
-        return $this->first_name . ' ' . $this->last_name;
+        $first = trim($this->first_name ?? '');
+        $last = trim($this->last_name ?? '');
+
+        $fullName = trim("$first $last");
+
+        return $fullName !== '' ? $fullName : null;
     }
 
 
@@ -218,7 +226,7 @@ class V4User extends Authenticatable implements JWTSubject
         if (!$this->date_of_birth) {
             return null;
         }
-        return Carbon::now()->diffInYears($this->date_of_birth);
+        return Carbon::now()->diffInYears($this->date_of_birth) ?? 0;
     }
 
     public function getProfileDataAttribute()
@@ -268,19 +276,28 @@ class V4User extends Authenticatable implements JWTSubject
         return $this->hasMany(EvaluatorAssignment::class, 'evaluator_id');
     }
 
+    // posts
+    public function posts()
+    {
+        return $this->hasMany(V4Post::class, 'user_id');
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(V4PostLike::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(V4PostComment::class);
+    }
 
     /**
      * Users that this user is following.
      */
     public function following()
     {
-        return $this->belongsToMany(
-            V4User::class,
-            'v4_follows',
-            'follower_id',
-            'following_id'
-        )->wherePivot('status', 'accepted')
-            ->withTimestamps();
+        return $this->belongsToMany(V4User::class, 'v4_follows', 'follower_id', 'following_id')->wherePivot('status', 'accepted')->withTimestamps();
     }
 
     /**
@@ -288,13 +305,7 @@ class V4User extends Authenticatable implements JWTSubject
      */
     public function followers()
     {
-        return $this->belongsToMany(
-            V4User::class,
-            'v4_follows',
-            'following_id',
-            'follower_id'
-        )->wherePivot('status', 'accepted')
-            ->withTimestamps();
+        return $this->belongsToMany(V4User::class, 'v4_follows', 'following_id', 'follower_id')->wherePivot('status', 'accepted')->withTimestamps();
     }
 
     /**
@@ -302,8 +313,7 @@ class V4User extends Authenticatable implements JWTSubject
      */
     public function pendingFollowRequests()
     {
-        return $this->hasMany(V4Follow::class, 'following_id')
-            ->where('status', 'pending');
+        return $this->hasMany(V4Follow::class, 'following_id')->where('status', 'pending');
     }
 
     /**
@@ -311,8 +321,7 @@ class V4User extends Authenticatable implements JWTSubject
      */
     public function sentFollowRequests()
     {
-        return $this->hasMany(V4Follow::class, 'follower_id')
-            ->where('status', 'pending');
+        return $this->hasMany(V4Follow::class, 'follower_id')->where('status', 'pending');
     }
 
     /**
@@ -320,22 +329,15 @@ class V4User extends Authenticatable implements JWTSubject
      */
     public function isFollowing($userId): bool
     {
-        return V4Follow::where('follower_id', $this->id)
-            ->where('following_id', $userId)
-            ->where('status', 'accepted')
-            ->exists();
+        return V4Follow::where('follower_id', $this->id)->where('following_id', $userId)->where('status', 'accepted')->exists();
     }
-
 
     /**
      * Check if another user follows this user.
      */
     public function isFollowedBy($userId): bool
     {
-        return V4Follow::where('follower_id', $userId)
-            ->where('following_id', $this->id)
-            ->where('status', 'accepted')
-            ->exists();
+        return V4Follow::where('follower_id', $userId)->where('following_id', $this->id)->where('status', 'accepted')->exists();
     }
 
     /**
@@ -343,9 +345,6 @@ class V4User extends Authenticatable implements JWTSubject
      */
     public function hasPendingRequest($userId): bool
     {
-        return V4Follow::where('follower_id', $this->id)
-            ->where('following_id', $userId)
-            ->where('status', 'pending')
-            ->exists();
+        return V4Follow::where('follower_id', $this->id)->where('following_id', $userId)->where('status', 'pending')->exists();
     }
 }
