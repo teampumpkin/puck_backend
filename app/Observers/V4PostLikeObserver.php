@@ -48,11 +48,11 @@ class V4PostLikeObserver
         // Decrement the post's like count
         $v4PostLike->post->decrement('likes_count');
 
-        // Record the "unliked" action
+        // Record the "unlike" action
         V4PostLikeHistory::create([
             'user_id' => $v4PostLike->user_id,
             'post_id' => $v4PostLike->post_id,
-            'action'  => 'unliked',
+            'action'  => 'unlike',
         ]);
     }
 

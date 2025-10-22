@@ -498,9 +498,9 @@ Route::prefix('v4')->group(function () {
 
             Route::post('/upload', [V4PostController::class, 'uploadPost']);
 
-            Route::post('{post}/like', [V4PostLikeController::class, 'like']);
-            Route::delete('{post}/unlike', [V4PostLikeController::class, 'unlike']);
-            Route::get('{post}/likes', [V4PostLikeController::class, 'postLikes']);
+            Route::post('{postId}/like', [V4PostLikeController::class, 'like']);
+            Route::delete('{postId}/unlike', [V4PostLikeController::class, 'unlike']);
+            Route::get('{postId}/likes', [V4PostLikeController::class, 'postLikes']);
 
 
             Route::get('{post}/comments', [V4PostCommentController::class, 'index']);
