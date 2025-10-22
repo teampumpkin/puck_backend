@@ -1942,7 +1942,6 @@ class V4EvaluationController extends Controller
     public function deleteQuestionOption(Request $request, int $id): JsonResponse
     {
         try {
-            ;
 
             $option = EvaluationQuestionOption::findOrFail($id);
             $option->delete();
@@ -2269,15 +2268,15 @@ class V4EvaluationController extends Controller
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
-                // 'sort_by'    => 'nullable|string|in:first_name,last_name,role',
-                // 'sort_order' => 'nullable|string|in:asc,desc',
+                'sort_by'    => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
+                'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
             $page = $validated['page'] ?? 1;
             $perPage = $validated['per_page'] ?? 15;
-            // $sortBy     = $validated['sort_by'] ?? 'created_at';
-            // $sortOrder  = $validated['sort_order'] ?? 'asc';
+            $sortBy     = $validated['sort_by'] ?? 'current_version_updated_at';
+            $sortOrder  = $validated['sort_order'] ?? 'desc';
 
             $query = EvaluationSubmission::query();
 
@@ -2297,11 +2296,16 @@ class V4EvaluationController extends Controller
             //     });
             // }
 
-            // $query->orderBy($sortBy, $sortOrder);
+            // Handle sorting by related model field
+            if ($sortBy === 'current_version_updated_at') {
+                $query->leftJoin('evaluation_submission_versions as current_versions', 'current_versions.id', '=', 'evaluation_submissions.current_version_id')
+                    ->orderBy('current_versions.updated_at', $sortOrder)
+                    ->select('evaluation_submissions.*'); // Important to avoid overriding base model fields
+            } else {
+                $query->orderBy($sortBy, $sortOrder);
+            }
 
             $data = collect();
-
-
 
             $submissions = $query->paginate($perPage, ['*'], 'page', $page);
 
@@ -2315,6 +2319,7 @@ class V4EvaluationController extends Controller
                     // 'dueDate' => 'dueDate',
                     'price' => $submission->paymentRequest->amount_cents,
                     // 'notes' => 'notes',
+                    'updated_at' => $submission->updated_at,
                 ];
 
                 if ($submission->versions != []) {
@@ -2590,27 +2595,45 @@ class V4EvaluationController extends Controller
                 ], 400);
             }
 
-            // Build query based on status and current user's evaluator ID
-            $query = EvaluatorAssignment::with([
+            // Build base query with eager loading
+            $assignments = EvaluatorAssignment::with([
                 'submission.player',
                 'submission.currentVersion',
                 'submission.paymentRequest.inAppPurchase',
                 'evaluator',
             ])->where('evaluator_id', $user->id)
-                ->whereIn('status', $statusMap[$status]);
+                ->whereIn('status', $statusMap[$status])
+                ->orderBy('assigned_at', 'desc')
+                ->get();
 
-            $assignments = $query->orderBy('assigned_at', 'desc')->get();
+            // For completed status, batch load all evaluations in a single query
+            $evaluationsByAssignment = collect();
+            if ($status === 'completed' && $assignments->isNotEmpty()) {
+                $assignmentIds = $assignments->pluck('id')->toArray();
 
-            $formattedAssignments = $assignments->map(function ($assignment) {
+                // Single query to get all evaluations for all assignments
+                $evaluations = Evaluation::whereIn('assignment_id', $assignmentIds)
+                    ->get()
+                    ->groupBy('assignment_id');
+
+                $evaluationsByAssignment = $evaluations;
+            }
+
+            // Process assignments into formatted output
+            $formattedAssignments = collect();
+
+            foreach ($assignments as $assignment) {
+                // Skip invalid assignments
                 if (!$assignment->submission || !$assignment->submission->player) {
-                    return null; // skip invalid ones
+                    continue;
                 }
 
-                return [
+                // Base assignment data (reusable)
+                $baseData = [
                     'assignment_id' => $assignment->id,
                     'status' => $assignment->status,
                     'notes' => $assignment->notes,
-                    'submission_date' => optional($assignment->submission->updated_at)->toISOString(),
+                    'submission_date' => optional($assignment->updated_at)->toISOString(),
                     'file_path' => optional($assignment->submission->currentVersion)->file_path,
                     'player' => [
                         'id' => $assignment->submission->player->id,
@@ -2626,7 +2649,27 @@ class V4EvaluationController extends Controller
                         'active' => $assignment->submission->paymentRequest->inAppPurchase->active,
                     ] : null,
                 ];
-            })->filter(); // remove null entries
+
+                // For completed status, add evaluation data
+                if ($status === 'completed') {
+                    $assignmentEvaluations = $evaluationsByAssignment->get($assignment->id, collect());
+
+                    if ($assignmentEvaluations->isEmpty()) {
+                        // No evaluations yet (edge case)
+                        $formattedAssignments->push($baseData);
+                    } else {
+                        // Create one entry per evaluation
+                        foreach ($assignmentEvaluations as $evaluation) {
+                            $formattedAssignments->push(array_merge($baseData, [
+                                'evaluation_id' => $evaluation->id,
+                            ]));
+                        }
+                    }
+                } else {
+                    // For pending/in_progress, just add the base data
+                    $formattedAssignments->push($baseData);
+                }
+            }
 
             return response()->json([
                 'success' => true,
