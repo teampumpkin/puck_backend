@@ -97,6 +97,11 @@ class V4PostCommentController extends Controller
                 return response()->json(['success' => false, 'message' => 'You can only delete your own comment.'], 403);
             }
 
+            $authUser->notifications
+                ->where('type', 'user_post_commented')
+                ->where('data->comment->id', $comment->id)
+                ->delete();
+
             $comment->delete();
 
             return response()->json([
