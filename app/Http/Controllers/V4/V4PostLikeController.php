@@ -6,6 +6,8 @@ namespace App\Http\Controllers\V4;
 use App\Http\Controllers\Controller;
 use App\Models\V4Post;
 use App\Models\V4PostLike;
+use App\Models\V4User;
+use App\Services\NotificationService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +21,13 @@ use Illuminate\Validation\ValidationException;
 
 class V4PostLikeController extends Controller
 {
+
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
 
     /**
      * Like a post
@@ -54,6 +63,7 @@ class V4PostLikeController extends Controller
             if ($existingLike) {
                 if ($existingLike->trashed()) {
                     $existingLike->restore(); // Triggers observer to log "liked"
+                    $this->sendToLikeNotification($authUser, $post->user, $post);
                     return response()->json([
                         'success' => true,
                         'message' => 'Post liked again.',
@@ -74,12 +84,7 @@ class V4PostLikeController extends Controller
 
             // Send notification to post owner
             if ($post->user_id !== $authUser->id) {
-                // NotificationService::send([
-                //     'user_id' => $post->user_id,
-                //     'title' => "{$authUser->username} liked your post",
-                //     'body' => $post->caption ?? '',
-                //     'data' => ['type' => 'like', 'post_id' => $post->id],
-                // ]);
+                $this->sendToLikeNotification($authUser, $post->user, $post);
             }
 
             return response()->json([
@@ -189,5 +194,34 @@ class V4PostLikeController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+
+    /**
+     * Notify Like that their follow request was rejected
+     */
+    protected function sendToLikeNotification(V4User $fromUser, V4User $toUser, V4Post $post)
+    {
+        $title = "Post Liked";
+        $message = "{$fromUser->name} Liked your post";
+
+        $data = [
+            'type' => 'post_liked',
+            'action_required' => false,
+            'post' => $post,
+            'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo']),
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $toUser,
+            $title,
+            $message,
+            $fromUser->profile_photo,
+            $data,
+            'user_post_liked',
+            "posts/{$post->id}",
+            "user_liked_action",
+            $post,
+        );
     }
 }
