@@ -37,7 +37,10 @@ class V4PostLikeController extends Controller
         $authUser = Auth::guard('v4api')->user();
 
         if (!$authUser) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access.'
+            ], 401);
         }
 
         $validator = Validator::make(['post_id' => $postId], [
@@ -53,47 +56,72 @@ class V4PostLikeController extends Controller
         }
 
         try {
-            $post = V4Post::findOrFail($postId);
+            return DB::transaction(function () use ($authUser, $postId) {
+                $post = V4Post::findOrFail($postId);
 
-            $existingLike = V4PostLike::withTrashed()
-                ->where('user_id', $authUser->id)
-                ->where('post_id', $post->id)
-                ->first();
+                $existingLike = V4PostLike::withTrashed()
+                    ->where('user_id', $authUser->id)
+                    ->where('post_id', $post->id)
+                    ->first();
 
-            if ($existingLike) {
-                if ($existingLike->trashed()) {
-                    $existingLike->restore(); // Triggers observer to log "liked"
-                    $this->sendToLikeNotification($authUser, $post->user, $post);
+                if ($existingLike) {
+                    if ($existingLike->trashed()) {
+                        $existingLike->restore();
+
+                        // Remove any old "unlike" cleanup (safety)
+                        $post->user->notifications()
+                            ->where('type', 'user_post_liked')
+                            ->where('data->post->id', $post->id)
+                            ->where('data->from_user.id', $authUser->id)
+                            ->delete();
+
+                        // Send notification again
+                        if ($post->user_id !== $authUser->id) {
+                            $this->sendToLikeNotification($authUser, $post->user, $post);
+                        }
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Post liked again.',
+                            'data' => $existingLike,
+                        ]);
+                    }
+
+                    // 🔴 Already liked and active
                     return response()->json([
-                        'success' => true,
-                        'message' => 'Post liked again.',
-                        'data' => $existingLike,
-                    ]);
+                        'success' => false,
+                        'message' => 'You already liked this post.',
+                    ], 409);
+                }
+
+                // 🆕 Create a new like
+                $like = V4PostLike::create([
+                    'user_id' => $authUser->id,
+                    'post_id' => $post->id,
+                ]);
+
+                // Send notification to post owner
+                if ($post->user_id !== $authUser->id) {
+                    $this->sendToLikeNotification($authUser, $post->user, $post);
                 }
 
                 return response()->json([
-                    'success' => false,
-                    'message' => 'You already liked this post.',
-                ], 409);
-            }
-
-            $like = V4PostLike::create([
-                'user_id' => $authUser->id,
-                'post_id' => $post->id,
-            ]);
-
-            // Send notification to post owner
-            if ($post->user_id !== $authUser->id) {
-                $this->sendToLikeNotification($authUser, $post->user, $post);
-            }
-
+                    'success' => true,
+                    'message' => 'Post liked successfully.',
+                    'data' => $like,
+                ]);
+            });
+        } catch (ModelNotFoundException $e) {
             return response()->json([
-                'success' => true,
-                'message' => 'Post liked successfully.',
-                'data' => $like,
-            ]);
+                'success' => false,
+                'message' => 'Post not found.',
+            ], 404);
         } catch (Exception $e) {
-            Log::error('Like failed', ['error' => $e->getMessage()]);
+            Log::error('Like failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $authUser->id ?? null,
+                'post_id' => $postId,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while liking the post.',
@@ -110,7 +138,10 @@ class V4PostLikeController extends Controller
         $authUser = Auth::guard('v4api')->user();
 
         if (!$authUser) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access.',
+            ], 401);
         }
 
         $validator = Validator::make(['post_id' => $postId], [
@@ -126,28 +157,54 @@ class V4PostLikeController extends Controller
         }
 
         try {
-            $like = V4PostLike::where('user_id', $authUser->id)
-                ->where('post_id', $postId)
-                ->first();
+            // ✅ Transaction ensures like + notification delete are atomic
+            return DB::transaction(function () use ($authUser, $postId) {
+                $post = V4Post::findOrFail($postId);
 
-            if (!$like) {
+                $like = V4PostLike::where('user_id', $authUser->id)
+                    ->where('post_id', $post->id)
+                    ->first();
+
+                if (!$like) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You have not liked this post.',
+                    ], 404);
+                }
+
+                $like->delete();
+
+                $postOwner = $post->user;
+
+                if ($postOwner) {
+                    $postOwner->notifications()
+                        ->where('type', 'user_post_liked')
+                        ->where('data->post->id', $post->id)
+                        ->where('data->from_user.id', $authUser->id)
+                        ->delete(); // Or ->update(['deleted_at' => now()]) for soft delete
+                }
+
                 return response()->json([
-                    'success' => false,
-                    'message' => 'You have not liked this post.',
-                ], 404);
-            }
-
-            $like->delete();
-
+                    'success' => true,
+                    'message' => 'Post unliked successfully.',
+                ]);
+            });
+        } catch (ModelNotFoundException $e) {
             return response()->json([
-                'success' => true,
-                'message' => 'Post unliked successfully.',
-            ]);
+                'success' => false,
+                'message' => 'Post not found.',
+            ], 404);
         } catch (Exception $e) {
-            Log::error('Unlike failed', ['error' => $e->getMessage()]);
+            Log::error('Unlike failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $authUser->id ?? null,
+                'post_id' => $postId,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while unliking the post.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
