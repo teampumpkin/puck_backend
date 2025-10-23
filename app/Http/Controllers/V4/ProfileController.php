@@ -715,6 +715,7 @@ class ProfileController extends Controller
         // Build the query
         $query = V4User::query()
             ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo as profile_picture'])
+            ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
 
         // Apply search filter if search term is provided
@@ -1081,6 +1082,8 @@ class ProfileController extends Controller
     {
         try {
 
+            $authUser = Auth::guard('v4api')->user();
+
             $user = V4User::findOrFail($id);
 
             $profileData = null;
@@ -1146,6 +1149,8 @@ class ProfileController extends Controller
 
             // Add the profile data under a standardized field name
             $userData['profile'] = $profileData;
+
+            $userData['is_following'] = $user->isFollowedBy($authUser->id);
 
             return response()->json([
                 'success' => true,
