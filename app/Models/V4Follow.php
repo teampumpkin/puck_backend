@@ -43,4 +43,9 @@ class V4Follow extends Model
     {
         return $this->belongsTo(V4User::class, 'following_id');
     }
+
+    public function notifications()
+    {
+        return $this->morphMany(Notification::class, 'reference');
+    }
 }
