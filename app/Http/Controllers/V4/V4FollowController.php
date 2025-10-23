@@ -263,6 +263,10 @@ class V4FollowController extends Controller
 
             $follow->update(['status' => 'accepted']);
 
+            $follow->notifications()
+                ->where('type', 'user_follow_request')
+                ->delete();
+
             DB::commit();
 
             $this->sendFollowRequestAcceptedNotification($user, $authUser, $follow);
@@ -355,6 +359,10 @@ class V4FollowController extends Controller
             }
 
             DB::beginTransaction();
+
+            $follow->notifications()
+                ->where('type', 'user_follow_request')
+                ->delete();
 
             $follow->delete();
 
