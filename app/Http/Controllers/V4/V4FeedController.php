@@ -51,7 +51,7 @@ class V4FeedController extends Controller
 
             // Fetch posts
             $posts = V4Post::with([
-                'user:id,profile_photo,first_name,last_name,date_of_birth',
+                'user:id,profile_photo,first_name,last_name,role',
                 'media:id,post_id,type,url',
                 // 'likes' => function ($query) use ($authUser) {
                 //     $query->where('user_id', $authUser->id);
@@ -59,7 +59,7 @@ class V4FeedController extends Controller
                 'comments' => function ($query) {
                     $query->latest()->limit(1); // ✅ Only latest comment
                 },
-                'comments.user:id,username,profile_photo',
+                'comments.user:id,username,profile_photo,role',
             ])
                 ->whereIn('user_id', $userIds)
                 ->whereNull('deleted_at')
@@ -77,6 +77,9 @@ class V4FeedController extends Controller
                     'per_page' => $posts->perPage(),
                     'total' => $posts->total(),
                     'last_page' => $posts->lastPage(),
+                    'from'           => $posts->firstItem() ?? 0,
+                    'to'             => $posts->lastItem() ?? 0,
+                    'has_more_pages' => $posts->hasMorePages(),
                 ],
             ]);
         } catch (ValidationException $ve) {
