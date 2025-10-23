@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers\V4;
 
-
 use App\Http\Controllers\Controller;
-
 use App\Models\V4Post;
 use App\Models\V4PostComment;
-use App\Models\V4PostCommentHistory;
+use App\Models\V4User;
 use App\Services\NotificationService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Exception;
 
 class V4PostCommentController extends Controller
 {
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
 
     /**
      * Add a comment to a post
@@ -25,15 +29,15 @@ class V4PostCommentController extends Controller
     public function store(Request $request, $postId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
-        if (!$authUser) {
+        if (! $authUser) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $validator = Validator::make(
             array_merge($request->all(), ['post_id' => $postId]),
             [
-                'post_id' => 'required|integer|exists:v4_posts,id',
-                'body' => 'required|string|max:2000',
+                'post_id'   => 'required|integer|exists:v4_posts,id',
+                'body'      => 'required|string|max:2000',
                 'parent_id' => 'nullable|exists:v4_post_comments,id',
             ]
         );
@@ -42,7 +46,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -50,38 +54,31 @@ class V4PostCommentController extends Controller
             $post = V4Post::findOrFail($postId);
 
             $comment = V4PostComment::create([
-                'user_id' => $authUser->id,
-                'post_id' => $post->id,
+                'user_id'   => $authUser->id,
+                'post_id'   => $post->id,
                 'parent_id' => $request->parent_id,
-                'body' => $request->body,
+                'body'      => $request->body,
             ]);
 
             // Notify post owner (if not same user)
             if ($post->user_id !== $authUser->id) {
-                // NotificationService::send([
-                //     'user_id' => $post->user_id,
-                //     'title' => "{$authUser->username} commented on your post",
-                //     'body' => $request->body,
-                //     'data' => ['type' => 'comment', 'post_id' => $post->id],
-                // ]);
+                $this->sendToCommentNotification($authUser, $post->user, $post, $comment);
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Comment added successfully.',
-                'data' => $comment->load('user'),
+                'data'    => $comment->load('user'),
             ]);
         } catch (Exception $e) {
             Log::error('Comment store failed', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to add comment.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
-
-
 
     /**
      * Delete a comment
@@ -89,7 +86,7 @@ class V4PostCommentController extends Controller
     public function destroy($commentId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
-        if (!$authUser) {
+        if (! $authUser) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
@@ -111,7 +108,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to delete comment.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -129,14 +126,14 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post ID.',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
         try {
             $post = V4Post::find($postId);
 
-            if (!$post) {
+            if (! $post) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Post not found.',
@@ -145,7 +142,7 @@ class V4PostCommentController extends Controller
 
             $comments = V4PostComment::with([
                 'user:id,username,profile_picture',
-                'replies.user:id,username,profile_picture'
+                'replies.user:id,username,profile_picture',
             ])
                 ->where('post_id', $post->id)
                 ->whereNull('parent_id')
@@ -154,14 +151,14 @@ class V4PostCommentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $comments,
+                'data'    => $comments,
             ]);
         } catch (Exception $e) {
             Log::error('Fetch comments failed', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch comments.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -172,10 +169,10 @@ class V4PostCommentController extends Controller
         $user = Auth::guard('v4api')->user();
 
         $validator = Validator::make(
-            array_merge($request->all(), ['post_id' => $postId,]),
+            array_merge($request->all(), ['post_id' => $postId]),
             [
                 'post_id' => 'required|integer|exists:v4_posts,id',
-                'body' => 'required|string|max:2000',
+                'body'    => 'required|string|max:2000',
             ]
         );
 
@@ -183,7 +180,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -207,7 +204,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Comment updated successfully.',
-                'data' => $comment->fresh('user'),
+                'data'    => $comment->fresh('user'),
             ]);
         } catch (\Exception $e) {
             Log::error('Comment update failed', ['error' => $e->getMessage()]);
@@ -215,8 +212,42 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to update comment.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    /**
+     * Send a notification when a user comments on another user's post.
+     */
+    protected function sendToCommentNotification(V4User $fromUser, V4User $toUser, V4Post $post, V4PostComment $comment)
+    {
+        $title   = "New Comment on Your Post";
+        $message = "{$fromUser->name} commented on your post";
+
+        $data = [
+            'type'            => 'post_commented',
+            'action_required' => false,
+            'post'            => $post,
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo']),
+            'comment'         => [
+                'id'         => $comment->id,
+                'body'       => $comment->body,
+                'created_at' => $comment->created_at,
+                'parent_id'  => $comment->parent_id,
+            ],
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $toUser,
+            $title,
+            $message,
+            $fromUser->profile_photo,
+            $data,
+            'user_post_commented',
+            "posts/{$post->id}?comment-id={$comment->id}",
+            "user_commented_action",
+            $comment,
+        );
     }
 }
