@@ -77,7 +77,7 @@ class V4PostLikeController extends Controller
 
                         // Send notification again
                         if ($post->user_id !== $authUser->id) {
-                            $this->sendToLikeNotification($authUser, $post->user, $post);
+                            $this->sendToLikeNotification($authUser, $post->user, $post, $existingLike);
                         }
                         return response()->json([
                             'success' => true,
@@ -101,7 +101,7 @@ class V4PostLikeController extends Controller
 
                 // Send notification to post owner
                 if ($post->user_id !== $authUser->id) {
-                    $this->sendToLikeNotification($authUser, $post->user, $post);
+                    $this->sendToLikeNotification($authUser, $post->user, $post, $like);
                 }
 
                 return response()->json([
@@ -257,7 +257,7 @@ class V4PostLikeController extends Controller
     /**
      * Notify Like that their follow request was rejected
      */
-    protected function sendToLikeNotification(V4User $fromUser, V4User $toUser, V4Post $post)
+    protected function sendToLikeNotification(V4User $fromUser, V4User $toUser, V4Post $post, V4PostLike $postLike)
     {
         $title = "Post Liked";
         $message = "{$fromUser->name} Liked your post";
@@ -266,6 +266,7 @@ class V4PostLikeController extends Controller
             'type' => 'post_liked',
             'action_required' => false,
             'post' => $post,
+            'postLike' => $postLike,
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo']),
         ];
 
@@ -278,7 +279,7 @@ class V4PostLikeController extends Controller
             'user_post_liked',
             "posts/{$post->id}",
             "user_liked_action",
-            $post,
+            $postLike,
         );
     }
 }
