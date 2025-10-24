@@ -3288,7 +3288,7 @@ class V4EvaluationController extends Controller
             '#F44336', // Red color for rejection
             $data,
             'video_evaluation_rejected',
-            "/video-evaluations/{$evaluation->id}", // Redirect to evaluation details
+            "/video-evaluations/$evaluation->id", // Redirect to evaluation details
             'video_evaluation_action',
             $evaluation // Reference to evaluation model
         );
@@ -3317,7 +3317,7 @@ class V4EvaluationController extends Controller
             '#4CAF50', // Red color for rejection
             $data,
             'video_evaluation_completed',
-            "/video-evaluations/{$evaluation->id}/results", // Redirect to evaluation details
+            "/video-evaluations/$evaluation->id/results", // Redirect to evaluation details
             'video_evaluation_results_action',
             $evaluation // Reference to evaluation model
         );

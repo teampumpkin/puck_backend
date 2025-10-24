@@ -347,4 +347,12 @@ class V4User extends Authenticatable implements JWTSubject
     {
         return V4Follow::where('follower_id', $this->id)->where('following_id', $userId)->where('status', 'pending')->exists();
     }
+
+    /**
+     * Check if user has pending request to follow another user.
+     */
+    public function hasSendPendingRequest($userId): bool
+    {
+        return V4Follow::where('follower_id', $userId)->where('following_id', $this->id)->where('status', 'pending')->exists();
+    }
 }

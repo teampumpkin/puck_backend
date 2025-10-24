@@ -1151,6 +1151,7 @@ class ProfileController extends Controller
             $userData['profile'] = $profileData;
 
             $userData['is_following'] = $user->isFollowedBy($authUser->id);
+            $userData['has_pending_request'] = $user->hasSendPendingRequest($authUser->id);
 
             return response()->json([
                 'success' => true,
