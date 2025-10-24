@@ -689,6 +689,110 @@ class ProfileController extends Controller
         }
     }
 
+    //for parent to update child profile
+    public function updateChildProfile(Request $request, $childId)
+    {
+        try {
+            $parent = Auth::guard('v4api')->user();
+
+            $child = V4User::where('id', $childId)
+                ->where('parent_id', $parent->id)
+                ->first();
+
+            if (!$child) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Child not found or not authorized',
+                ], 404);
+            }
+
+            $userRules = [
+                'first_name' => 'nullable|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'date_of_birth' => 'nullable|date',
+                'country' => 'nullable|string|max:100',
+                'state' => 'nullable|string|max:100',
+                'city' => 'nullable|string|max:100',
+                'zip' => 'nullable|string|max:20',
+            ];
+
+            $profileRules = [
+                'teams' => 'nullable|array',
+                'leagues' => 'nullable|array',
+                'position' => 'nullable|string|max:100',
+                'handedness' => 'nullable|in:left,right,ambidextrous',
+                'weight' => 'nullable|numeric',
+                'height' => 'nullable|numeric',
+                'gender' => 'nullable|in:male,female,other',
+            ];
+
+            if ($request->hasFile('profile_photo')) {
+                $userRules['profile_photo'] = 'file|image|max:5120';
+            }
+
+            $validatedUserData = $request->validate($userRules);
+            $validatedProfileData = $request->validate($profileRules);
+
+            if ($request->hasFile('profile_photo')) {
+                $path = $request->file('profile_photo')->store(
+                    'profile_photos/' . $child->id,
+                    's3'
+                );
+                $photoUrl = Storage::disk('s3')->url($path);
+                $validatedUserData['profile_photo'] = $photoUrl;
+            }
+
+            $result = \DB::transaction(function () use ($child, $validatedUserData, $validatedProfileData) {
+                $child->update($validatedUserData);
+
+                $child->playerProfile()->updateOrCreate(
+                    ['v4_user_id' => $child->id],
+                    $validatedProfileData
+                );
+
+                $child->refresh();
+                $child->load('playerProfile');
+
+                return $child;
+            });
+
+            $childData = $result->toArray();
+
+            unset(
+                $childData['player_profile'],
+                $childData['coach_profile'],
+                $childData['team_profile'],
+                $childData['scout_profile'],
+                $childData['academy_profile'],
+                $childData['organizer_profile'],
+                $childData['adviser_profile'],
+                $childData['parent_profile'],
+                $childData['fan_profile']
+            );
+
+            $childData['profile'] = $result->playerProfile;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Child profile updated successfully',
+                'child' => $childData,
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update child profile',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     /**
      * Search users by first name or last name with pagination
      *

@@ -362,6 +362,7 @@ Route::prefix('v4')->group(function () {
         Route::post('/add-child', [ProfileController::class, 'addChild']);
         Route::post('/update-child-permissions/{childId}', [ProfileController::class, 'updateChildPermissions']);
         Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
+        Route::post('/update-child-profile/{childId}', [ProfileController::class, 'updateChildProfile']);
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
 
 
