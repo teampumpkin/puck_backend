@@ -10,6 +10,13 @@ class V4PostShare extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $fillable = [
+        'user_id',
+        'post_id',
+        'caption',
+        'conversation_id',
+    ];
+
 
     public function user()
     {

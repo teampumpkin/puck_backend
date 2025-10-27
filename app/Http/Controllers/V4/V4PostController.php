@@ -131,7 +131,7 @@ class V4PostController extends Controller
             DB::rollBack();
 
             Log::error('Post upload failed.', [
-                'user_id' => $user->id,
+                'user_id' => $authUser->id,
                 'message' => $e->getMessage(),
                 'trace'   => $e->getTraceAsString(),
             ]);

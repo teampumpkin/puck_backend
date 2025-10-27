@@ -36,6 +36,7 @@ use App\Http\Controllers\V4\V4PaymentController;
 use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
+use App\Http\Controllers\V4\V4PostShareController;
 use App\Http\Controllers\V4\V4FollowController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -517,9 +518,14 @@ Route::prefix('v4')->group(function () {
             Route::post('{postId}/comments', [V4PostCommentController::class, 'store']);
             Route::put('{postId}/comments/{commentId}', [V4PostCommentController::class, 'update']);
             Route::delete('{postId}/comments/{commentId}', [V4PostCommentController::class, 'destroy']);
+
+            Route::post('{postId}/share', [V4PostShareController::class, 'store']);
+            Route::delete('{postId}/unshare', [V4PostShareController::class, 'destroy']);
+            Route::get('{postId}/shares', [V4PostShareController::class, 'index']);
         });
 
         Route::prefix('feeds')->group(function () {
+            Route::get('/users/{userId}', [V4FeedController::class, 'getRecentFeedsByUserId']);
             Route::get('/recent', [V4FeedController::class, 'getRecentFeeds']);
         });
     });
