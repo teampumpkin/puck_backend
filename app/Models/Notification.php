@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Notification extends Model
 {
@@ -26,75 +27,74 @@ class Notification extends Model
         'redirect_url',
         'reference_type',
         'reference_id',
-        'action_type'
+        'action_type',
     ];
 
     protected $casts = [
-        'data' => 'array',
-        'read_at' => 'datetime',
+        'data'       => 'array',
+        'read_at'    => 'datetime',
         'v4_user_id' => 'string', // Cast UUID as string
     ];
 
     // Icon types
-    const ICON_TYPE_DEFAULT = 'default';
-    const ICON_TYPE_URL = 'url';
-    const ICON_TYPE_ASSET = 'asset';
+    const ICON_TYPE_DEFAULT  = 'default';
+    const ICON_TYPE_URL      = 'url';
+    const ICON_TYPE_ASSET    = 'asset';
     const ICON_TYPE_MATERIAL = 'material';
-    const ICON_TYPE_CUSTOM = 'custom';
+    const ICON_TYPE_CUSTOM   = 'custom';
 
     // Default icons for different notification types
     const DEFAULT_ICONS = [
-        'order_created' => '📦',
+        'order_created'   => '📦',
         'order_confirmed' => '✅',
-        'order_shipped' => '🚚',
+        'order_shipped'   => '🚚',
         'order_delivered' => '🎁',
         'order_cancelled' => '❌',
         'payment_success' => '💳',
-        'payment_failed' => '⚠️',
-        'new_message' => '💬',
-        'friend_request' => '👤',
+        'payment_failed'  => '⚠️',
+        'new_message'     => '💬',
+        'friend_request'  => '👤',
         'friend_accepted' => '🤝',
-        'post_created' => '📝',
-        'post_updated' => '✏️',
-        'comment_added' => '💭',
-        'like_received' => '❤️',
-        'announcement' => '📢',
-        'warning' => '⚠️',
-        'info' => 'ℹ️',
-        'success' => '✅',
-        'error' => '❌',
-        'general' => '🔔',
+        'post_created'    => '📝',
+        'post_updated'    => '✏️',
+        'comment_added'   => '💭',
+        'like_received'   => '❤️',
+        'announcement'    => '📢',
+        'warning'         => '⚠️',
+        'info'            => 'ℹ️',
+        'success'         => '✅',
+        'error'           => '❌',
+        'general'         => '🔔',
     ];
 
     // Material icons for different types
     const MATERIAL_ICONS = [
-        'order_created' => 'inventory_2',
+        'order_created'   => 'inventory_2',
         'order_confirmed' => 'check_circle',
-        'order_shipped' => 'local_shipping',
+        'order_shipped'   => 'local_shipping',
         'order_delivered' => 'package',
         'order_cancelled' => 'cancel',
         'payment_success' => 'payment',
-        'payment_failed' => 'error',
-        'new_message' => 'message',
-        'friend_request' => 'person_add',
+        'payment_failed'  => 'error',
+        'new_message'     => 'message',
+        'friend_request'  => 'person_add',
         'friend_accepted' => 'people',
-        'post_created' => 'post_add',
-        'post_updated' => 'edit',
-        'comment_added' => 'comment',
-        'like_received' => 'favorite',
-        'announcement' => 'campaign',
-        'warning' => 'warning',
-        'info' => 'info',
-        'success' => 'check_circle',
-        'error' => 'error',
-        'general' => 'notifications',
+        'post_created'    => 'post_add',
+        'post_updated'    => 'edit',
+        'comment_added'   => 'comment',
+        'like_received'   => 'favorite',
+        'announcement'    => 'campaign',
+        'warning'         => 'warning',
+        'info'            => 'info',
+        'success'         => 'check_circle',
+        'error'           => 'error',
+        'general'         => 'notifications',
     ];
 
     public function user()
     {
         return $this->belongsTo(V4User::class, 'v4_user_id');
     }
-
 
     // Polymorphic relationship for reference to other models
     public function reference()
@@ -160,7 +160,7 @@ class Notification extends Model
 
     public function isRead()
     {
-        return !is_null($this->read_at);
+        return ! is_null($this->read_at);
     }
 
     public function isUnread()
@@ -241,8 +241,8 @@ class Notification extends Model
     public function setIcon($icon, $type = self::ICON_TYPE_DEFAULT, $color = null)
     {
         $this->update([
-            'icon' => $icon,
-            'icon_type' => $type,
+            'icon'       => $icon,
+            'icon_type'  => $type,
             'icon_color' => $color,
         ]);
 
@@ -282,7 +282,6 @@ class Notification extends Model
     {
         return $this->setIcon($assetPath, self::ICON_TYPE_ASSET, $color);
     }
-
 
     // Get redirect URL based on type and reference
     public function getRedirectUrlAttribute($value)

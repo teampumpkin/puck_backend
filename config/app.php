@@ -27,6 +27,7 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+    'CHAT_APP_HOST_PRODUCTION' => env('CHAT_APP_HOST_PRODUCTION', 'https://puck-recruiter.teampumpkin.ca'),
 
     /*
     |--------------------------------------------------------------------------

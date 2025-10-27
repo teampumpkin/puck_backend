@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -420,7 +421,7 @@ class ProfileController extends Controller
             ]);
 
             // Use database transaction to ensure data consistency
-            $result = \DB::transaction(function () use ($parent, $validatedData) {
+            $result = DB::transaction(function () use ($parent, $validatedData) {
                 // Create child user with parent's information
                 $child = V4User::create([
                     'parent_id'      => $parent->id,
@@ -742,7 +743,7 @@ class ProfileController extends Controller
                 $validatedUserData['profile_photo'] = $photoUrl;
             }
 
-            $result = \DB::transaction(function () use ($child, $validatedUserData, $validatedProfileData) {
+            $result = DB::transaction(function () use ($child, $validatedUserData, $validatedProfileData) {
                 $child->update($validatedUserData);
 
                 $child->playerProfile()->updateOrCreate(
@@ -777,7 +778,6 @@ class ProfileController extends Controller
                 'message' => 'Child profile updated successfully',
                 'child' => $childData,
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1255,6 +1255,9 @@ class ProfileController extends Controller
             $userData['profile'] = $profileData;
 
             $userData['is_following'] = $user->isFollowedBy($authUser->id);
+            $userData['has_pending_request'] = $user->hasSendPendingRequest($authUser->id);
+
+            $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
             return response()->json([
                 'success' => true,

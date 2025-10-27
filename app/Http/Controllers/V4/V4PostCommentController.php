@@ -146,12 +146,11 @@ class V4PostCommentController extends Controller
             }
 
             $comments = V4PostComment::with([
-                'user:id,username,profile_picture',
-                'replies.user:id,username,profile_picture',
+                'user:id,first_name,last_name,profile_photo',
+                'replies.user:id,first_name,last_name,profile_photo',
             ])
                 ->where('post_id', $post->id)
                 ->whereNull('parent_id')
-                ->latest()
                 ->get();
 
             return response()->json([
@@ -228,13 +227,13 @@ class V4PostCommentController extends Controller
     protected function sendToCommentNotification(V4User $fromUser, V4User $toUser, V4Post $post, V4PostComment $comment)
     {
         $title   = "New Comment on Your Post";
-        $message = "{$fromUser->name} commented on your post";
+        $message = "$fromUser->name commented on your post";
 
         $data = [
             'type'            => 'post_commented',
             'action_required' => false,
             'post'            => $post,
-            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo']),
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
             'comment'         => [
                 'id'         => $comment->id,
                 'body'       => $comment->body,
@@ -250,7 +249,7 @@ class V4PostCommentController extends Controller
             $fromUser->profile_photo,
             $data,
             'user_post_commented',
-            "posts/{$post->id}?comment-id={$comment->id}",
+            "posts/$post->id?comment-id=$comment->id",
             "user_commented_action",
             $comment,
         );

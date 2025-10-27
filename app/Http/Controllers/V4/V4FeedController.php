@@ -53,13 +53,11 @@ class V4FeedController extends Controller
             $posts = V4Post::with([
                 'user:id,profile_photo,first_name,last_name,role',
                 'media:id,post_id,type,url',
-                // 'likes' => function ($query) use ($authUser) {
-                //     $query->where('user_id', $authUser->id);
+                'likedByAuthUser',
+                // 'comments' => function ($query) {
+                //     $query->latest()->limit(1); // ✅ Only latest comment
                 // },
-                'comments' => function ($query) {
-                    $query->latest()->limit(1); // ✅ Only latest comment
-                },
-                'comments.user:id,username,profile_photo,role',
+                // 'comments.user:id,username,profile_photo,role',
             ])
                 ->whereIn('user_id', $userIds)
                 ->whereNull('deleted_at')

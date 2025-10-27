@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\V4;
 
-
 use App\Http\Controllers\Controller;
 use App\Models\V4Post;
 use App\Models\V4PostLike;
@@ -13,11 +12,9 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 class V4PostLikeController extends Controller
 {
@@ -36,10 +33,10 @@ class V4PostLikeController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (!$authUser) {
+        if (! $authUser) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized access.'
+                'message' => 'Unauthorized access.',
             ], 401);
         }
 
@@ -51,7 +48,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -69,7 +66,7 @@ class V4PostLikeController extends Controller
                         $existingLike->restore();
 
                         // Remove any old "unlike" cleanup (safety)
-                        $post->user->notifications()
+                        $post->user->v4Notifications()
                             ->where('type', 'user_post_liked')
                             ->where('data->post->id', $post->id)
                             ->where('data->from_user.id', $authUser->id)
@@ -82,7 +79,7 @@ class V4PostLikeController extends Controller
                         return response()->json([
                             'success' => true,
                             'message' => 'Post liked again.',
-                            'data' => $existingLike,
+                            'data'    => $existingLike,
                         ]);
                     }
 
@@ -107,7 +104,7 @@ class V4PostLikeController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Post liked successfully.',
-                    'data' => $like,
+                    'data'    => $like,
                 ]);
             });
         } catch (ModelNotFoundException $e) {
@@ -117,7 +114,7 @@ class V4PostLikeController extends Controller
             ], 404);
         } catch (Exception $e) {
             Log::error('Like failed', [
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
                 'user_id' => $authUser->id ?? null,
                 'post_id' => $postId,
             ]);
@@ -125,7 +122,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while liking the post.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -137,7 +134,7 @@ class V4PostLikeController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (!$authUser) {
+        if (! $authUser) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access.',
@@ -152,7 +149,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -165,7 +162,7 @@ class V4PostLikeController extends Controller
                     ->where('post_id', $post->id)
                     ->first();
 
-                if (!$like) {
+                if (! $like) {
                     return response()->json([
                         'success' => false,
                         'message' => 'You have not liked this post.',
@@ -177,7 +174,7 @@ class V4PostLikeController extends Controller
                 $postOwner = $post->user;
 
                 if ($postOwner) {
-                    $postOwner->notifications()
+                    $postOwner->v4Notifications()
                         ->where('type', 'user_post_liked')
                         ->where('data->post->id', $post->id)
                         ->where('data->from_user.id', $authUser->id)
@@ -196,7 +193,7 @@ class V4PostLikeController extends Controller
             ], 404);
         } catch (Exception $e) {
             Log::error('Unlike failed', [
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
                 'user_id' => $authUser->id ?? null,
                 'post_id' => $postId,
             ]);
@@ -204,7 +201,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while unliking the post.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -216,7 +213,7 @@ class V4PostLikeController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (!$authUser) {
+        if (! $authUser) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
@@ -228,7 +225,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -241,33 +238,32 @@ class V4PostLikeController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $likes,
+                'data'    => $likes,
             ]);
         } catch (Exception $e) {
             Log::error('Fetch likes failed', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch likes.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
-
 
     /**
      * Notify Like that their follow request was rejected
      */
     protected function sendToLikeNotification(V4User $fromUser, V4User $toUser, V4Post $post, V4PostLike $postLike)
     {
-        $title = "Post Liked";
+        $title   = "Post Liked";
         $message = "{$fromUser->name} Liked your post";
 
         $data = [
-            'type' => 'post_liked',
+            'type'            => 'post_liked',
             'action_required' => false,
-            'post' => $post,
-            'postLike' => $postLike,
-            'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo']),
+            'post'            => $post,
+            'postLike'        => $postLike,
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
         return $this->notificationService->sendToUserWithImage(

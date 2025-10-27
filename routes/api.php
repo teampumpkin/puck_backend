@@ -502,6 +502,8 @@ Route::prefix('v4')->group(function () {
             Route::get('/my', [V4PostController::class, 'getMyPosts']);
             Route::get('/my/{postId}', [V4PostController::class, 'getMyPost']);
 
+            Route::get('/{postId}', [V4PostController::class, 'getPostById']);
+
             Route::put('/my/{postId}', [V4PostController::class, 'editPost']);
             Route::delete('/my/{postId}', [V4PostController::class, 'deletePost']);
 

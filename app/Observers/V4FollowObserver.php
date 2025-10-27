@@ -23,6 +23,7 @@ class V4FollowObserver
                 'follower_id' => $v4Follow->follower_id,
                 'following_id' => $v4Follow->following_id,
                 'action' => $this->getValidAction($v4Follow->status),
+                'conversation_id' => $v4Follow->conversation_id,
             ]);
 
             if ($v4Follow->status === 'accepted') {
@@ -55,6 +56,7 @@ class V4FollowObserver
                     'follower_id' => $v4Follow->follower_id,
                     'following_id' => $v4Follow->following_id,
                     'action' => $this->getValidAction($v4Follow->status),
+                    'conversation_id' => $v4Follow->conversation_id,
                 ]);
             }
         } catch (\Throwable $e) {
@@ -82,6 +84,7 @@ class V4FollowObserver
                 'follower_id' => $v4Follow->follower_id,
                 'following_id' => $v4Follow->following_id,
                 'action' => $this->getValidAction($v4Follow->status), // 'unfollow' can be mapped to 'rejected'
+                'conversation_id' => $v4Follow->conversation_id,
             ]);
         } catch (\Throwable $e) {
             Log::error('V4FollowObserver deleted() failed', [
@@ -108,6 +111,7 @@ class V4FollowObserver
                 'follower_id' => $v4Follow->follower_id,
                 'following_id' => $v4Follow->following_id,
                 'action' => $this->getValidAction($v4Follow->status),
+                'conversation_id' => $v4Follow->conversation_id,
             ]);
         } catch (\Throwable $e) {
             Log::error('V4FollowObserver restored() failed', [

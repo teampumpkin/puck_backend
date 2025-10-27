@@ -5,8 +5,8 @@ namespace App\Http\Controllers\V4;
 use App\Http\Controllers\Controller;
 use App\Models\V4Post;
 use App\Models\V4PostMedia;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,7 +30,6 @@ class V4PostController extends Controller
         // ✅ Authenticated User
         // --------------------------
         $authUser = Auth::guard('v4api')->user();
-
 
         try {
             // --------------------------
@@ -214,6 +213,55 @@ class V4PostController extends Controller
                     'message' => 'You do not have permission to view this post.',
                 ], 403);
             }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Post retrieved successfully',
+                'data'    => $post,
+            ]);
+        } catch (ModelNotFoundException $e) {
+            Log::warning('Post not found or access denied.', [
+                'post_id' => $postId,
+                'user_id' => $user->id,
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Post not found.',
+            ], 404);
+        } catch (Exception $e) {
+            Log::error('Error retrieving post.', [
+                'post_id' => $postId,
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getPostById($postId): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            $post = V4Post::where('id', $postId)
+                ->with([
+                    'user:id,profile_photo,first_name,last_name,role',
+                    'media:id,post_id,type,url',
+                    'likedByAuthUser',
+                    'comments' => function ($query) {
+                        $query->latest()->limit(1); // ✅ Only latest comment
+                    },
+                    'comments.user:id,username,profile_photo,role',
+                ])
+                ->firstOrFail();
 
             return response()->json([
                 'success' => true,

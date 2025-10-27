@@ -17,6 +17,7 @@ class V4FollowHistory extends Model
         'following_id',
         'action',
         'meta',
+        'conversation_id',
     ];
 
     protected $casts = [

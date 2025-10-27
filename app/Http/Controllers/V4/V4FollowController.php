@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -72,10 +73,41 @@ class V4FollowController extends Controller
                     ], 409);
                 }
             } else {
+                /**
+                 * 🔹 Create conversation BEFORE creating follow record
+                 */
+                $conversationId = null;
+                try {
+                    $token = $request->bearerToken();
+
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type'  => 'application/json',
+                    ])->post($baseUrl . '/conversation/create', [
+                        'type'         => 'single',
+                        'participants' => [(string)$authUser->id, (string)$user->id],
+                    ]);
+
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    } else {
+                        Log::warning('Conversation API failed', [
+                            'status' => $response->status(),
+                            'body'   => $response->body(),
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Conversation API error', ['error' => $e->getMessage()]);
+                }
+
+
                 $follow = V4Follow::create([
                     'follower_id'  => $authUser->id,
                     'following_id' => $user->id,
                     'status'       => $status,
+                    'conversation_id' => $conversationId,
                 ]);
             }
 
@@ -368,7 +400,7 @@ class V4FollowController extends Controller
 
             DB::commit();
 
-            $this->sendFollowRejectedNotification($user, $authUser);
+            // $this->sendFollowRejectedNotification($user, $authUser);
 
             return response()->json([
                 'success' => true,
@@ -622,13 +654,13 @@ class V4FollowController extends Controller
     protected function sendFollowAcceptedNotification(V4User $fromUser, V4User $toUser, V4Follow $follow)
     {
         $title   = "New Follower";
-        $message = "{$fromUser->name} started following you.";
+        $message = "$fromUser->name started following you.";
 
         $data = [
             'type'            => 'follow',
             'action_required' => false,
             'status'          => $follow->status,
-            'from_user_id'    => $fromUser->id,
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
         $notification = $this->notificationService->sendToUserWithImage(
@@ -638,7 +670,7 @@ class V4FollowController extends Controller
             $fromUser->profile_photo,
             $data,
             'user_follow',
-            "profile/{$fromUser->id}",
+            "profile/$fromUser->id",
             'user_follow_action',
             $follow
         );
@@ -652,13 +684,14 @@ class V4FollowController extends Controller
     protected function sendRequestFollowingNotification(V4User $fromUser, V4User $toUser, V4Follow $follow)
     {
         $title   = "Follow Request";
-        $message = "{$fromUser->name} requested to connect with you";
+        $message = "$fromUser->name requested to connect with you";
 
         $data = [
             'type'            => 'follow_request',
             'quick_actions'   => ['accept', 'reject'],
             'action_required' => true,
             'status'          => $follow->status,
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
         $notification = $this->notificationService->sendToUserWithImage(
@@ -668,7 +701,7 @@ class V4FollowController extends Controller
             $fromUser->profile_photo,
             $data,
             'user_follow_request',
-            'profile/{$fromUser->id}',
+            "profile/$fromUser->id",
             'user_follow_request_action',
             $follow,
 
@@ -682,13 +715,13 @@ class V4FollowController extends Controller
     protected function sendFollowRequestAcceptedNotification(V4User $fromUser, V4User $toUser, V4Follow $follow)
     {
         $title   = 'Follow Request Accepted';
-        $message = "{$fromUser->name} accepted your follow request.";
+        $message = "$fromUser->name accepted your follow request.";
 
         $data = [
             'type'            => 'follow_accepted',
             'action_required' => false,
             'status'          => $follow->status,
-            'from_user_id'    => $fromUser->id,
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
         return $this->notificationService->sendToUserWithImage(
@@ -698,7 +731,7 @@ class V4FollowController extends Controller
             $fromUser->profile_photo,
             $data,
             'user_follow_accepted',
-            "profile/{$fromUser->id}",
+            "profile/$fromUser->id",
             'user_follow_accepted_action',
             $follow
         );
@@ -710,12 +743,12 @@ class V4FollowController extends Controller
     protected function sendFollowRejectedNotification(V4User $fromUser, V4User $toUser)
     {
         $title   = 'Follow Request Rejected';
-        $message = "{$fromUser->name} rejected your follow request.";
+        $message = "$fromUser->name rejected your follow request.";
 
         $data = [
             'type'            => 'follow_rejected',
             'action_required' => false,
-            'from_user_id'    => $fromUser->id,
+            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
         return $this->notificationService->sendToUserWithImage(
@@ -725,7 +758,7 @@ class V4FollowController extends Controller
             $fromUser->profile_photo,
             $data,
             'user_follow_rejected',
-            "profile/{$fromUser->id}",
+            "profile/$fromUser->id",
             'user_follow_rejected_action',
             null // No follow model passed since it may be deleted
         );

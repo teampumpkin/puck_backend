@@ -434,7 +434,7 @@ class V4PaymentController extends Controller
                 $color,
                 $data,
                 'payment_request_received',
-                '/payment-requests/{$paymentRequest->id}', // Redirect to payment request details
+                "/payment-requests/$paymentRequest->id", // Redirect to payment request details
                 'payment_request_action',
                 $paymentRequest
             );
