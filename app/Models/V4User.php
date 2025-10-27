@@ -54,7 +54,7 @@ class V4User extends Authenticatable implements JWTSubject
     ];
 
     protected $appends = [
-        // 'block_status',
+        'block_status',
         'name',
         // 'age'
     ];
