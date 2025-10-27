@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -72,10 +73,41 @@ class V4FollowController extends Controller
                     ], 409);
                 }
             } else {
+                /**
+                 * 🔹 Create conversation BEFORE creating follow record
+                 */
+                $conversationId = null;
+                try {
+                    $token = $request->bearerToken();
+
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type'  => 'application/json',
+                    ])->post($baseUrl . '/conversation/create', [
+                        'type'         => 'single',
+                        'participants' => [(string)$authUser->id, (string)$user->id],
+                    ]);
+
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    } else {
+                        Log::warning('Conversation API failed', [
+                            'status' => $response->status(),
+                            'body'   => $response->body(),
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Conversation API error', ['error' => $e->getMessage()]);
+                }
+
+
                 $follow = V4Follow::create([
                     'follower_id'  => $authUser->id,
                     'following_id' => $user->id,
                     'status'       => $status,
+                    'conversation_id' => $conversationId,
                 ]);
             }
 

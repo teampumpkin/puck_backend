@@ -151,7 +151,6 @@ class V4PostCommentController extends Controller
             ])
                 ->where('post_id', $post->id)
                 ->whereNull('parent_id')
-                ->latest()
                 ->get();
 
             return response()->json([

@@ -19,6 +19,9 @@ class V4Post extends Model
     ];
 
 
+    protected $appends = ['is_liked'];
+
+
     public function user()
     {
         return $this->belongsTo(V4User::class, 'user_id');
@@ -42,5 +45,24 @@ class V4Post extends Model
     public function shares()
     {
         return $this->hasMany(V4PostShare::class, 'post_id');
+    }
+
+    // 👇 Relationship for current user's like (we’ll eager-load this in controller)
+    public function likedByAuthUser()
+    {
+        $userId = auth('v4api')->id();
+        return $this->hasOne(V4PostLike::class, 'post_id')->where('user_id', $userId);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessors
+    |--------------------------------------------------------------------------
+    */
+
+    public function getIsLikedAttribute(): bool
+    {
+        // Uses the eager-loaded relationship (no query)
+        return $this->relationLoaded('likedByAuthUser') && $this->likedByAuthUser !== null;
     }
 }

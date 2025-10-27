@@ -355,4 +355,27 @@ class V4User extends Authenticatable implements JWTSubject
     {
         return V4Follow::where('follower_id', $userId)->where('following_id', $this->id)->where('status', 'pending')->exists();
     }
+
+    public function v4Notifications()
+    {
+        return $this->hasMany(Notification::class, 'v4_user_id');
+    }
+
+
+    public function getConversationWith($otherUserId): ?string
+    {
+        $conversation = V4Follow::where(function ($q) use ($otherUserId) {
+            $q->where('follower_id', $this->id)
+                ->where('following_id', $otherUserId);
+        })
+            ->orWhere(function ($q) use ($otherUserId) {
+                $q->where('follower_id', $otherUserId)
+                    ->where('following_id', $this->id);
+            })
+            ->whereNotNull('conversation_id')
+            ->latest('updated_at')
+            ->first();
+
+        return $conversation?->conversation_id;
+    }
 }

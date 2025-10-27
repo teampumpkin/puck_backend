@@ -66,7 +66,7 @@ class V4PostLikeController extends Controller
                         $existingLike->restore();
 
                         // Remove any old "unlike" cleanup (safety)
-                        $post->user->notifications()
+                        $post->user->v4Notifications()
                             ->where('type', 'user_post_liked')
                             ->where('data->post->id', $post->id)
                             ->where('data->from_user.id', $authUser->id)
@@ -174,7 +174,7 @@ class V4PostLikeController extends Controller
                 $postOwner = $post->user;
 
                 if ($postOwner) {
-                    $postOwner->notifications()
+                    $postOwner->v4Notifications()
                         ->where('type', 'user_post_liked')
                         ->where('data->post->id', $post->id)
                         ->where('data->from_user.id', $authUser->id)

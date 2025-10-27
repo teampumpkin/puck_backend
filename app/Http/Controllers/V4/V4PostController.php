@@ -252,7 +252,15 @@ class V4PostController extends Controller
             $user = Auth::guard('v4api')->user();
 
             $post = V4Post::where('id', $postId)
-                ->with('media')
+                ->with([
+                    'user:id,profile_photo,first_name,last_name,role',
+                    'media:id,post_id,type,url',
+                    'likedByAuthUser',
+                    'comments' => function ($query) {
+                        $query->latest()->limit(1); // ✅ Only latest comment
+                    },
+                    'comments.user:id,username,profile_photo,role',
+                ])
                 ->firstOrFail();
 
             return response()->json([
