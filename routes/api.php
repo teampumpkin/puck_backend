@@ -37,6 +37,7 @@ use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
 use App\Http\Controllers\V4\V4PostShareController;
+use App\Http\Controllers\V4\V4MarketplaceController;
 use App\Http\Controllers\V4\V4FollowController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -352,6 +353,13 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
                 Route::post('/{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
             });
+
+            Route::prefix('marketplace')->group(function () {
+                Route::post('/', [V4MarketplaceController::class, 'storeMarketplace']);
+                Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
+                Route::post('/{v4MarketplaceId}/update', [V4MarketplaceController::class, 'updateMarketplaceById']);
+                Route::delete('/{v4MarketplaceId}', [V4MarketplaceController::class, 'destroyMarketplaceById']);
+            });
         });
     });
 
@@ -527,6 +535,11 @@ Route::prefix('v4')->group(function () {
         Route::prefix('feeds')->group(function () {
             Route::get('/users/{userId}', [V4FeedController::class, 'getRecentFeedsByUserId']);
             Route::get('/recent', [V4FeedController::class, 'getRecentFeeds']);
+        });
+
+        Route::prefix('marketplace')->group(function () {
+            Route::get('/', [V4MarketplaceController::class, 'getMarketPlaces']);
+            Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
         });
     });
 });

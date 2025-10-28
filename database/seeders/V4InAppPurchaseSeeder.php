@@ -23,6 +23,22 @@ class V4InAppPurchaseSeeder extends Seeder
                 'active' => true,
                 'currency' => 'CDN'
             ],
+            [
+                'sku' => 'one_on_one_consultation_video_call',
+                'title' => "1 on 1 Consultation Video Call",
+                'amount_cents' => 25900,
+                'meta' => null,
+                'active' => true,
+                'currency' => 'CDN'
+            ],
+            [
+                'sku' => '12_week_mentorship_program',
+                'title' => "12-Week Mentorship Program",
+                'amount_cents' => 25900,
+                'meta' => null,
+                'active' => true,
+                'currency' => 'CDN'
+            ],
         ];
 
         foreach ($inAppPurchases as $purchase) {
