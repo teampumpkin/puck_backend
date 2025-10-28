@@ -412,26 +412,25 @@ class V4PaymentController extends Controller
             $message = 'There is a payment approval request from your child ' . $child->name;
 
             $data = [
-                'payment_request_id' => $paymentRequest->id,
-                'sku' => $sku,
-                'child' => $child,
-                'amount' => $amount,
-                'currency' => $currency,
-                'purpose' => $purpose,
-                'status' => 'pending',
-                'action_required' => true,
-                'quick_actions' => ['approve', 'decline'],
+                'payment_request' => $paymentRequest,
+                'sku'                => $sku,
+                'child'              => $child,
+                'amount'             => $amount,
+                'currency'           => $currency,
+                'purpose'            => $purpose,
+                'status'             => 'pending',
+                'action_required'    => true,
+                'quick_actions'      => ['approve', 'decline'],
                 // 'parent' => $parent,
             ];
             $icon = 'payments';
             $color = '#2196F3'; // Blue for low urgency
 
-            $notification = $this->notificationService->sendToUserWithMaterialIcon(
+            $notification = $this->notificationService->sendToUserWithImage(
                 $parent,
                 $title,
                 $message,
-                $icon,
-                $color,
+                $child->profile_photo ?? '',
                 $data,
                 'payment_request_received',
                 "/payment-requests/$paymentRequest->id", // Redirect to payment request details

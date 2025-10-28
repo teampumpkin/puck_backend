@@ -270,7 +270,7 @@ class V4PostLikeController extends Controller
             $toUser,
             $title,
             $message,
-            $fromUser->profile_photo,
+            $fromUser->profile_photo ?? '',
             $data,
             'user_post_liked',
             "posts/{$post->id}",
