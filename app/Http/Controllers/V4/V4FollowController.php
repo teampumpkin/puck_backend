@@ -61,10 +61,37 @@ class V4FollowController extends Controller
 
             if ($existing) {
                 if ($existing->trashed()) {
-                    // Restore soft-deleted relationship (re-follow)
                     $existing->restore();
                     $existing->update(['status' => $status]);
                     $follow = $existing;
+
+
+                    try {
+                        $token = $request->bearerToken();
+
+                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                        $response = Http::withHeaders([
+                            'Authorization' => 'Bearer ' . $token,
+                            'Content-Type'  => 'application/json',
+                        ])->post($baseUrl . '/conversation/create', [
+                            'type'         => 'single',
+                            'participants' => [(string)$authUser->id, (string)$user->id],
+                        ]);
+
+                        if ($response->successful() && isset($response->json()['_id'])) {
+                            $conversationId = $response->json()['_id'];
+                            $existing->update(['conversation_id' => $conversationId,]);
+                            $follow = $existing;
+                        } else {
+                            Log::warning('Conversation API failed', [
+                                'status' => $response->status(),
+                                'body'   => $response->body(),
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('Conversation API error', ['error' => $e->getMessage()]);
+                    }
                 } else {
                     DB::rollBack();
                     return response()->json([
@@ -208,6 +235,8 @@ class V4FollowController extends Controller
             }
 
             DB::beginTransaction();
+
+            $follow->update(['status' => 'pending']);
 
             // Soft delete follow record
             $follow->delete();
@@ -448,22 +477,142 @@ class V4FollowController extends Controller
         }
     }
 
+    public function cancelFollow(Request $request, $userId): JsonResponse
+    {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (! $authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 401);
+        }
+
+        if ($authUser->id == $userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot cancel a follow request to yourself.',
+            ], 400);
+        }
+
+        try {
+            $user = V4User::findOrFail($userId);
+
+            // Find pending follow request sent by the auth user to this user
+            $follow = V4Follow::where([
+                'follower_id'  => $authUser->id,
+                'following_id' => $user->id,
+                'status'       => 'pending',
+            ])->first();
+
+            if (! $follow) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No pending follow request found to cancel.',
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            // Delete any pending notifications related to this follow
+            $follow->notifications()
+                ->where('type', 'user_follow_request')
+                ->delete();
+
+            // Soft delete the follow record
+            $follow->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Follow request canceled successfully.',
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        } catch (QueryException $e) {
+            DB::rollBack();
+
+            Log::error('Database error while canceling follow request.', [
+                'user_id'        => $authUser->id,
+                'target_user_id' => $userId,
+                'error'          => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Database error occurred.',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        } catch (Exception $e) {
+            DB::rollBack();
+
+            Log::error('Unexpected error while canceling follow request.', [
+                'user_id'        => $authUser->id,
+                'target_user_id' => $userId,
+                'error'          => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while canceling the follow request.',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * List followers
      */
     public function followers($userId, Request $request): JsonResponse
     {
+        $authUser = Auth::guard('v4api')->user();
+        // Validate query parameters
+        $request->validate([
+            'q'        => 'nullable|string|max:255',
+            'page'     => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
         $perPage = (int) $request->query('per_page', 20);
         $perPage = max(1, min($perPage, 100)); // Clamp between 1 and 100
+        $searchQuery = $request->query('q');
 
         try {
             $user = V4User::findOrFail($userId);
 
-            $followers = V4Follow::with('follower')
+            $query = V4Follow::with('follower')
                 ->where('following_id', $user->id)
                 ->where('status', 'accepted')
-                ->latest()
-                ->paginate($perPage);
+                ->latest();
+
+            // Apply search filter if query is provided
+            if ($searchQuery) {
+                $query->whereHas('follower', function ($q) use ($searchQuery) {
+                    $q->where('first_name', 'ilike', "%{$searchQuery}%")
+                        ->orWhere('last_name', 'ilike', "%{$searchQuery}%");
+                });
+            }
+
+            // Paginate results
+            $followers = $query->paginate($perPage);
+
+
+
+            // Add is_following and is_follower inside each "follower" object
+            foreach ($followers->items() as $item) {
+                if ($item->follower) {
+                    $target = $item->follower;
+
+                    $target->is_following     = $authUser->isFollowing($target->id);
+                    $target->is_follower      = $authUser->isFollowedBy($target->id);
+                    $target->has_sent_request = $authUser->hasPendingRequest($target->id);
+                    $target->has_received_request = $authUser->hasSendPendingRequest($target->id);
+                }
+            }
 
             return response()->json([
                 'success'    => true,
@@ -560,17 +709,49 @@ class V4FollowController extends Controller
      */
     public function following($userId, Request $request): JsonResponse
     {
+        $authUser = Auth::guard('v4api')->user();
+        $request->validate([
+            'q'        => 'nullable|string|max:255',
+            'page'     => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
         $perPage = (int) $request->query('per_page', 20);
         $perPage = max(1, min($perPage, 100)); // Clamp between 1 and 100
+        $searchQuery = $request->query('q');
 
         try {
             $user = V4User::findOrFail($userId);
 
-            $following = V4Follow::with('following')
+            $query = V4Follow::with('following')
                 ->where('follower_id', $user->id)
                 ->where('status', 'accepted')
-                ->latest()
-                ->paginate($perPage);
+                ->latest();
+
+            // Apply search filter if query is provided
+            if ($searchQuery) {
+                $query->whereHas('following', function ($q) use ($searchQuery) {
+                    $q->where('first_name', 'ilike', "%{$searchQuery}%")
+                        ->orWhere('last_name', 'ilike', "%{$searchQuery}%");
+                });
+            }
+
+            // Paginate results
+            $following = $query->paginate($perPage);
+
+
+
+            // Transform paginated items (safe method)
+            foreach ($following->items() as $item) {
+                if ($item->following) {
+                    $target = $item->following;
+
+                    $target->is_following     = $authUser->isFollowing($target->id);
+                    $target->is_follower      = $authUser->isFollowedBy($target->id);
+                    $target->has_sent_request = $authUser->hasPendingRequest($target->id);
+                    $target->has_received_request = $authUser->hasSendPendingRequest($target->id);
+                }
+            }
 
             return response()->json([
                 'success'    => true,
@@ -667,7 +848,7 @@ class V4FollowController extends Controller
             $toUser,
             $title,
             $message,
-            $fromUser->profile_photo,
+            $fromUser->profile_photo ?? '',
             $data,
             'user_follow',
             "profile/$fromUser->id",
@@ -698,7 +879,7 @@ class V4FollowController extends Controller
             $toUser,
             $title,
             $message,
-            $fromUser->profile_photo,
+            $fromUser->profile_photo ?? '',
             $data,
             'user_follow_request',
             "profile/$fromUser->id",
@@ -728,7 +909,7 @@ class V4FollowController extends Controller
             $toUser,
             $title,
             $message,
-            $fromUser->profile_photo,
+            $fromUser->profile_photo ?? '',
             $data,
             'user_follow_accepted',
             "profile/$fromUser->id",
@@ -755,7 +936,7 @@ class V4FollowController extends Controller
             $toUser,
             $title,
             $message,
-            $fromUser->profile_photo,
+            $fromUser->profile_photo ?? '',
             $data,
             'user_follow_rejected',
             "profile/$fromUser->id",

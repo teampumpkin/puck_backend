@@ -1255,7 +1255,7 @@ class ProfileController extends Controller
             $userData['profile'] = $profileData;
 
             $userData['is_following'] = $user->isFollowedBy($authUser->id);
-            $userData['has_pending_request'] = $user->hasSendPendingRequest($authUser->id);
+            $userData['has_received_request'] = $user->hasSendPendingRequest($authUser->id);
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
