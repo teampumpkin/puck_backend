@@ -73,9 +73,9 @@ Route::get('terms-and-conditions', function () {
 // Broadcasting authentication route (dev-only bypass if WS_AUTH_BYPASS=true)
 if (env('WS_AUTH_BYPASS', false)) {
     Route::post('broadcasting/auth', function (Request $request) {
-        $channel  = $request->input('channel_name');
+        $channel = $request->input('channel_name');
         $socketId = $request->input('socket_id');
-        $sig      = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
+        $sig = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
         return response()->json(['auth' => env('PUSHER_APP_KEY') . ':' . $sig]);
     });
 }
@@ -436,6 +436,7 @@ Route::prefix('v4')->group(function () {
             // Evaluator Assignment
             Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock api for allotment test from front-end
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
+            Route::get('/get-my-evaluated-submissions', [V4EvaluationController::class, 'getMyEvaluatedSubmissions']);
             Route::post('/submit-evaluator-assignment', [V4EvaluationController::class, 'submitEvaluatorAssignment']);
             Route::post('/reject-evaluator-assignment', [V4EvaluationController::class, 'rejectEvaluatorAssignment']);
             Route::get('/get-evaluation-report/{evaluation_id}', [V4EvaluationController::class, 'getEvaluationReport']);

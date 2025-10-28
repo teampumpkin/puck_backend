@@ -36,28 +36,28 @@ class V4PaymentController extends Controller
     public function processPayment(Request $request): JsonResponse
     {
         try {
-            $user      = Auth::guard('v4api')->user();
+            $user = Auth::guard('v4api')->user();
             $validated = $request->validate([
-                'sku'       => 'required|string|exists:v4_in_app_purchases,sku',
+                'sku' => 'required|string|exists:v4_in_app_purchases,sku',
                 'player_id' => 'nullable|integer|exists:v4_users,id',
             ]);
 
             $inAppPurchase = V4InAppPurchase::where('sku', $validated['sku'])->where('active', true)->first();
-            if (! $inAppPurchase) {
+            if (!$inAppPurchase) {
                 return response()->json(['success' => false, 'message' => 'In-app purchase not found or inactive'], 404);
             }
 
-            $payerId  = $user->id;
+            $payerId = $user->id;
             $playerId = $validated['player_id'] ?? $payerId;
-            $player   = V4User::find($playerId);
+            $player = V4User::find($playerId);
 
-            if (! $player) {
+            if (!$player) {
                 return response()->json(['success' => false, 'message' => 'Player not found'], 404);
             }
 
             // Validate payer eligibility and relationship
             if ($player->is_child) {
-                if (! $player->parent_id || $player->parent_id != $payerId) {
+                if (!$player->parent_id || $player->parent_id != $payerId) {
                     return response()->json(['success' => false, 'message' => 'Unauthorized. Only the parent can make payment for this child.'], 403);
                 }
             } else {
@@ -77,11 +77,11 @@ class V4PaymentController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Payment already in process',
-                    'data'    => [
-                        'sku'                => $inAppPurchase->sku,
-                        'title'              => $inAppPurchase->title,
+                    'data' => [
+                        'sku' => $inAppPurchase->sku,
+                        'title' => $inAppPurchase->title,
                         'payment_request_id' => $latestPayment->id,
-                        'status'             => $latestPayment->status,
+                        'status' => $latestPayment->status,
                     ],
                 ], 400);
             }
@@ -92,12 +92,12 @@ class V4PaymentController extends Controller
                     ->where('player_id', $playerId)
                     ->first();
 
-                if (! $submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
-                    return response()->json(['success' => false, 'message' => 'Video submission pending for previous payment'], 400);
+                if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
+                    return response()->json(['success' => false, 'message' => 'Submission is pending for previous payment'], 400);
                 }
 
                 if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED])) {
-                    return response()->json(['success' => false, 'message' => 'Previous evaluation under process'], 400);
+                    return response()->json(['success' => false, 'message' => 'Previous submission is under process'], 400);
                 }
 
                 // If status is rejected or completed, continue to create new payment
@@ -110,12 +110,12 @@ class V4PaymentController extends Controller
                 try {
                     $transaction = V4PaymentTransaction::create([
                         'payment_request_id' => $latestPayment->id,
-                        'payer_id'           => $payerId,
-                        'amount_cents'       => $inAppPurchase->amount_cents,
-                        'currency'           => $inAppPurchase->currency,
-                        'gateway'            => 'internal',
-                        'gateway_reference'  => 'internal_' . uniqid() . '_' . time(),
-                        'status'             => V4PaymentTransaction::STATUS_SUCCESS,
+                        'payer_id' => $payerId,
+                        'amount_cents' => $inAppPurchase->amount_cents,
+                        'currency' => $inAppPurchase->currency,
+                        'gateway' => 'internal',
+                        'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
+                        'status' => V4PaymentTransaction::STATUS_SUCCESS,
                     ]);
 
                     $latestPayment->markPaid();
@@ -125,37 +125,37 @@ class V4PaymentController extends Controller
                     // Create evaluation submission entry outside transaction
                     try {
                         $submission = EvaluationSubmission::create([
-                            'player_id'          => $playerId,
+                            'player_id' => $playerId,
                             'payment_request_id' => $latestPayment->id,
-                            'status'             => EvaluationSubmission::STATUS_PENDING,
+                            'status' => EvaluationSubmission::STATUS_PENDING,
                         ]);
 
                         return response()->json([
                             'success' => true,
                             'message' => 'Payment processed successfully',
-                            'data'    => [
-                                'sku'                    => $inAppPurchase->sku,
-                                'title'                  => $inAppPurchase->title,
-                                'payment_request_id'     => $latestPayment->id,
+                            'data' => [
+                                'sku' => $inAppPurchase->sku,
+                                'title' => $inAppPurchase->title,
+                                'payment_request_id' => $latestPayment->id,
                                 'payment_transaction_id' => $transaction->id,
-                                'submission_id'          => $submission->id,
+                                'submission_id' => $submission->id,
                             ],
                         ], 201);
                     } catch (Exception $submissionError) {
                         Log::error('Failed to create submission after payment', [
                             'payment_request_id' => $latestPayment->id,
-                            'error'              => $submissionError->getMessage(),
+                            'error' => $submissionError->getMessage(),
                         ]);
 
                         return response()->json([
                             'success' => true,
                             'message' => 'Payment processed successfully',
-                            'data'    => [
-                                'sku'                    => $inAppPurchase->sku,
-                                'title'                  => $inAppPurchase->title,
-                                'payment_request_id'     => $latestPayment->id,
+                            'data' => [
+                                'sku' => $inAppPurchase->sku,
+                                'title' => $inAppPurchase->title,
+                                'payment_request_id' => $latestPayment->id,
                                 'payment_transaction_id' => $transaction->id,
-                                'submission_id'          => null,
+                                'submission_id' => null,
                             ],
                         ], 201);
                     }
@@ -169,12 +169,12 @@ class V4PaymentController extends Controller
             DB::beginTransaction();
             try {
                 $paymentRequestData = [
-                    'payer_id'           => $payerId,
-                    'player_id'          => $playerId,
+                    'payer_id' => $payerId,
+                    'player_id' => $playerId,
                     'in_app_purchase_id' => $inAppPurchase->id,
-                    'amount_cents'       => $inAppPurchase->amount_cents,
-                    'currency'           => $inAppPurchase->currency,
-                    'status'             => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                    'amount_cents' => $inAppPurchase->amount_cents,
+                    'currency' => $inAppPurchase->currency,
+                    'status' => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
                 ];
 
                 // Only add parent_id if player is a child
@@ -186,12 +186,12 @@ class V4PaymentController extends Controller
 
                 $transaction = V4PaymentTransaction::create([
                     'payment_request_id' => $paymentRequest->id,
-                    'payer_id'           => $payerId,
-                    'amount_cents'       => $inAppPurchase->amount_cents,
-                    'currency'           => $inAppPurchase->currency,
-                    'gateway'            => 'internal',
-                    'gateway_reference'  => 'internal_' . uniqid() . '_' . time(),
-                    'status'             => V4PaymentTransaction::STATUS_SUCCESS,
+                    'payer_id' => $payerId,
+                    'amount_cents' => $inAppPurchase->amount_cents,
+                    'currency' => $inAppPurchase->currency,
+                    'gateway' => 'internal',
+                    'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
+                    'status' => V4PaymentTransaction::STATUS_SUCCESS,
                 ]);
 
                 $paymentRequest->markPaid();
@@ -201,37 +201,37 @@ class V4PaymentController extends Controller
                 // Create evaluation submission entry outside transaction
                 try {
                     $submission = EvaluationSubmission::create([
-                        'player_id'          => $playerId,
+                        'player_id' => $playerId,
                         'payment_request_id' => $paymentRequest->id,
-                        'status'             => EvaluationSubmission::STATUS_PENDING,
+                        'status' => EvaluationSubmission::STATUS_PENDING,
                     ]);
 
                     return response()->json([
                         'success' => true,
                         'message' => 'Payment processed successfully',
-                        'data'    => [
-                            'sku'                    => $inAppPurchase->sku,
-                            'title'                  => $inAppPurchase->title,
-                            'payment_request_id'     => $paymentRequest->id,
+                        'data' => [
+                            'sku' => $inAppPurchase->sku,
+                            'title' => $inAppPurchase->title,
+                            'payment_request_id' => $paymentRequest->id,
                             'payment_transaction_id' => $transaction->id,
-                            'submission_id'          => $submission->id,
+                            'submission_id' => $submission->id,
                         ],
                     ], 201);
                 } catch (Exception $submissionError) {
                     Log::error('Failed to create submission after payment', [
                         'payment_request_id' => $paymentRequest->id,
-                        'error'              => $submissionError->getMessage(),
+                        'error' => $submissionError->getMessage(),
                     ]);
 
                     return response()->json([
                         'success' => true,
                         'message' => 'Payment processed successfully but submission creation failed',
-                        'data'    => [
-                            'sku'                    => $inAppPurchase->sku,
-                            'title'                  => $inAppPurchase->title,
-                            'payment_request_id'     => $paymentRequest->id,
+                        'data' => [
+                            'sku' => $inAppPurchase->sku,
+                            'title' => $inAppPurchase->title,
+                            'payment_request_id' => $paymentRequest->id,
                             'payment_transaction_id' => $transaction->id,
-                            'submission_id'          => null,
+                            'submission_id' => null,
                         ],
                     ], 201);
                 }
@@ -267,7 +267,7 @@ class V4PaymentController extends Controller
                 ->where('active', true)
                 ->first();
 
-            if (! $inAppPurchase) {
+            if (!$inAppPurchase) {
                 return response()->json([
                     'success' => false,
                     'message' => 'In-app purchase not found or inactive',
@@ -287,21 +287,21 @@ class V4PaymentController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment is completed',
-                    'data'    => [
-                        'is_paid'                => true,
-                        'sku'                    => $inAppPurchase->sku,
-                        'title'                  => $inAppPurchase->title,
+                    'data' => [
+                        'is_paid' => true,
+                        'sku' => $inAppPurchase->sku,
+                        'title' => $inAppPurchase->title,
                         'payment_transaction_id' => $paymentRequest->paymentTransaction->id,
-                        'paid_at'                => $paymentRequest->updated_at,
+                        'paid_at' => $paymentRequest->updated_at,
                     ],
                 ], 200);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => 'Payment not found or invalid',
-                    'data'    => [
+                    'data' => [
                         'is_paid' => false,
-                        'sku'     => $inAppPurchase->sku,
+                        'sku' => $inAppPurchase->sku,
                     ],
                 ], 404);
             }
@@ -309,19 +309,19 @@ class V4PaymentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             Log::error('Error checking payment status: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
-                'sku'     => $request->input('sku'),
-                'trace'   => $e->getTraceAsString(),
+                'sku' => $request->input('sku'),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to check payment status',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -329,7 +329,7 @@ class V4PaymentController extends Controller
     public function requestPaymentToParent(Request $request): JsonResponse
     {
         try {
-            $user      = Auth::guard('v4api')->user();
+            $user = Auth::guard('v4api')->user();
             $validated = $request->validate([
                 'sku' => 'required|string|exists:v4_in_app_purchases,sku',
             ]);
@@ -338,32 +338,32 @@ class V4PaymentController extends Controller
                 $sku = $validated['sku'];
 
                 $inAppPurchase = V4InAppPurchase::where('sku', $sku)->where('active', true)->first();
-                if (! $inAppPurchase) {
+                if (!$inAppPurchase) {
                     return response()->json(['success' => false, 'message' => 'In-app purchase not found or inactive'], 404);
                 }
 
-                $payerId  = '88'; //$user->parent_id;
+                $payerId = '88'; //$user->parent_id;
                 $playerId = $user->id;
 
                 $player = V4User::find($user->id);
 
-                if (! $player) {
+                if (!$player) {
                     return response()->json(['success' => false, 'message' => 'Player not found'], 404);
                 }
 
                 if ($player->is_child) {
-                    if (! $player->parent_id || $player->parent_id != $payerId) {
+                    if (!$player->parent_id || $player->parent_id != $payerId) {
                         return response()->json(['success' => false, 'message' => 'Unauthorized. Only the parent can make payment for this child.'], 403);
                     }
                 }
 
                 $paymentRequestData = [
-                    'payer_id'           => $payerId,
-                    'player_id'          => $playerId,
+                    'payer_id' => $payerId,
+                    'player_id' => $playerId,
                     'in_app_purchase_id' => $inAppPurchase->id,
-                    'amount_cents'       => $inAppPurchase->amount_cents,
-                    'currency'           => $inAppPurchase->currency,
-                    'status'             => V4PaymentRequest::STATUS_PENDING,
+                    'amount_cents' => $inAppPurchase->amount_cents,
+                    'currency' => $inAppPurchase->currency,
+                    'status' => V4PaymentRequest::STATUS_PENDING,
                 ];
                 $paymentRequest = V4PaymentRequest::create($paymentRequestData);
 
@@ -379,8 +379,8 @@ class V4PaymentController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment request sent to parent',
-                    'data'    => [
-                        'payment_request'   => $paymentRequest,
+                    'data' => [
+                        'payment_request' => $paymentRequest,
                         'notification_sent' => (bool) $notification,
                     ],
                 ]);
@@ -398,17 +398,17 @@ class V4PaymentController extends Controller
         }
     }
 
-    protected function sendPaymentRequestNotification(V4PaymentRequest $paymentRequest, String $sku)
+    protected function sendPaymentRequestNotification(V4PaymentRequest $paymentRequest, string $sku)
     {
         try {
-            $child  = $paymentRequest->player;
+            $child = $paymentRequest->player;
             $parent = $child->parent;
 
-            $amount   = $paymentRequest->amount_cents;
+            $amount = $paymentRequest->amount_cents;
             $currency = $paymentRequest->currency;
-            $purpose  = "video_evaluation_payment_request";
+            $purpose = "video_evaluation_payment_request";
 
-            $title   = "💰 Payment Request from " . $child->name;
+            $title = "💰 Payment Request from " . $child->name;
             $message = 'There is a payment approval request from your child ' . $child->name;
 
             $data = [
@@ -423,7 +423,7 @@ class V4PaymentController extends Controller
                 'quick_actions'      => ['approve', 'decline'],
                 // 'parent' => $parent,
             ];
-            $icon  = 'payments';
+            $icon = 'payments';
             $color = '#2196F3'; // Blue for low urgency
 
             $notification = $this->notificationService->sendToUserWithImage(
