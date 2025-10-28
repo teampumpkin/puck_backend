@@ -564,6 +564,75 @@ class V4FollowController extends Controller
         }
     }
 
+    public function removeFollower(Request $request, $userId): JsonResponse
+    {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (! $authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 401);
+        }
+
+        try {
+            $currentUser = V4User::findOrFail($authUser->id);
+            $targetUser = V4User::findOrFail($userId);
+
+            if ($currentUser->hasBlocked($targetUser->id) || $currentUser->isBlockedBy($targetUser->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Action not allowed due to blocking.',
+                ], 403);
+            }
+
+            // Find pending follow request sent by the auth user to this user
+            $followerRelation = V4Follow::where('follower_id', $targetUser->id)
+                ->where('following_id', $currentUser->id)
+                ->where('status', 'accepted')
+                ->first();
+
+            if (!$followerRelation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This user is not your follower.',
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            $followerRelation->delete();
+            $currentUser->decrement('followers_count');
+            $targetUser->decrement('followings_count');
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Follower has been removed successfully.',
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        } catch (Exception $e) {
+            DB::rollBack();
+
+            Log::error('Failed to remove follower: ' . $e->getMessage(), [
+                'auth_user_id'   => $authUser->id ?? null,
+                'target_user_id' => $userId,
+                'trace'          => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove follower.',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * List followers
      */
@@ -582,6 +651,7 @@ class V4FollowController extends Controller
         $searchQuery = $request->query('q');
 
         try {
+            $currentUser = V4User::findOrFail($authUser->id);
             $user = V4User::findOrFail($userId);
 
             $query = V4Follow::with('follower')
@@ -607,10 +677,10 @@ class V4FollowController extends Controller
                 if ($item->follower) {
                     $target = $item->follower;
 
-                    $target->is_following     = $authUser->isFollowing($target->id);
-                    $target->is_follower      = $authUser->isFollowedBy($target->id);
-                    $target->has_sent_request = $authUser->hasPendingRequest($target->id);
-                    $target->has_received_request = $authUser->hasSendPendingRequest($target->id);
+                    $target->is_following     = $currentUser->isFollowing($target->id);
+                    $target->is_follower      = $currentUser->isFollowedBy($target->id);
+                    $target->has_sent_request = $currentUser->hasPendingRequest($target->id);
+                    $target->has_received_request = $currentUser->hasSendPendingRequest($target->id);
                 }
             }
 
@@ -721,6 +791,7 @@ class V4FollowController extends Controller
         $searchQuery = $request->query('q');
 
         try {
+            $currentUser = V4User::findOrFail($authUser->id);
             $user = V4User::findOrFail($userId);
 
             $query = V4Follow::with('following')
@@ -746,10 +817,10 @@ class V4FollowController extends Controller
                 if ($item->following) {
                     $target = $item->following;
 
-                    $target->is_following     = $authUser->isFollowing($target->id);
-                    $target->is_follower      = $authUser->isFollowedBy($target->id);
-                    $target->has_sent_request = $authUser->hasPendingRequest($target->id);
-                    $target->has_received_request = $authUser->hasSendPendingRequest($target->id);
+                    $target->is_following     = $currentUser->isFollowing($target->id);
+                    $target->is_follower      = $currentUser->isFollowedBy($target->id);
+                    $target->has_sent_request = $currentUser->hasPendingRequest($target->id);
+                    $target->has_received_request = $currentUser->hasSendPendingRequest($target->id);
                 }
             }
 
