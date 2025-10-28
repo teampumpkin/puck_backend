@@ -2268,15 +2268,15 @@ class V4EvaluationController extends Controller
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
-                'sort_by'    => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
                 'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
             $page = $validated['page'] ?? 1;
             $perPage = $validated['per_page'] ?? 15;
-            $sortBy     = $validated['sort_by'] ?? 'current_version_updated_at';
-            $sortOrder  = $validated['sort_order'] ?? 'desc';
+            $sortBy = $validated['sort_by'] ?? 'current_version_updated_at';
+            $sortOrder = $validated['sort_order'] ?? 'desc';
 
             $query = EvaluationSubmission::query();
 
@@ -2696,6 +2696,95 @@ class V4EvaluationController extends Controller
     }
 
     /**
+     * Get player's evaluated submissions filtered by SKU
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getMyEvaluatedSubmissions(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Check if user is a player
+            if (!$user || $user->role !== 'player') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only players can access their evaluated submissions.'
+                ], 403);
+            }
+
+            // Validate request
+            $validated = $request->validate([
+                'sku' => 'required|string|exists:v4_in_app_purchases,sku',
+            ]);
+
+            $sku = $validated['sku'];
+
+            // Get evaluations for this player filtered by SKU with submitted status
+            $evaluations = Evaluation::with([
+                'evaluator:id,first_name,last_name,profile_photo',
+                'submission.paymentRequest.inAppPurchase',
+            ])
+                ->where('status', Evaluation::STATUS_SUBMITTED)
+                ->whereHas('submission', function ($query) use ($user, $sku) {
+                    $query->where('player_id', $user->id)
+                        ->whereHas('paymentRequest.inAppPurchase', function ($q) use ($sku) {
+                            $q->where('sku', $sku);
+                        });
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Format the response
+            $formattedEvaluations = $evaluations->map(function ($evaluation) {
+                return [
+                    'evaluation_id' => $evaluation->id,
+                    'created_date' => $evaluation->created_at->toISOString(),
+                    'sku_title' => optional(optional($evaluation->submission->paymentRequest)->inAppPurchase)->title,
+                    'evaluator' => [
+                        'id' => $evaluation->evaluator->id,
+                        'first_name' => $evaluation->evaluator->first_name,
+                        'last_name' => $evaluation->evaluator->last_name,
+                        'full_name' => $evaluation->evaluator->first_name . ' ' . $evaluation->evaluator->last_name,
+                        'profile_photo' => $evaluation->evaluator->profile_photo,
+                    ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluated submissions retrieved successfully',
+                'data' => [
+                    'evaluations' => $formattedEvaluations,
+                    'total_count' => $formattedEvaluations->count(),
+                    'sku' => $sku,
+                    'player_id' => $user->id,
+                ],
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error fetching evaluated submissions: ' . $e->getMessage(), [
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve evaluated submissions',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+
+    /**
      * Check video evaluation status for a player
      *
      * @param Request $request
@@ -2877,8 +2966,8 @@ class V4EvaluationController extends Controller
 
             $validated = $request->validate([
                 'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
-                'notes' => 'required|array',
-                'notes.*' => 'required|string',
+                'notes' => 'sometimes|array',
+                'notes.*' => 'nullable|string',
                 'answers' => 'required|array',
                 'answers.*' => 'required|integer',
             ]);
