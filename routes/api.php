@@ -385,6 +385,7 @@ Route::prefix('v4')->group(function () {
             Route::post('{userId}/follow/accept', [V4FollowController::class, 'acceptFollow']);
             Route::delete('{userId}/follow/reject', [V4FollowController::class, 'rejectFollow']);
             Route::delete('{userId}/follow/cancel', [V4FollowController::class, 'cancelFollow']);
+            Route::delete('{userId}/follow/remove', [V4FollowController::class, 'removeFollower']);
 
             Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
             Route::get('{userId}/following', [V4FollowController::class, 'following']);
