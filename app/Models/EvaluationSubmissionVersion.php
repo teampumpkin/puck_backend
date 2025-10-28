@@ -172,4 +172,14 @@ class EvaluationSubmissionVersion extends Model
     {
         return $this->belongsTo(Evaluation::class, 'report_id');
     }
+
+    public function consultationFeedbacks()
+    {
+        return $this->hasMany(V4ConsultationFeedback::class);
+    }
+
+    public function consultationRequests()
+    {
+        return $this->hasMany(V4ConsultationRequest::class);
+    }
 }
