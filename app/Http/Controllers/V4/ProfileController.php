@@ -714,7 +714,7 @@ class ProfileController extends Controller
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
-                'zip' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20',
             ];
 
             $profileRules = [
