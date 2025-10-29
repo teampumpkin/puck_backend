@@ -355,10 +355,14 @@ Route::prefix('v4')->group(function () {
             });
 
             Route::prefix('marketplace')->group(function () {
+                Route::get('/', [V4MarketplaceController::class, 'getMarketPlaces']);
                 Route::post('/', [V4MarketplaceController::class, 'storeMarketplace']);
                 Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
                 Route::post('/{v4MarketplaceId}/update', [V4MarketplaceController::class, 'updateMarketplaceById']);
                 Route::delete('/{v4MarketplaceId}', [V4MarketplaceController::class, 'destroyMarketplaceById']);
+            });
+            Route::prefix('in-app-purchases')->group(function () {
+                Route::get('/', [V4MarketplaceController::class, 'getInAppPurchases']);
             });
         });
     });

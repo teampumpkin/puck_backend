@@ -3278,6 +3278,9 @@ class V4EvaluationController extends Controller
                         'status' => V4ConsultationRequest::STATUS_REQUEST_REJECTED,
                     ]);
 
+                    // If consultation was rejected, delete the old request
+                    $consultationRequest->delete();
+
                     DB::commit();
 
                     return response()->json([

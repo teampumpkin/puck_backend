@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\V4Marketplace;
+use App\Models\V4InAppPurchase;
 use App\Constants\MarketplaceTypes;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -120,8 +121,47 @@ class V4MarketplaceController extends Controller
                 'price_breakdown.*.label' => 'required_with:price_breakdown|string|max:255',
                 'price_breakdown.*.amount_cents' => 'required_with:price_breakdown|integer|min:0',
                 'in_app_purchase_id' => 'required|exists:v4_in_app_purchases,id',
-                'header_url' => 'nullable|file|mimes:jpg,jpeg,png|max:5120', // max 5MB
-                'icon' => 'nullable|string|max:255',
+                // ✅ header_url can be file OR string
+                'header_url' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png.');
+                            }
+                            if ($file->getSize() > 5 * 1024 * 1024) {
+                                $fail('The ' . $attribute . ' may not be greater than 5MB.');
+                            }
+                            return;
+                        }
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
+                // ✅ icon can be file OR string
+                'icon' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png.');
+                            }
+                            if ($file->getSize() > 5 * 1024 * 1024) {
+                                $fail('The ' . $attribute . ' may not be greater than 5MB.');
+                            }
+                            return;
+                        }
+
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
                 'type' => 'required|string|in:' . implode(',', MarketplaceTypes::all()),
                 'active' => 'nullable|boolean',
                 'currency' => ['nullable', 'string', 'size:3'],
@@ -132,6 +172,11 @@ class V4MarketplaceController extends Controller
             if ($request->hasFile('header_url')) {
                 $filePath = $request->file('header_url')->store('marketplace/headers', 's3');
                 $validated['header_url'] = Storage::disk('s3')->url($filePath);
+            }
+
+            if ($request->hasFile('icon')) {
+                $filePath = $request->file('icon')->store('marketplace/icons', 's3');
+                $validated['icon'] = Storage::disk('s3')->url($filePath);
             }
 
             $marketplace = V4Marketplace::create($validated);
@@ -255,8 +300,48 @@ class V4MarketplaceController extends Controller
                 'price_breakdown.*.label' => 'required_with:price_breakdown|string|max:255',
                 'price_breakdown.*.amount_cents' => 'required_with:price_breakdown|integer|min:0',
                 'in_app_purchase_id' => 'sometimes|exists:v4_in_app_purchases,id',
-                'header_url' => 'nullable|file|mimes:jpg,jpeg,png|max:5120', // max 5MB
-                'icon' => 'nullable|string|max:255',
+
+                // ✅ header_url can be file OR string (URL)
+                'header_url' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png.');
+                            }
+                            if ($file->getSize() > 5 * 1024 * 1024) { // 5MB
+                                $fail('The ' . $attribute . ' may not be greater than 5MB.');
+                            }
+                            return;
+                        }
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
+
+                // ✅ icon can be file OR string (URL)
+                'icon' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png.');
+                            }
+                            if ($file->getSize() > 5 * 1024 * 1024) {
+                                $fail('The ' . $attribute . ' may not be greater than 5MB.');
+                            }
+                            return;
+                        }
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
                 'currency' => 'sometimes|string|size:3',
                 'type' => 'required|string|in:' . implode(',', MarketplaceTypes::all()),
                 'active' => 'nullable|boolean',
@@ -264,10 +349,16 @@ class V4MarketplaceController extends Controller
 
             $validated = $request->validate($rules);
 
-            // Handle header image upload
+            // ✅ Handle header_url upload
             if ($request->hasFile('header_url')) {
                 $filePath = $request->file('header_url')->store('marketplace/headers', 's3');
                 $validated['header_url'] = Storage::disk('s3')->url($filePath);
+            }
+
+            // ✅ Handle icon upload
+            if ($request->hasFile('icon')) {
+                $filePath = $request->file('icon')->store('marketplace/icons', 's3');
+                $validated['icon'] = Storage::disk('s3')->url($filePath);
             }
 
             // Merge with existing fields to avoid overwriting missing fields
@@ -277,6 +368,7 @@ class V4MarketplaceController extends Controller
                 'price_cents',
                 'price_breakdown',
                 'in_app_purchase_id',
+                'header_url',
                 'icon',
                 'currency',
                 'type',
@@ -373,6 +465,83 @@ class V4MarketplaceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong while deleting the marketplace item.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getInAppPurchases(Request $request): JsonResponse
+    {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        try {
+
+            // ✅ Validate query parameters
+            $validated = $request->validate([
+                'active' => 'nullable|boolean',
+                'with_trashed' => 'nullable|boolean',
+                'only_trashed' => 'nullable|boolean',
+                'per_page' => 'nullable|integer|min:1|max:100',
+                'page' => 'nullable|integer|min:1',
+            ]);
+
+            $query = V4InAppPurchase::query();
+
+            // Optional filters
+            if ($request->boolean('only_trashed')) {
+                $query->onlyTrashed();
+            } elseif ($request->boolean('with_trashed')) {
+                $query->withTrashed();
+            }
+
+            if (isset($validated['active'])) {
+                $query->where('is_active', $validated['active']);
+            }
+
+            // Handle pagination parameters safely
+            $perPage = $validated['per_page'] ?? 15;
+            $page = $validated['page'] ?? 1;
+
+            // ✅ Fetch paginated results
+            $purchases = $query->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'In-app purchases retrieved successfully.',
+                'data' => $purchases->items(),
+                'pagination' => [
+                    'current_page' => $purchases->currentPage(),
+                    'per_page' => $purchases->perPage(),
+                    'total' => $purchases->total(),
+                    'last_page' => $purchases->lastPage(),
+                    'from' => $purchases->firstItem(),
+                    'to' => $purchases->lastItem(),
+                    'has_more_pages' => $purchases->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid query parameters.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Failed to fetch in-app purchases.', [
+                'user_id' => $authUser->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while fetching in-app purchases.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
