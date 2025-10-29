@@ -18,6 +18,12 @@ class CreateV4ConsultationFeedbackTable extends Migration
             $table->foreignId('submission_version_id')
                 ->constrained('evaluation_submission_versions')
                 ->cascadeOnDelete();
+            $table->foreignId('submission_id')
+                ->constrained('evaluation_submissions')
+                ->cascadeOnDelete();
+            $table->foreignId('evaluation_id')
+                ->constrained('evaluations')
+                ->cascadeOnDelete();
             $table->foreignId('evaluator_id')
                 ->constrained('v4_users')
                 ->cascadeOnDelete();

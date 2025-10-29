@@ -13,6 +13,7 @@ use App\Models\EvaluationRejectionReason;
 use App\Models\EvaluatorAssignment;
 use App\Models\Evaluation;
 use App\Models\EvaluationAnswer;
+use App\Models\V4ConsultationRequest;
 use App\Models\V4Marketplace;
 use App\Models\V4PaymentRequest;
 use App\Models\V4User;
@@ -2254,11 +2255,7 @@ class V4EvaluationController extends Controller
                             'consultation_time' => $validated['consultation_time'],
                             'uploaded_by' => $user->id,
                             'file_path' => "N/A",
-                            'file_meta' => [
-                                'type' => 'consultation_booking',
-                                'marketplace_type' => $marketplaceType,
-                                'booked_at' => now()->toISOString(),
-                            ],
+                            'file_meta' => [],
                         ]);
 
                         // Update submission with current version ID
@@ -2288,7 +2285,7 @@ class V4EvaluationController extends Controller
                 } else {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Invalid sku for marketplace type: ' . $marketplaceType,
+                        'message' => 'Not applicable for provided sku.',
                     ], 400);
                 }
             }
@@ -2623,45 +2620,144 @@ class V4EvaluationController extends Controller
                 ], 404);
             }
 
-            // Check submission status - only allow if status is 'uploaded'
-            if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
-                $existingAssignment = EvaluatorAssignment::where('submission_id', $submissionId)->first();
-                if ($existingAssignment) {
+            $inAppPurchase = $submission->paymentRequest->inAppPurchase;
+            $marketplaceItem = V4Marketplace::where('in_app_purchase_id', $inAppPurchase->id)
+                ->where('active', true)
+                ->first();
+
+            if (!$marketplaceItem) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marketplace item not found',
+                ], 400);
+            }
+
+            $marketplaceType = $marketplaceItem->type;
+
+            // Handle different marketplace types
+            if ($marketplaceType === MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                // === PERSONALIZED VIDEO EVALUATION LOGIC ===
+
+                // Check submission status - only allow if status is 'uploaded'
+                if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
+                    $existingAssignment = EvaluatorAssignment::where('submission_id', $submissionId)->first();
+                    if ($existingAssignment) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Submission already {$submission->status}",
+                            'submission_id' => $submissionId,
+                            'evaluator_id' => $existingAssignment->evaluator_id,
+                            'current_status' => $submission->status,
+                        ], 400);
+                    }
+                }
+
+                // Create evaluator assignment
+                $assignment = EvaluatorAssignment::create([
+                    'submission_id' => $submissionId,
+                    'evaluator_id' => $evaluatorId,
+                    'status' => EvaluatorAssignment::STATUS_PENDING,
+                    'assigned_at' => now(),
+                ]);
+
+                // Update submission status to assigned
+                $submission->update([
+                    'status' => EvaluationSubmission::STATUS_ASSIGNED,
+                    'evaluator_assignment_id' => $assignment->id,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator allotted successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluator_name' => "{$evaluator->first_name} {$evaluator->last_name}",
+                        'assignment_status' => $assignment->status,
+                        'assigned_at' => $assignment->assigned_at->toISOString(),
+                        'submission_status' => $submission->status,
+                    ],
+                ], 201);
+
+            } elseif ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                // === ONE-ON-ONE CONSULTATION LOGIC ===
+
+                // Check submission status - only allow if status is 'uploaded'
+                if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
                     return response()->json([
                         'success' => false,
                         'message' => "Submission already {$submission->status}",
                         'submission_id' => $submissionId,
-                        'evaluator_id' => $existingAssignment->evaluator_id,
                         'current_status' => $submission->status,
                     ], 400);
                 }
+
+                // Check if submission has a current version with evaluation (report_id)
+                $submissionVersion = $submission->currentVersion;
+                if (!$submissionVersion || !$submissionVersion->report_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Consultation request must have a valid evaluation report',
+                    ], 400);
+                }
+
+                // Check if consultation request already exists for this submission
+                $existingRequest = V4ConsultationRequest::where('submission_id', $submissionId)
+                    ->where('submission_version_id', $submissionVersion->id)
+                    ->first();
+
+                if ($existingRequest) {
+                    // If consultation request exists and is not rejected, return error
+                    if ($existingRequest->status !== V4ConsultationRequest::STATUS_REQUEST_REJECTED) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Consultation already allotted',
+                            'request_id' => $existingRequest->id,
+                            'evaluator_id' => $existingRequest->evaluator_id,
+                            'status' => $existingRequest->status,
+                        ], 400);
+                    }
+
+                    // If consultation was rejected, delete the old request
+                    $existingRequest->delete();
+                }
+
+                // Create consultation request
+                $consultationRequest = V4ConsultationRequest::create([
+                    'submission_version_id' => $submissionVersion->id,
+                    'submission_id' => $submissionId,
+                    'evaluation_id' => $submissionVersion->report_id,
+                    'evaluator_id' => $evaluatorId,
+                    'status' => V4ConsultationRequest::STATUS_PENDING,
+                ]);
+
+                // Get player for notification
+                $player = $submission->player;
+
+                // Send notification to evaluator using FollowController method
+                $followController = new V4FollowController($this->notificationService);
+                $followController->sendConsultationRequestNotification($player, $evaluator, $consultationRequest);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator allotted for consultation successfully',
+                    'data' => [
+                        'consultation_request_id' => $consultationRequest->id,
+                        'evaluator_id' => $evaluator->id,
+                        'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                        'request_status' => $consultationRequest->status,
+                        'consultation_date' => $submissionVersion->consultation_date,
+                        'consultation_time' => $submissionVersion->consultation_time,
+                    ],
+                ], 201);
+            } else {
+                // === UNSUPPORTED SKU TYPE ===
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Not applicable for provided sku.',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
             }
 
-            // Create evaluator assignment
-            $assignment = EvaluatorAssignment::create([
-                'submission_id' => $submissionId,
-                'evaluator_id' => $evaluatorId,
-                'status' => EvaluatorAssignment::STATUS_PENDING,
-                'assigned_at' => now(),
-            ]);
-
-            // Update submission status to assigned
-            $submission->update([
-                'status' => EvaluationSubmission::STATUS_ASSIGNED,
-                'evaluator_assignment_id' => $assignment->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Evaluator allotted successfully',
-                'data' => [
-                    'assignment_id' => $assignment->id,
-                    'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
-                    'assignment_status' => $assignment->status,
-                    'assigned_at' => $assignment->assigned_at->toISOString(),
-                    'submission_status' => $submission->status,
-                ],
-            ], 201);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -2670,8 +2766,8 @@ class V4EvaluationController extends Controller
             ], 422);
         } catch (Exception $e) {
             Log::error('Error allotting evaluator for submission: ' . $e->getMessage(), [
-                'evaluator_id' => $request->input('evaluator_id'),
-                'submission_id' => $request->input('submission_id'),
+                'evaluator_id' => $request->input('evaluatorId'),
+                'submission_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
 
