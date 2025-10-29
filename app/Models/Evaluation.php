@@ -219,6 +219,11 @@ class Evaluation extends Model
         return round(($this->overall_rating / 5.0) * 100);
     }
 
+    public function consultationRequests()
+    {
+        return $this->hasMany(V4ConsultationRequest::class, 'evaluation_id');
+    }
+
     public function getAnswerCountAttribute()
     {
         return $this->answers()->count();

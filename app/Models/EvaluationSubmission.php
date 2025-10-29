@@ -225,4 +225,9 @@ class EvaluationSubmission extends Model
     {
         return collect($this->meta['rejection_history'] ?? [])->count();
     }
+
+    public function consultationRequests()
+    {
+        return $this->hasMany(V4ConsultationRequest::class, 'submission_id');
+    }
 }

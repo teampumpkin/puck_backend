@@ -2396,10 +2396,13 @@ class V4EvaluationController extends Controller
 
             $query->with([
                 'player',
-                'paymentRequest',
-                'versions',
-                'currentVersion',
+                'paymentRequest.inAppPurchase.marketplaceItem',
+                'versions.report.submission.currentVersion',
                 'evaluatorAssignment',
+                'consultationRequests.evaluator' => function ($q) {
+                    $q->whereNull('deleted_at')->latest('created_at');
+                },
+                'currentVersion',
                 'evaluations'
             ]);
 
@@ -2428,25 +2431,54 @@ class V4EvaluationController extends Controller
                     'id' => $submission->id,
                     'playerId' => $submission->player->id,
                     'playerName' => $submission->player->name,
-                    'type' => 'video_evaluation',
+                    'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
                     'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
-                    // 'dueDate' => 'dueDate',
                     'price' => $submission->paymentRequest->amount_cents,
-                    // 'notes' => 'notes',
                     'updated_at' => $submission->updated_at,
                 ];
 
-                if ($submission->versions != []) {
-                    $result['materials'] = $submission->versions->map(function ($version) {
-                        $fileMeta = $version->file_meta;
-                        return [
-                            'type' => 'video',
-                            'id' => $version->id,
-                            'name' => $fileMeta['original_name'],
-                            'url' => $fileMeta['video_url'],
-                            'uploadedAt' => $fileMeta['uploaded_at'],
-                            // 'notes' => 'notes',
-                        ];
+                if ($submission->versions->isNotEmpty()) {
+                    $result['materials'] = $submission->versions->map(function ($version) use ($result) {
+                        if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'video',
+                                'id' => $version->id,
+                                'name' => $fileMeta['original_name'],
+                                'url' => $fileMeta['video_url'],
+                                'uploadedAt' => $fileMeta['uploaded_at'],
+                            ];
+                        } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                            $fileMeta = $version->report->submission->currentVersion->file_meta;
+                            return [
+                                'type' => 'video',
+                                'id' => $version->id,
+                                'reportId' => $version->report_id,
+                                'consultationDate' => $version->consultation_date,
+                                'consultationTime' => $version->consultation_time,
+                                'name' => $fileMeta['original_name'],
+                                'url' => $fileMeta['video_url'],
+                                'uploadedAt' => $fileMeta['uploaded_at'],
+                            ];
+                        } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'report',
+                                'id' => $version->id,
+                                'name' => $fileMeta['original_name'] ?? '',
+                                'url' => $fileMeta['video_url'] ?? '',
+                                'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                                'reportId' => $version->report_id ?? '',
+                                'consultationDate' => $version->consultation_date ?? '',
+                                'consultationTime' => $version->consultation_time ?? '',
+                            ];
+                        } else {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'report',
+                                'id' => $version->id,
+                            ];
+                        }
                     });
                 }
 
@@ -2454,6 +2486,24 @@ class V4EvaluationController extends Controller
                     $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
                     $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
                     $result['status'] = $submission->status;
+                } else if ($submission->consultationRequests->isNotEmpty()) {
+                    $latestConsultationRequest = $submission->consultationRequests->first();
+                    if ($latestConsultationRequest) {
+                        $result['consultationRequest'] = [
+                            'id' => $latestConsultationRequest->id,
+                            'status' => $latestConsultationRequest->status,
+                            'evaluatorId' => $latestConsultationRequest->evaluator_id,
+                            'evaluationId' => $latestConsultationRequest->evaluation_id,
+                            'submissionVersionId' => $latestConsultationRequest->submission_version_id,
+                            'adminNotes' => $latestConsultationRequest->admin_notes,
+                            'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
+                        ];
+                        $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
+                        $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                        $result['status'] = $latestConsultationRequest->status;
+                    } else {
+                        $result['status'] = 'pending_assignment';
+                    }
                 } else {
                     $result['status'] = 'pending_assignment';
                 }
@@ -2509,8 +2559,11 @@ class V4EvaluationController extends Controller
             // Fetch the specific submission by ID, with related models
             $submission = EvaluationSubmission::with([
                 'player',
-                'paymentRequest',
-                'versions',
+                'paymentRequest.inAppPurchase.marketplaceItem',
+                'versions.report.submission.currentVersion',
+                'consultationRequests.evaluator' => function ($q) {
+                    $q->whereNull('deleted_at')->latest('created_at');
+                },
                 'currentVersion',
                 'evaluatorAssignment',
                 'evaluations'
@@ -2518,35 +2571,88 @@ class V4EvaluationController extends Controller
 
             // Prepare the response data
             $result = [
+                'id' => $submission->id,
                 'playerId' => $submission->player->id,
                 'playerName' => $submission->player->name,
-                'type' => 'video_evaluation',
+                'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
                 'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
                 'price' => $submission->paymentRequest->amount_cents,
+                'updated_at' => $submission->updated_at,
             ];
 
             // Include the materials if available
             if ($submission->versions->isNotEmpty()) {
-                $result['materials'] = $submission->versions->map(function ($version) {
-                    $fileMeta = $version->file_meta;
-                    return [
-                        'type' => 'video',
-                        'id' => $version->id,
-                        'name' => $fileMeta['original_name'],
-                        'url' => $fileMeta['video_url'],
-                        'uploadedAt' => $fileMeta['uploaded_at'],
-                    ];
+                $result['materials'] = $submission->versions->map(function ($version) use ($result) {
+                    if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'video',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'],
+                            'url' => $fileMeta['video_url'],
+                            'uploadedAt' => $fileMeta['uploaded_at'],
+                        ];
+                    } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                        $fileMeta = $version->report->submission->currentVersion->file_meta;
+                        return [
+                            'type' => 'video',
+                            'id' => $version->id,
+                            'reportId' => $version->report_id,
+                            'consultationDate' => $version->consultation_date,
+                            'consultationTime' => $version->consultation_time,
+                            'name' => $fileMeta['original_name'],
+                            'url' => $fileMeta['video_url'],
+                            'uploadedAt' => $fileMeta['uploaded_at'],
+                        ];
+                    } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'report',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'] ?? '',
+                            'url' => $fileMeta['video_url'] ?? '',
+                            'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                            'reportId' => $version->report_id ?? '',
+                            'consultationDate' => $version->consultation_date ?? '',
+                            'consultationTime' => $version->consultation_time ?? '',
+                        ];
+                    } else {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'report',
+                            'id' => $version->id,
+                        ];
+                    }
                 });
             }
 
             // Include evaluator details if assigned
-            if ($submission->evaluatorAssignment) {
+            if ($submission->evaluatorAssignment != null) {
                 $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
                 $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
                 $result['status'] = $submission->status;
+            } else if ($submission->consultationRequests->isNotEmpty()) {
+                $latestConsultationRequest = $submission->consultationRequests->first();
+                if ($latestConsultationRequest) {
+                    $result['consultationRequest'] = [
+                        'id' => $latestConsultationRequest->id,
+                        'status' => $latestConsultationRequest->status,
+                        'evaluatorId' => $latestConsultationRequest->evaluator_id,
+                        'evaluationId' => $latestConsultationRequest->evaluation_id,
+                        'submissionVersionId' => $latestConsultationRequest->submission_version_id,
+                        'adminNotes' => $latestConsultationRequest->admin_notes,
+                        'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
+                    ];
+                    $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
+                    $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                    $result['status'] = $latestConsultationRequest->status;
+                } else {
+                    $result['status'] = 'pending_assignment';
+                }
             } else {
                 $result['status'] = 'pending_assignment';
             }
+
 
             // Add completed date if the status is 'completed'
             if ($submission->status === 'completed') {
@@ -2677,7 +2783,6 @@ class V4EvaluationController extends Controller
                         'submission_status' => $submission->status,
                     ],
                 ], 201);
-
             } elseif ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                 // === ONE-ON-ONE CONSULTATION LOGIC ===
 
@@ -2757,7 +2862,6 @@ class V4EvaluationController extends Controller
                     'marketplace_type' => $marketplaceType,
                 ], 400);
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -2975,7 +3079,6 @@ class V4EvaluationController extends Controller
                     'player_id' => $user->id,
                 ],
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -3186,7 +3289,6 @@ class V4EvaluationController extends Controller
                             'submission_status' => $consultationRequest->submission->status,
                         ],
                     ], 200);
-
                 } else { // accept
                     // Update consultation request status to accepted
                     $consultationRequest->update([
@@ -3225,7 +3327,6 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,

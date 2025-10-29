@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\V4;
 
+use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
 use App\Models\V4User;
 use Exception;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
@@ -1338,7 +1340,7 @@ class ProfileController extends Controller
                     'name' => $user->name,
                     'status' => 'pending_assignment',
                     'isAvailable' => true,
-                    'specializations' => ['video_evaluation'],
+                    'specializations' => MarketplaceTypes::all(),
                     "profileData" => [
                         'is_verified' => $user->evaluatorProfile->is_verified,
                     ],
