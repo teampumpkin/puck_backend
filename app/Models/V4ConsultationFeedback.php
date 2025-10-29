@@ -12,6 +12,8 @@ class V4ConsultationFeedback extends Model
 
     protected $fillable = [
         'submission_version_id',
+        'submission_id',
+        'evaluation_id',
         'evaluator_id',
         'remarks',
         'urls',
@@ -24,6 +26,16 @@ class V4ConsultationFeedback extends Model
     public function submissionVersion()
     {
         return $this->belongsTo(EvaluationSubmissionVersion::class);
+    }
+
+    public function submission()
+    {
+        return $this->belongsTo(EvaluationSubmission::class);
+    }
+
+    public function evaluation()
+    {
+        return $this->belongsTo(Evaluation::class);
     }
 
     public function evaluator()

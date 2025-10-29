@@ -435,7 +435,7 @@ Route::prefix('v4')->group(function () {
             // Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
 
             // Evaluator Assignment
-            Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock api for allotment test from front-end
+            // Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock API
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
             Route::get('/get-my-evaluated-submissions', [V4EvaluationController::class, 'getMyEvaluatedSubmissions']);
             Route::post('/submit-evaluator-assignment', [V4EvaluationController::class, 'submitEvaluatorAssignment']);
