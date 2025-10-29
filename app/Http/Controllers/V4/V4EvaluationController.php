@@ -13,6 +13,7 @@ use App\Models\EvaluationRejectionReason;
 use App\Models\EvaluatorAssignment;
 use App\Models\Evaluation;
 use App\Models\EvaluationAnswer;
+use App\Models\V4ConsultationFeedback;
 use App\Models\V4ConsultationRequest;
 use App\Models\V4Marketplace;
 use App\Models\V4PaymentRequest;
@@ -2034,6 +2035,14 @@ class V4EvaluationController extends Controller
             $user = Auth::guard('v4api')->user();
             $playerId = $user->id;
 
+            // Validate user must be a player
+            if (!$user || $user->role !== 'player') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only players can upload evaluation videos or book consultations.',
+                ], 403);
+            }
+
             // Validate SKU (common for all)
             $request->validate([
                 'sku' => 'required|string|exists:v4_in_app_purchases,sku',
@@ -2237,15 +2246,9 @@ class V4EvaluationController extends Controller
                                 'payment_request_id' => $paymentRequest->id,
                                 'status' => EvaluationSubmission::STATUS_UPLOADED,
                             ]);
-                        } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING) {
-                            // Update pending submission to uploaded
+                        } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                            // Update pending or rejected submission to uploaded
                             $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-                        } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
-                            // Update rejected submission to assigned
-                            $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
-                            if ($submission->evaluatorAssignment) {
-                                $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
-                            }
                         }
 
                         // Create submission version with consultation details
@@ -2950,7 +2953,7 @@ class V4EvaluationController extends Controller
             $assignments = EvaluatorAssignment::with([
                 'submission.player',
                 'submission.currentVersion',
-                'submission.paymentRequest.inAppPurchase',
+                'submission.paymentRequest.inAppPurchase.marketplaceItem',
                 'evaluator',
             ])->where('evaluator_id', $user->id)
                 ->whereIn('status', $statusMap[$status])
@@ -2986,6 +2989,7 @@ class V4EvaluationController extends Controller
                     'notes' => $assignment->notes,
                     'submission_date' => optional($assignment->updated_at)->toISOString(),
                     'file_path' => optional($assignment->submission->currentVersion)->file_path,
+                    'report_id' => optional($assignment->submission->currentVersion)->report_id,
                     'player' => [
                         'id' => $assignment->submission->player->id,
                         'name' => $assignment->submission->player->first_name . ' ' . $assignment->submission->player->last_name,
@@ -2993,13 +2997,8 @@ class V4EvaluationController extends Controller
                         'profile_photo' => $assignment->submission->player->profile_photo,
                         'location' => $assignment->submission->player->state . ', ' . $assignment->submission->player->country,
                     ],
-                    'in_app_purchase' => optional(optional($assignment->submission->paymentRequest)->inAppPurchase) ? [
-                        'id' => $assignment->submission->paymentRequest->inAppPurchase->id,
-                        'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
-                        'title' => $assignment->submission->paymentRequest->inAppPurchase->title,
-                        'active' => $assignment->submission->paymentRequest->inAppPurchase->active,
-                    ] : null,
-                    'conversation_id' => $assignment->meta['conversation_id'] ?? ''
+                    'in_app_purchase' => $assignment->submission->paymentRequest->inAppPurchase ?? null,
+                    'conversation_id' => $assignment->meta['conversation_id'] ?? '',
                 ];
 
                 // For completed status, add evaluation data
@@ -3287,6 +3286,14 @@ class V4EvaluationController extends Controller
                 ], 404);
             }
 
+            // ✅ Authorization: ensure evaluator owns the consultation request
+            if ($consultationRequest->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This consultation request does not belong to you.',
+                ], 403);
+            }
+
             // Check if consultation request is not pending
             if ($consultationRequest->status !== V4ConsultationRequest::STATUS_PENDING) {
                 return response()->json([
@@ -3418,7 +3425,6 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
-
 
     public function makeEvaluationInProgress(Request $request): JsonResponse
     {
@@ -3742,6 +3748,471 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reject evaluator assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Submit consultation assignment
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function submitConsultationAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'remark' => 'required|string',
+                'url' => 'required|url',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // ✅ Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a consultation assignment
+            if (!in_array($marketplaceType, [MarketplaceTypes::CONSULTATION_VIDEO_CALL, 'consultation', 'one_on_one_consultation'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for consultation assignments',
+                ], 400);
+            }
+
+            // Validate assignment status - must be pending or in_progress
+            if (!in_array($assignment->status, [EvaluatorAssignment::STATUS_PENDING, EvaluatorAssignment::STATUS_IN_PROGRESS])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot submit assignment with status: {$assignment->status}",
+                ], 400);
+            }
+
+            // Get consultation request for this assignment
+            $consultationRequest = V4ConsultationRequest::where('submission_id', $assignment->submission_id)
+                ->where('evaluator_id', $user->id)
+                ->first();
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation with submitted status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignment->id,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_SUBMITTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'completed_at' => now()->format('Y-m-d H:i:s'),
+                    ],
+                ]);
+
+                // Create consultation feedback entry
+                $consultationFeedback = V4ConsultationFeedback::create([
+                    'submission_version_id' => $assignment->submission->current_version_id,
+                    'submission_id' => $assignment->submission_id,
+                    'evaluation_id' => $evaluation->id,
+                    'evaluator_id' => $user->id,
+                    'remarks' => $validated['remark'],
+                    'urls' => $validated['url'],
+                ]);
+
+                // Update assignment status to completed
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_COMPLETED,
+                    'completed_at' => now(),
+                ]);
+
+                // Update submission status to completed
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_COMPLETED,
+                ]);
+
+                // Update consultation request status to completed if exists
+                if ($consultationRequest) {
+                    $consultationRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_COMPLETED,
+                    ]);
+                }
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $assignment->submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Consultation Completed';
+                $message = "Your 1 on 1 Video Video Evaluation is Completed";
+
+                $notificationData = [
+                    'type' => 'consultation_completed',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'evaluation_id' => $evaluation->id,
+                    'feedback_id' => $consultationFeedback->id,
+                    'recording_url' => $validated['url'],
+                ];
+
+                $this->notificationService->sendToUser(
+                    $player,
+                    $title,
+                    $message,
+                    $notificationData,
+                    'consultation_completed',
+                    "evaluation/submissions/{$assignment->submission_id}",
+                    'consultation_completed_action',
+                    $assignment
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Consultation assignment submitted successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluation_id' => $evaluation->id,
+                        'feedback_id' => $consultationFeedback->id,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                        'consultation_request_status' => $consultationRequest->status ?? null,
+                        'marketplace_type' => $marketplaceType,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error submitting consultation assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit consultation assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Reject consultation assignment
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function rejectConsultationAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'reason_id' => 'sometimes|integer|exists:evaluation_rejection_reasons,id',
+                'notes' => 'sometimes|string|max:1000',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // ✅ Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a consultation assignment
+            if (!in_array($marketplaceType, [MarketplaceTypes::CONSULTATION_VIDEO_CALL, 'consultation', 'one_on_one_consultation'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for consultation assignments',
+                ], 400);
+            }
+
+            // Validate assignment status - must be pending or in_progress
+            if (!in_array($assignment->status, [EvaluatorAssignment::STATUS_IN_PROGRESS])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot reject assignment with status: {$assignment->status}",
+                ], 400);
+            }
+
+            // Get consultation request for this assignment
+            $consultationRequest = V4ConsultationRequest::where('submission_id', $assignment->submission_id)
+                ->where('evaluator_id', $user->id)
+                ->first();
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation with rejected status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignment->id,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_REJECTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'reason_id' => $validated['reason_id'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'at' => now()->format('Y-m-d H:i:s'),
+                    ],
+                ]);
+
+                // Update assignment status to rejected
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_REJECTED,
+                ]);
+
+                // Update submission status to rejected
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_REJECTED,
+                ]);
+
+                // Update consultation request status to rejected if exists
+                if ($consultationRequest) {
+                    $consultationRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REJECTED,
+                    ]);
+                }
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $assignment->submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Consultation Rejected';
+                $message = "Your  1 on 1 Video Evaluation is Rejected by the evaluator";
+
+                $notificationData = [
+                    'type' => 'consultation_rejected',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'evaluation_id' => $evaluation->id,
+                    'reason' => $validated['notes'] ?? 'No reason provided',
+                ];
+
+                $this->notificationService->sendToUser(
+                    $player,
+                    $title,
+                    $message,
+                    $notificationData,
+                    'consultation_rejected',
+                    "evaluation/submissions/{$assignment->submission_id}",
+                    'consultation_rejected_action',
+                    $assignment
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Consultation assignment rejected successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluation_id' => $evaluation->id,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                        'consultation_request_status' => $consultationRequest->status ?? null,
+                        'marketplace_type' => $marketplaceType,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error rejecting consultation assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject consultation assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Get consultation report by feedback ID
+     *
+     * @param int $feedback_id
+     * @return JsonResponse
+     */
+    public function getConsultationReport(int $feedback_id): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Get consultation feedback with all relationships
+            $feedback = V4ConsultationFeedback::with([
+                'evaluator',
+                'submissionVersion.submission.player',
+                'submissionVersion.submission.paymentRequest.inAppPurchase',
+                'evaluation.answers.question',
+            ])->find($feedback_id);
+
+            if (!$feedback) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Consultation feedback not found',
+                ], 404);
+            }
+
+            // Get player and evaluator
+            $player = $feedback->submissionVersion->submission->player ?? null;
+            $evaluator = $feedback->evaluator;
+            $evaluation = $feedback->evaluation;
+            $inAppPurchase = $feedback->submissionVersion->submission->paymentRequest->inAppPurchase ?? null;
+
+            // Format the response
+            $reportData = [
+                'feedback_id' => $feedback->id,
+                'consultation_date' => $feedback->submissionVersion->consultation_date ?? null,
+                'consultation_time' => $feedback->submissionVersion->consultation_time ?? null,
+                'created_at' => $feedback->created_at->toISOString(),
+
+                // Feedback details
+                'feedback' => [
+                    'id' => $feedback->id,
+                    'remarks' => $feedback->remarks,
+                    'urls' => $feedback->urls,
+                ],
+
+                // Evaluator details
+                'evaluator' => $evaluator ? [
+                    'id' => $evaluator->id,
+                    'first_name' => $evaluator->first_name,
+                    'last_name' => $evaluator->last_name,
+                    'full_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                    'email' => $evaluator->email,
+                    'profile_photo' => $evaluator->profile_photo,
+                    'role' => $evaluator->role,
+                ] : null,
+
+                // Player details
+                'player' => $player ? [
+                    'id' => $player->id,
+                    'first_name' => $player->first_name,
+                    'last_name' => $player->last_name,
+                    'full_name' => $player->first_name . ' ' . $player->last_name,
+                    'email' => $player->email,
+                    'profile_photo' => $player->profile_photo,
+                    'role' => $player->role,
+                    'date_of_birth' => $player->date_of_birth,
+                    'location' => $player->state . ', ' . $player->country,
+                ] : null,
+
+                // Evaluation details
+                'evaluation' => $evaluation ? [
+                    'id' => $evaluation->id,
+                    'status' => $evaluation->status,
+                    'overall_rating' => $evaluation->overall_rating,
+                    'notes' => $evaluation->notes,
+                    'created_at' => $evaluation->created_at->toISOString(),
+                    'meta' => $evaluation->meta,
+                ] : null,
+
+                // In-app purchase details
+                'in_app_purchase' => $inAppPurchase ? [
+                    'id' => $inAppPurchase->id,
+                    'sku' => $inAppPurchase->sku,
+                    'title' => $inAppPurchase->title,
+                    'amount' => $inAppPurchase->amount,
+                    'formatted_amount' => $inAppPurchase->formatted_amount,
+                    'currency' => $inAppPurchase->currency,
+                ] : null,
+
+                // Submission details
+                'submission' => [
+                    'id' => $feedback->submission_id,
+                    'status' => $feedback->submissionVersion->submission->status ?? null,
+                ],
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consultation report retrieved successfully',
+                'data' => $reportData,
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching consultation report: ' . $e->getMessage(), [
+                'feedback_id' => $feedback_id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve consultation report',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
