@@ -3100,6 +3100,153 @@ class V4EvaluationController extends Controller
         }
     }
 
+    /**
+     * Handle consultation request action (accept/reject)
+     *
+     * @param Request $request
+     * @param string $action
+     * @return JsonResponse
+     */
+    public function handleConsultationRequestAction(Request $request, string $action): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate action parameter
+            if (!in_array($action, ['accept', 'reject'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid action. Must be either "accept" or "reject"',
+                ], 400);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'consultation_req_id' => 'required|integer|exists:v4_consultation_requests,id',
+            ]);
+
+            $consultationRequestId = $validated['consultation_req_id'];
+
+            // Get consultation request
+            $consultationRequest = V4ConsultationRequest::with([
+                'submissionVersion',
+                'submission.player',
+                'evaluator'
+            ])->find($consultationRequestId);
+
+            if (!$consultationRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Consultation request not found',
+                ], 404);
+            }
+
+            // Check if consultation request is not pending
+            if ($consultationRequest->status !== V4ConsultationRequest::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Consultation already {$consultationRequest->status}",
+                    'current_status' => $consultationRequest->status,
+                ], 400);
+            }
+
+            // Verify the consultation request is assigned to this evaluator
+            if ($consultationRequest->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This consultation request is not assigned to you',
+                ], 403);
+            }
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                if ($action === 'reject') {
+                    // Update consultation request status to rejected
+                    $consultationRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REQUEST_REJECTED,
+                    ]);
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Consultation request rejected successfully',
+                        'data' => [
+                            'consultation_request_id' => $consultationRequest->id,
+                            'status' => $consultationRequest->status,
+                            'submission_status' => $consultationRequest->submission->status,
+                        ],
+                    ], 200);
+
+                } else { // accept
+                    // Update consultation request status to accepted
+                    $consultationRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REQUEST_ACCEPTED,
+                    ]);
+
+                    // Create evaluator assignment
+                    $assignment = EvaluatorAssignment::create([
+                        'submission_id' => $consultationRequest->submission_id,
+                        'evaluator_id' => $user->id,
+                        'status' => EvaluatorAssignment::STATUS_PENDING,
+                        'assigned_at' => now(),
+                    ]);
+
+                    // Update submission status to assigned
+                    $consultationRequest->submission->update([
+                        'status' => EvaluationSubmission::STATUS_ASSIGNED,
+                    ]);
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Consultation request accepted successfully',
+                        'data' => [
+                            'consultation_request_id' => $consultationRequest->id,
+                            'assignment_id' => $assignment->id,
+                            'status' => $consultationRequest->status,
+                            'submission_status' => $consultationRequest->submission->status,
+                            'consultation_date' => $consultationRequest->submissionVersion->consultation_date ?? null,
+                            'consultation_time' => $consultationRequest->submissionVersion->consultation_time ?? null,
+                        ],
+                    ], 200);
+                }
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error handling consultation request action: ' . $e->getMessage(), [
+                'action' => $action ?? 'unknown',
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process consultation request action',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
 
     public function makeEvaluationInProgress(Request $request): JsonResponse
     {
