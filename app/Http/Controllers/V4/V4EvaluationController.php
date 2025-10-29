@@ -2396,10 +2396,8 @@ class V4EvaluationController extends Controller
 
             $query->with([
                 'player',
-                'paymentRequest',
-                'paymentRequest.inAppPurchase',
                 'paymentRequest.inAppPurchase.marketplaceItem',
-                'versions',
+                'versions.report.submission.currentVersion',
                 'currentVersion',
                 'evaluatorAssignment',
                 'evaluations'
@@ -2436,7 +2434,7 @@ class V4EvaluationController extends Controller
                     'updated_at' => $submission->updated_at,
                 ];
 
-                if ($submission->versions != []) {
+                if ($submission->versions->isNotEmpty()) {
                     $result['materials'] = $submission->versions->map(function ($version) use ($result) {
                         if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
                             $fileMeta = $version->file_meta;
@@ -2448,13 +2446,16 @@ class V4EvaluationController extends Controller
                                 'uploadedAt' => $fileMeta['uploaded_at'],
                             ];
                         } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
-                            $fileMeta = $version->file_meta;
+                            $fileMeta = $version->report->submission->currentVersion->file_meta;
                             return [
-                                'type' => 'report',
+                                'type' => 'video',
                                 'id' => $version->id,
                                 'reportId' => $version->report_id,
                                 'consultationDate' => $version->consultation_date,
                                 'consultationTime' => $version->consultation_time,
+                                'name' => $fileMeta['original_name'],
+                                'url' => $fileMeta['video_url'],
+                                'uploadedAt' => $fileMeta['uploaded_at'],
                             ];
                         } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                             $fileMeta = $version->file_meta;
@@ -2537,8 +2538,6 @@ class V4EvaluationController extends Controller
             // Fetch the specific submission by ID, with related models
             $submission = EvaluationSubmission::with([
                 'player',
-                'paymentRequest',
-                'paymentRequest.inAppPurchase',
                 'paymentRequest.inAppPurchase.marketplaceItem',
                 'versions.report.submission.currentVersion',
                 'currentVersion',
@@ -2570,13 +2569,16 @@ class V4EvaluationController extends Controller
                             'uploadedAt' => $fileMeta['uploaded_at'],
                         ];
                     } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
-                        $fileMeta = $version->report->submission->currentVersion;
+                        $fileMeta = $version->report->submission->currentVersion->file_meta;
                         return [
-                            'type' => 'report',
+                            'type' => 'video',
                             'id' => $version->id,
                             'reportId' => $version->report_id,
                             'consultationDate' => $version->consultation_date,
                             'consultationTime' => $version->consultation_time,
+                            'name' => $fileMeta['original_name'],
+                            'url' => $fileMeta['video_url'],
+                            'uploadedAt' => $fileMeta['uploaded_at'],
                         ];
                     } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                         $fileMeta = $version->file_meta;
@@ -2740,7 +2742,6 @@ class V4EvaluationController extends Controller
                         'submission_status' => $submission->status,
                     ],
                 ], 201);
-
             } elseif ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                 // === ONE-ON-ONE CONSULTATION LOGIC ===
 
@@ -2820,7 +2821,6 @@ class V4EvaluationController extends Controller
                     'marketplace_type' => $marketplaceType,
                 ], 400);
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
