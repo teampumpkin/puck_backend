@@ -178,8 +178,8 @@ class EvaluationSubmissionVersion extends Model
         return $this->hasMany(V4ConsultationFeedback::class);
     }
 
-    public function consultationRequests()
+    public function consultationRequest()
     {
-        return $this->hasMany(V4ConsultationRequest::class);
+        return $this->hasOne(V4ConsultationRequest::class);
     }
 }

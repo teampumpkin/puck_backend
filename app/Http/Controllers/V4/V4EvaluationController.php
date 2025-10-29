@@ -2398,8 +2398,11 @@ class V4EvaluationController extends Controller
                 'player',
                 'paymentRequest.inAppPurchase.marketplaceItem',
                 'versions.report.submission.currentVersion',
-                'currentVersion',
                 'evaluatorAssignment',
+                'consultationRequests.evaluator' => function ($q) {
+                    $q->whereNull('deleted_at')->latest('created_at');
+                },
+                'currentVersion',
                 'evaluations'
             ]);
 
@@ -2483,6 +2486,24 @@ class V4EvaluationController extends Controller
                     $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
                     $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
                     $result['status'] = $submission->status;
+                } else if ($submission->consultationRequests->isNotEmpty()) {
+                    $latestConsultationRequest = $submission->consultationRequests->first();
+                    if ($latestConsultationRequest) {
+                        $result['consultationRequest'] = [
+                            'id' => $latestConsultationRequest->id,
+                            'status' => $latestConsultationRequest->status,
+                            'evaluatorId' => $latestConsultationRequest->evaluator_id,
+                            'evaluationId' => $latestConsultationRequest->evaluation_id,
+                            'submissionVersionId' => $latestConsultationRequest->submission_version_id,
+                            'adminNotes' => $latestConsultationRequest->admin_notes,
+                            'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
+                        ];
+                        $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
+                        $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                        $result['status'] = $latestConsultationRequest->status;
+                    } else {
+                        $result['status'] = 'pending_assignment';
+                    }
                 } else {
                     $result['status'] = 'pending_assignment';
                 }
@@ -2540,6 +2561,9 @@ class V4EvaluationController extends Controller
                 'player',
                 'paymentRequest.inAppPurchase.marketplaceItem',
                 'versions.report.submission.currentVersion',
+                'consultationRequests.evaluator' => function ($q) {
+                    $q->whereNull('deleted_at')->latest('created_at');
+                },
                 'currentVersion',
                 'evaluatorAssignment',
                 'evaluations'
@@ -2603,15 +2627,32 @@ class V4EvaluationController extends Controller
             }
 
             // Include evaluator details if assigned
-            if ($submission->evaluatorAssignment) {
+            if ($submission->evaluatorAssignment != null) {
                 $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
                 $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
                 $result['status'] = $submission->status;
+            } else if ($submission->consultationRequests->isNotEmpty()) {
+                $latestConsultationRequest = $submission->consultationRequests->first();
+                if ($latestConsultationRequest) {
+                    $result['consultationRequest'] = [
+                        'id' => $latestConsultationRequest->id,
+                        'status' => $latestConsultationRequest->status,
+                        'evaluatorId' => $latestConsultationRequest->evaluator_id,
+                        'evaluationId' => $latestConsultationRequest->evaluation_id,
+                        'submissionVersionId' => $latestConsultationRequest->submission_version_id,
+                        'adminNotes' => $latestConsultationRequest->admin_notes,
+                        'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
+                    ];
+                    $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
+                    $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                    $result['status'] = $latestConsultationRequest->status;
+                } else {
+                    $result['status'] = 'pending_assignment';
+                }
             } else {
                 $result['status'] = 'pending_assignment';
             }
 
-            $result['versions'] = $submission->versions;
 
             // Add completed date if the status is 'completed'
             if ($submission->status === 'completed') {
@@ -3248,7 +3289,6 @@ class V4EvaluationController extends Controller
                             'submission_status' => $consultationRequest->submission->status,
                         ],
                     ], 200);
-
                 } else { // accept
                     // Update consultation request status to accepted
                     $consultationRequest->update([
@@ -3287,7 +3327,6 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
