@@ -435,7 +435,6 @@ Route::prefix('v4')->group(function () {
             // Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
 
             // Evaluator Assignment
-            // Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock API
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
             Route::get('/get-my-evaluated-submissions', [V4EvaluationController::class, 'getMyEvaluatedSubmissions']);
             Route::post('/submit-evaluator-assignment', [V4EvaluationController::class, 'submitEvaluatorAssignment']);
@@ -445,6 +444,8 @@ Route::prefix('v4')->group(function () {
 
             // Consultation Request
             Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction']);
+            Route::post('/submit-consultation-assignment', [V4EvaluationController::class, 'submitConsultationAssignment']);
+            Route::post('/reject-consultation-assignment', [V4EvaluationController::class, 'rejectConsultationAssignment']);
         });
 
         // Media routes
