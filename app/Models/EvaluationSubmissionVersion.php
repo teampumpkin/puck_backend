@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Each uploaded video (history) of a submission.
@@ -21,6 +22,9 @@ class EvaluationSubmissionVersion extends Model
         'file_meta',
         'uploaded_by',
         'notes',
+        'report_id',
+        'consultation_date',
+        'consultation_time',
     ];
 
     protected $casts = [
@@ -132,7 +136,7 @@ class EvaluationSubmissionVersion extends Model
         }
 
         // Generate URL from storage path
-        return \Storage::disk('s3')->url($this->file_path);
+        return Storage::disk('s3')->url($this->file_path);
     }
 
     public function getFormattedFileSizeAttribute()
@@ -162,5 +166,20 @@ class EvaluationSubmissionVersion extends Model
         $seconds = $duration % 60;
 
         return sprintf('%d:%02d', $minutes, $seconds);
+    }
+
+    public function report()
+    {
+        return $this->belongsTo(Evaluation::class, 'report_id');
+    }
+
+    public function consultationFeedbacks()
+    {
+        return $this->hasMany(V4ConsultationFeedback::class);
+    }
+
+    public function consultationRequests()
+    {
+        return $this->hasMany(V4ConsultationRequest::class);
     }
 }

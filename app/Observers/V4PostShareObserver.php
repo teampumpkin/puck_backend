@@ -14,7 +14,7 @@ class V4PostShareObserver
      */
     public function created(V4PostShare $v4PostShare)
     {
-        //
+        $v4PostShare->post->increment('shares_count');
     }
 
     /**

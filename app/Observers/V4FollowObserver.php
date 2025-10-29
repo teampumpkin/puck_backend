@@ -105,7 +105,7 @@ class V4FollowObserver
     public function restored(V4Follow $v4Follow)
     {
         try {
-            $this->incrementFollowCounts($v4Follow);
+            // $this->incrementFollowCounts($v4Follow);
 
             V4FollowHistory::create([
                 'follower_id' => $v4Follow->follower_id,

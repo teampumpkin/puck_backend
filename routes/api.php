@@ -36,6 +36,8 @@ use App\Http\Controllers\V4\V4PaymentController;
 use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
+use App\Http\Controllers\V4\V4PostShareController;
+use App\Http\Controllers\V4\V4MarketplaceController;
 use App\Http\Controllers\V4\V4FollowController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -71,9 +73,9 @@ Route::get('terms-and-conditions', function () {
 // Broadcasting authentication route (dev-only bypass if WS_AUTH_BYPASS=true)
 if (env('WS_AUTH_BYPASS', false)) {
     Route::post('broadcasting/auth', function (Request $request) {
-        $channel  = $request->input('channel_name');
+        $channel = $request->input('channel_name');
         $socketId = $request->input('socket_id');
-        $sig      = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
+        $sig = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
         return response()->json(['auth' => env('PUSHER_APP_KEY') . ':' . $sig]);
     });
 }
@@ -351,6 +353,13 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
                 Route::post('/{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
             });
+
+            Route::prefix('marketplace')->group(function () {
+                Route::post('/', [V4MarketplaceController::class, 'storeMarketplace']);
+                Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
+                Route::post('/{v4MarketplaceId}/update', [V4MarketplaceController::class, 'updateMarketplaceById']);
+                Route::delete('/{v4MarketplaceId}', [V4MarketplaceController::class, 'destroyMarketplaceById']);
+            });
         });
     });
 
@@ -375,6 +384,8 @@ Route::prefix('v4')->group(function () {
             Route::delete('{userId}/unfollow', [V4FollowController::class, 'unfollow']);
             Route::post('{userId}/follow/accept', [V4FollowController::class, 'acceptFollow']);
             Route::delete('{userId}/follow/reject', [V4FollowController::class, 'rejectFollow']);
+            Route::delete('{userId}/follow/cancel', [V4FollowController::class, 'cancelFollow']);
+            Route::delete('{userId}/follow/remove', [V4FollowController::class, 'removeFollower']);
 
             Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
             Route::get('{userId}/following', [V4FollowController::class, 'following']);
@@ -424,8 +435,9 @@ Route::prefix('v4')->group(function () {
             // Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
 
             // Evaluator Assignment
-            Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock api for allotment test from front-end
+            // Route::post('/allot-evaluator-for-submission', [V4EvaluationController::class, 'allotEvaluatorForSubmission']); // mock API
             Route::get('/get-evaluator-assignments/{status}', [V4EvaluationController::class, 'getStatusFilteredEvaluatorAssignments']);
+            Route::get('/get-my-evaluated-submissions', [V4EvaluationController::class, 'getMyEvaluatedSubmissions']);
             Route::post('/submit-evaluator-assignment', [V4EvaluationController::class, 'submitEvaluatorAssignment']);
             Route::post('/reject-evaluator-assignment', [V4EvaluationController::class, 'rejectEvaluatorAssignment']);
             Route::get('/get-evaluation-report/{evaluation_id}', [V4EvaluationController::class, 'getEvaluationReport']);
@@ -517,10 +529,20 @@ Route::prefix('v4')->group(function () {
             Route::post('{postId}/comments', [V4PostCommentController::class, 'store']);
             Route::put('{postId}/comments/{commentId}', [V4PostCommentController::class, 'update']);
             Route::delete('{postId}/comments/{commentId}', [V4PostCommentController::class, 'destroy']);
+
+            Route::post('{postId}/share', [V4PostShareController::class, 'store']);
+            Route::delete('{postId}/unshare', [V4PostShareController::class, 'destroy']);
+            Route::get('{postId}/shares', [V4PostShareController::class, 'index']);
         });
 
         Route::prefix('feeds')->group(function () {
+            Route::get('/users/{userId}', [V4FeedController::class, 'getRecentFeedsByUserId']);
             Route::get('/recent', [V4FeedController::class, 'getRecentFeeds']);
+        });
+
+        Route::prefix('marketplace')->group(function () {
+            Route::get('/', [V4MarketplaceController::class, 'getMarketPlaces']);
+            Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
         });
     });
 });

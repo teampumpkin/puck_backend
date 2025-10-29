@@ -47,4 +47,9 @@ class V4InAppPurchase extends Model
     {
         return number_format($this->amount_cents / 100, 2) . ' ' . strtoupper($this->currency);
     }
+
+    public function marketplaceItems()
+    {
+        return $this->hasMany(V4Marketplace::class, 'in_app_purchase_id');
+    }
 }

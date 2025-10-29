@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\V4;
 
+use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
 use App\Models\EvaluationCategory;
 use App\Models\EvaluationQuestion;
@@ -12,6 +13,8 @@ use App\Models\EvaluationRejectionReason;
 use App\Models\EvaluatorAssignment;
 use App\Models\Evaluation;
 use App\Models\EvaluationAnswer;
+use App\Models\V4ConsultationRequest;
+use App\Models\V4Marketplace;
 use App\Models\V4PaymentRequest;
 use App\Models\V4User;
 use App\Models\V4InAppPurchase;
@@ -2018,12 +2021,10 @@ class V4EvaluationController extends Controller
     }
 
     /**
-     * Upload evaluation video
+     * Upload evaluation video or book consultation
      * This function can be called by other controllers
      *
      * @param Request $request
-     * @param int $evaluationId (optional) - if provided, associates video with specific evaluation
-     * @param int $userId (optional) - if provided, uses this user ID instead of authenticated user
      * @return JsonResponse
      */
     public function uploadEvaluationVideo(Request $request): JsonResponse
@@ -2032,9 +2033,8 @@ class V4EvaluationController extends Controller
             $user = Auth::guard('v4api')->user();
             $playerId = $user->id;
 
-            // Validate video file and SKU
+            // Validate SKU (common for all)
             $request->validate([
-                'video' => 'required|file',
                 'sku' => 'required|string|exists:v4_in_app_purchases,sku',
             ]);
 
@@ -2043,6 +2043,17 @@ class V4EvaluationController extends Controller
             if (!$inAppPurchase) {
                 return response()->json(['success' => false, 'message' => 'Invalid SKU'], 400);
             }
+
+            // Get marketplace item to determine type
+            $marketplaceItem = V4Marketplace::where('in_app_purchase_id', $inAppPurchase->id)
+                ->where('active', true)
+                ->first();
+
+            if (!$marketplaceItem) {
+                return response()->json(['success' => false, 'message' => 'Marketplace item not found'], 400);
+            }
+
+            $marketplaceType = $marketplaceItem->type;
 
             // Get latest payment request for this player and SKU
             $paymentRequest = V4PaymentRequest::where('player_id', $playerId)
@@ -2063,7 +2074,7 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Payment is under process'], 400);
             }
 
-            // If payment status is paid, check evaluation submission
+            // If payment status is paid, proceed based on marketplace type
             if ($paymentRequest->status === V4PaymentRequest::STATUS_PAID) {
                 $submission = EvaluationSubmission::where('payment_request_id', $paymentRequest->id)
                     ->where('player_id', $playerId)
@@ -2073,7 +2084,7 @@ class V4EvaluationController extends Controller
                 // Check submission status
                 if ($submission) {
                     if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED])) {
-                        return response()->json(['success' => false, 'message' => 'An evaluation is already in process'], 400);
+                        return response()->json(['success' => false, 'message' => 'A submission is already in process'], 400);
                     }
 
                     if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
@@ -2081,100 +2092,201 @@ class V4EvaluationController extends Controller
                     }
                 }
 
-                // Handle file upload
-                if (!$request->hasFile('video')) {
-                    return response()->json(['success' => false, 'message' => 'No video file provided'], 400);
-                }
+                // Handle different marketplace types
+                if ($marketplaceType === MarketPlaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                    // === VIDEO EVALUATION LOGIC (default for other types) ===
 
-                $file = $request->file('video');
-
-                // Validate file
-                if (!$file->isValid()) {
-                    return response()->json(['success' => false, 'message' => 'File upload failed: ' . $file->getError()], 422);
-                }
-
-                $mimeType = $file->getClientMimeType();
-                $fileSize = $file->getSize();
-
-                if (!str_starts_with($mimeType, 'video/')) {
-                    return response()->json(['success' => false, 'message' => 'File must be a video'], 422);
-                }
-
-                // Check file size (100MB max)
-                $maxSizeInBytes = 100 * 1024 * 1024;
-                if ($fileSize > $maxSizeInBytes) {
-                    return response()->json(['success' => false, 'message' => 'Video file size must not exceed 100MB'], 422);
-                }
-
-                // Generate unique filename
-                $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-                // Upload to S3 (before transaction)
-                $path = $file->storeAs('evaluation-videos/' . $playerId, $filename, 's3');
-                $videoUrl = Storage::disk('s3')->url($path);
-                $originalName = $file->getClientOriginalName();
-
-                // Prepare file metadata
-                $fileMeta = [
-                    'original_name' => $originalName,
-                    'file_size' => $fileSize,
-                    'mime_type' => $mimeType,
-                    'video_url' => $videoUrl,
-                    'uploaded_at' => now()->toISOString(),
-                ];
-
-                // Wrap all database operations in a transaction
-                DB::beginTransaction();
-                try {
-                    // Create or update submission
-                    if (!$submission) {
-                        // Create new submission if not found
-                        $submission = EvaluationSubmission::create([
-                            'player_id' => $playerId,
-                            'payment_request_id' => $paymentRequest->id,
-                            'status' => EvaluationSubmission::STATUS_UPLOADED,
-                        ]);
-                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING])) {
-                        // Update pending or rejected submission to uploaded
-                        $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-                    } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED])) {
-                        // Update pending or rejected submission to uploaded
-                        $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
-                        $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
-                    }
-
-                    // Create submission version
-                    $submissionVersion = EvaluationSubmissionVersion::create([
-                        'submission_id' => $submission->id,
-                        'file_path' => $videoUrl,
-                        'file_meta' => $fileMeta,
-                        'uploaded_by' => $user->id,
+                    // Validate video file
+                    $request->validate([
+                        'video' => 'required|file',
                     ]);
 
-                    // Update submission with current version ID
-                    $submission->update(['current_version_id' => $submissionVersion->id]);
+                    // Handle file upload
+                    if (!$request->hasFile('video')) {
+                        return response()->json(['success' => false, 'message' => 'No video file provided'], 400);
+                    }
 
-                    DB::commit();
+                    $file = $request->file('video');
 
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Evaluation video uploaded successfully',
-                        'data' => [
-                            'player_id' => $playerId,
+                    // Validate file
+                    if (!$file->isValid()) {
+                        return response()->json(['success' => false, 'message' => 'File upload failed: ' . $file->getError()], 422);
+                    }
+
+                    $mimeType = $file->getClientMimeType();
+                    $fileSize = $file->getSize();
+
+                    if (!str_starts_with($mimeType, 'video/')) {
+                        return response()->json(['success' => false, 'message' => 'File must be a video'], 422);
+                    }
+
+                    // Check file size (100MB max)
+                    $maxSizeInBytes = 100 * 1024 * 1024;
+                    if ($fileSize > $maxSizeInBytes) {
+                        return response()->json(['success' => false, 'message' => 'Video file size must not exceed 100MB'], 422);
+                    }
+
+                    // Generate unique filename
+                    $filename = 'eval_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                    // Upload to S3 (before transaction)
+                    $path = $file->storeAs('evaluation-videos/' . $playerId, $filename, 's3');
+                    $videoUrl = Storage::disk('s3')->url($path);
+                    $originalName = $file->getClientOriginalName();
+
+                    // Prepare file metadata
+                    $fileMeta = [
+                        'original_name' => $originalName,
+                        'file_size' => $fileSize,
+                        'mime_type' => $mimeType,
+                        'video_url' => $videoUrl,
+                        'marketplace_type' => $marketplaceType,
+                        'uploaded_at' => now()->toISOString(),
+                    ];
+
+                    // Wrap all database operations in a transaction
+                    DB::beginTransaction();
+                    try {
+                        // Create or update submission
+                        if (!$submission) {
+                            // Create new submission if not found
+                            $submission = EvaluationSubmission::create([
+                                'player_id' => $playerId,
+                                'payment_request_id' => $paymentRequest->id,
+                                'status' => EvaluationSubmission::STATUS_UPLOADED,
+                            ]);
+                        } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_PENDING])) {
+                            // Update pending submission to uploaded
+                            $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                        } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED])) {
+                            // Update rejected submission to assigned
+                            $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
+                            $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
+                        }
+
+                        // Create submission version
+                        $submissionVersion = EvaluationSubmissionVersion::create([
                             'submission_id' => $submission->id,
-                            'submission_version_id' => $submissionVersion->id,
-                            'status' => $submission->status,
-                            'video_url' => $videoUrl,
-                            'file_size' => $fileSize,
-                            'mime_type' => $mimeType,
-                            'uploaded_at' => now()->toISOString(),
-                        ],
-                    ], 201);
-                } catch (Exception $e) {
-                    DB::rollBack();
-                    // Optionally delete uploaded file from S3 if DB transaction fails
-                    Storage::disk('s3')->delete($path);
-                    throw $e;
+                            'file_path' => $videoUrl,
+                            'file_meta' => $fileMeta,
+                            'uploaded_by' => $user->id,
+                        ]);
+
+                        // Update submission with current version ID
+                        $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                        DB::commit();
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Evaluation video uploaded successfully',
+                            'data' => [
+                                'player_id' => $playerId,
+                                'submission_id' => $submission->id,
+                                'submission_version_id' => $submissionVersion->id,
+                                'marketplace_type' => $marketplaceType,
+                                'status' => $submission->status,
+                                'video_url' => $videoUrl,
+                                'file_size' => $fileSize,
+                                'mime_type' => $mimeType,
+                                'uploaded_at' => now()->toISOString(),
+                            ],
+                        ], 201);
+                    } catch (Exception $e) {
+                        DB::rollBack();
+                        // Optionally delete uploaded file from S3 if DB transaction fails
+                        Storage::disk('s3')->delete($path);
+                        throw $e;
+                    }
+                } else if ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                    // === ONE-ON-ONE CONSULTATION LOGIC ===
+
+                    // Validate consultation-specific fields
+                    $validated = $request->validate([
+                        'evaluation_id' => 'required|integer|exists:evaluations,id',
+                        'consultation_date' => 'required|date|after_or_equal:today',
+                        'consultation_time' => 'required|date_format:H:i',
+                    ]);
+
+                    // Verify evaluation exists and is submitted
+                    $evaluation = Evaluation::find($validated['evaluation_id']);
+                    if (!$evaluation || $evaluation->status !== Evaluation::STATUS_SUBMITTED) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Invalid evaluation or evaluation is not submitted'
+                        ], 400);
+                    }
+
+                    // Verify the evaluation belongs to the player
+                    if ($evaluation->submission->player_id !== $playerId) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'This evaluation does not belong to you'
+                        ], 403);
+                    }
+
+                    // Wrap all database operations in a transaction
+                    DB::beginTransaction();
+                    try {
+                        // Create or update submission
+                        if (!$submission) {
+                            // Create new submission if not found
+                            $submission = EvaluationSubmission::create([
+                                'player_id' => $playerId,
+                                'payment_request_id' => $paymentRequest->id,
+                                'status' => EvaluationSubmission::STATUS_UPLOADED,
+                            ]);
+                        } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING) {
+                            // Update pending submission to uploaded
+                            $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                        } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                            // Update rejected submission to assigned
+                            $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
+                            if ($submission->evaluatorAssignment) {
+                                $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
+                            }
+                        }
+
+                        // Create submission version with consultation details
+                        $submissionVersion = EvaluationSubmissionVersion::create([
+                            'submission_id' => $submission->id,
+                            'report_id' => $validated['evaluation_id'],
+                            'consultation_date' => $validated['consultation_date'],
+                            'consultation_time' => $validated['consultation_time'],
+                            'uploaded_by' => $user->id,
+                            'file_path' => "N/A",
+                            'file_meta' => [],
+                        ]);
+
+                        // Update submission with current version ID
+                        $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                        DB::commit();
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Consultation booked successfully',
+                            'data' => [
+                                'player_id' => $playerId,
+                                'submission_id' => $submission->id,
+                                'submission_version_id' => $submissionVersion->id,
+                                'evaluation_id' => $validated['evaluation_id'],
+                                'consultation_date' => $validated['consultation_date'],
+                                'consultation_time' => $validated['consultation_time'],
+                                'marketplace_type' => $marketplaceType,
+                                'status' => $submission->status,
+                                'booked_at' => now()->toISOString(),
+                            ],
+                        ], 201);
+                    } catch (Exception $e) {
+                        DB::rollBack();
+                        throw $e;
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Not applicable for provided sku.',
+                    ], 400);
                 }
             }
 
@@ -2182,14 +2294,16 @@ class V4EvaluationController extends Controller
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
-            Log::error('Error uploading evaluation video: ' . $e->getMessage(), [
+            Log::error('Error processing evaluation submission: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
+                'sku' => $request->sku ?? 'unknown',
+                'marketplace_type' => $marketplaceType ?? 'unknown',
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload evaluation video',
+                'message' => 'Failed to process submission',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -2268,15 +2382,15 @@ class V4EvaluationController extends Controller
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
-                'sort_by'    => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
                 'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
             $page = $validated['page'] ?? 1;
             $perPage = $validated['per_page'] ?? 15;
-            $sortBy     = $validated['sort_by'] ?? 'current_version_updated_at';
-            $sortOrder  = $validated['sort_order'] ?? 'desc';
+            $sortBy = $validated['sort_by'] ?? 'current_version_updated_at';
+            $sortOrder = $validated['sort_order'] ?? 'desc';
 
             $query = EvaluationSubmission::query();
 
@@ -2506,45 +2620,144 @@ class V4EvaluationController extends Controller
                 ], 404);
             }
 
-            // Check submission status - only allow if status is 'uploaded'
-            if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
-                $existingAssignment = EvaluatorAssignment::where('submission_id', $submissionId)->first();
-                if ($existingAssignment) {
+            $inAppPurchase = $submission->paymentRequest->inAppPurchase;
+            $marketplaceItem = V4Marketplace::where('in_app_purchase_id', $inAppPurchase->id)
+                ->where('active', true)
+                ->first();
+
+            if (!$marketplaceItem) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marketplace item not found',
+                ], 400);
+            }
+
+            $marketplaceType = $marketplaceItem->type;
+
+            // Handle different marketplace types
+            if ($marketplaceType === MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                // === PERSONALIZED VIDEO EVALUATION LOGIC ===
+
+                // Check submission status - only allow if status is 'uploaded'
+                if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
+                    $existingAssignment = EvaluatorAssignment::where('submission_id', $submissionId)->first();
+                    if ($existingAssignment) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Submission already {$submission->status}",
+                            'submission_id' => $submissionId,
+                            'evaluator_id' => $existingAssignment->evaluator_id,
+                            'current_status' => $submission->status,
+                        ], 400);
+                    }
+                }
+
+                // Create evaluator assignment
+                $assignment = EvaluatorAssignment::create([
+                    'submission_id' => $submissionId,
+                    'evaluator_id' => $evaluatorId,
+                    'status' => EvaluatorAssignment::STATUS_PENDING,
+                    'assigned_at' => now(),
+                ]);
+
+                // Update submission status to assigned
+                $submission->update([
+                    'status' => EvaluationSubmission::STATUS_ASSIGNED,
+                    'evaluator_assignment_id' => $assignment->id,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator allotted successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluator_name' => "{$evaluator->first_name} {$evaluator->last_name}",
+                        'assignment_status' => $assignment->status,
+                        'assigned_at' => $assignment->assigned_at->toISOString(),
+                        'submission_status' => $submission->status,
+                    ],
+                ], 201);
+
+            } elseif ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                // === ONE-ON-ONE CONSULTATION LOGIC ===
+
+                // Check submission status - only allow if status is 'uploaded'
+                if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
                     return response()->json([
                         'success' => false,
                         'message' => "Submission already {$submission->status}",
                         'submission_id' => $submissionId,
-                        'evaluator_id' => $existingAssignment->evaluator_id,
                         'current_status' => $submission->status,
                     ], 400);
                 }
+
+                // Check if submission has a current version with evaluation (report_id)
+                $submissionVersion = $submission->currentVersion;
+                if (!$submissionVersion || !$submissionVersion->report_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Consultation request must have a valid evaluation report',
+                    ], 400);
+                }
+
+                // Check if consultation request already exists for this submission
+                $existingRequest = V4ConsultationRequest::where('submission_id', $submissionId)
+                    ->where('submission_version_id', $submissionVersion->id)
+                    ->first();
+
+                if ($existingRequest) {
+                    // If consultation request exists and is not rejected, return error
+                    if ($existingRequest->status !== V4ConsultationRequest::STATUS_REQUEST_REJECTED) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Consultation already allotted',
+                            'request_id' => $existingRequest->id,
+                            'evaluator_id' => $existingRequest->evaluator_id,
+                            'status' => $existingRequest->status,
+                        ], 400);
+                    }
+
+                    // If consultation was rejected, delete the old request
+                    $existingRequest->delete();
+                }
+
+                // Create consultation request
+                $consultationRequest = V4ConsultationRequest::create([
+                    'submission_version_id' => $submissionVersion->id,
+                    'submission_id' => $submissionId,
+                    'evaluation_id' => $submissionVersion->report_id,
+                    'evaluator_id' => $evaluatorId,
+                    'status' => V4ConsultationRequest::STATUS_PENDING,
+                ]);
+
+                // Get player for notification
+                $player = $submission->player;
+
+                // Send notification to evaluator using FollowController method
+                $followController = new V4FollowController($this->notificationService);
+                $followController->sendConsultationRequestNotification($player, $evaluator, $consultationRequest);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator allotted for consultation successfully',
+                    'data' => [
+                        'consultation_request_id' => $consultationRequest->id,
+                        'evaluator_id' => $evaluator->id,
+                        'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                        'request_status' => $consultationRequest->status,
+                        'consultation_date' => $submissionVersion->consultation_date,
+                        'consultation_time' => $submissionVersion->consultation_time,
+                    ],
+                ], 201);
+            } else {
+                // === UNSUPPORTED SKU TYPE ===
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Not applicable for provided sku.',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
             }
 
-            // Create evaluator assignment
-            $assignment = EvaluatorAssignment::create([
-                'submission_id' => $submissionId,
-                'evaluator_id' => $evaluatorId,
-                'status' => EvaluatorAssignment::STATUS_PENDING,
-                'assigned_at' => now(),
-            ]);
-
-            // Update submission status to assigned
-            $submission->update([
-                'status' => EvaluationSubmission::STATUS_ASSIGNED,
-                'evaluator_assignment_id' => $assignment->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Evaluator allotted successfully',
-                'data' => [
-                    'assignment_id' => $assignment->id,
-                    'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
-                    'assignment_status' => $assignment->status,
-                    'assigned_at' => $assignment->assigned_at->toISOString(),
-                    'submission_status' => $submission->status,
-                ],
-            ], 201);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -2553,8 +2766,8 @@ class V4EvaluationController extends Controller
             ], 422);
         } catch (Exception $e) {
             Log::error('Error allotting evaluator for submission: ' . $e->getMessage(), [
-                'evaluator_id' => $request->input('evaluator_id'),
-                'submission_id' => $request->input('submission_id'),
+                'evaluator_id' => $request->input('evaluatorId'),
+                'submission_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -2694,6 +2907,95 @@ class V4EvaluationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get player's evaluated submissions filtered by SKU
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getMyEvaluatedSubmissions(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Check if user is a player
+            if (!$user || $user->role !== 'player') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only players can access their evaluated submissions.'
+                ], 403);
+            }
+
+            // Validate request
+            $validated = $request->validate([
+                'sku' => 'required|string|exists:v4_in_app_purchases,sku',
+            ]);
+
+            $sku = $validated['sku'];
+
+            // Get evaluations for this player filtered by SKU with submitted status
+            $evaluations = Evaluation::with([
+                'evaluator:id,first_name,last_name,profile_photo',
+                'submission.paymentRequest.inAppPurchase',
+            ])
+                ->where('status', Evaluation::STATUS_SUBMITTED)
+                ->whereHas('submission', function ($query) use ($user, $sku) {
+                    $query->where('player_id', $user->id)
+                        ->whereHas('paymentRequest.inAppPurchase', function ($q) use ($sku) {
+                            $q->where('sku', $sku);
+                        });
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Format the response
+            $formattedEvaluations = $evaluations->map(function ($evaluation) {
+                return [
+                    'evaluation_id' => $evaluation->id,
+                    'created_date' => $evaluation->created_at->toISOString(),
+                    'sku_title' => optional(optional($evaluation->submission->paymentRequest)->inAppPurchase)->title,
+                    'evaluator' => [
+                        'id' => $evaluation->evaluator->id,
+                        'first_name' => $evaluation->evaluator->first_name,
+                        'last_name' => $evaluation->evaluator->last_name,
+                        'full_name' => $evaluation->evaluator->first_name . ' ' . $evaluation->evaluator->last_name,
+                        'profile_photo' => $evaluation->evaluator->profile_photo,
+                    ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluated submissions retrieved successfully',
+                'data' => [
+                    'evaluations' => $formattedEvaluations,
+                    'total_count' => $formattedEvaluations->count(),
+                    'sku' => $sku,
+                    'player_id' => $user->id,
+                ],
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error fetching evaluated submissions: ' . $e->getMessage(), [
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve evaluated submissions',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
 
     /**
      * Check video evaluation status for a player
@@ -2877,8 +3179,8 @@ class V4EvaluationController extends Controller
 
             $validated = $request->validate([
                 'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
-                'notes' => 'required|array',
-                'notes.*' => 'required|string',
+                'notes' => 'sometimes|array',
+                'notes.*' => 'nullable|string',
                 'answers' => 'required|array',
                 'answers.*' => 'required|integer',
             ]);
