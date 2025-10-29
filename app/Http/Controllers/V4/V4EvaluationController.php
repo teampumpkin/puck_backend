@@ -2400,6 +2400,8 @@ class V4EvaluationController extends Controller
             $query->with([
                 'player',
                 'paymentRequest',
+                'paymentRequest.inAppPurchase',
+                'paymentRequest.inAppPurchase.marketplaceItem',
                 'versions',
                 'currentVersion',
                 'evaluatorAssignment',
@@ -2431,25 +2433,51 @@ class V4EvaluationController extends Controller
                     'id' => $submission->id,
                     'playerId' => $submission->player->id,
                     'playerName' => $submission->player->name,
-                    'type' => 'video_evaluation',
+                    'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
                     'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
-                    // 'dueDate' => 'dueDate',
                     'price' => $submission->paymentRequest->amount_cents,
-                    // 'notes' => 'notes',
                     'updated_at' => $submission->updated_at,
                 ];
 
                 if ($submission->versions != []) {
-                    $result['materials'] = $submission->versions->map(function ($version) {
-                        $fileMeta = $version->file_meta;
-                        return [
-                            'type' => 'video',
-                            'id' => $version->id,
-                            'name' => $fileMeta['original_name'],
-                            'url' => $fileMeta['video_url'],
-                            'uploadedAt' => $fileMeta['uploaded_at'],
-                            // 'notes' => 'notes',
-                        ];
+                    $result['materials'] = $submission->versions->map(function ($version) use ($result) {
+                        if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'video',
+                                'id' => $version->id,
+                                'name' => $fileMeta['original_name'],
+                                'url' => $fileMeta['video_url'],
+                                'uploadedAt' => $fileMeta['uploaded_at'],
+                            ];
+                        } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'report',
+                                'id' => $version->id,
+                                'reportId' => $version->report_id,
+                                'consultationDate' => $version->consultation_date,
+                                'consultationTime' => $version->consultation_time,
+                            ];
+                        } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'report',
+                                'id' => $version->id,
+                                'name' => $fileMeta['original_name'] ?? '',
+                                'url' => $fileMeta['video_url'] ?? '',
+                                'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                                'reportId' => $version->report_id ?? '',
+                                'consultationDate' => $version->consultation_date ?? '',
+                                'consultationTime' => $version->consultation_time ?? '',
+                            ];
+                        } else {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'report',
+                                'id' => $version->id,
+                            ];
+                        }
                     });
                 }
 
@@ -2513,7 +2541,9 @@ class V4EvaluationController extends Controller
             $submission = EvaluationSubmission::with([
                 'player',
                 'paymentRequest',
-                'versions',
+                'paymentRequest.inAppPurchase',
+                'paymentRequest.inAppPurchase.marketplaceItem',
+                'versions.report.submission.currentVersion',
                 'currentVersion',
                 'evaluatorAssignment',
                 'evaluations'
@@ -2521,24 +2551,55 @@ class V4EvaluationController extends Controller
 
             // Prepare the response data
             $result = [
+                'id' => $submission->id,
                 'playerId' => $submission->player->id,
                 'playerName' => $submission->player->name,
-                'type' => 'video_evaluation',
+                'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
                 'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
                 'price' => $submission->paymentRequest->amount_cents,
+                'updated_at' => $submission->updated_at,
             ];
 
             // Include the materials if available
             if ($submission->versions->isNotEmpty()) {
-                $result['materials'] = $submission->versions->map(function ($version) {
-                    $fileMeta = $version->file_meta;
-                    return [
-                        'type' => 'video',
-                        'id' => $version->id,
-                        'name' => $fileMeta['original_name'],
-                        'url' => $fileMeta['video_url'],
-                        'uploadedAt' => $fileMeta['uploaded_at'],
-                    ];
+                $result['materials'] = $submission->versions->map(function ($version) use ($result) {
+                    if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'video',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'],
+                            'url' => $fileMeta['video_url'],
+                            'uploadedAt' => $fileMeta['uploaded_at'],
+                        ];
+                    } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                        $fileMeta = $version->report->submission->currentVersion;
+                        return [
+                            'type' => 'report',
+                            'id' => $version->id,
+                            'reportId' => $version->report_id,
+                            'consultationDate' => $version->consultation_date,
+                            'consultationTime' => $version->consultation_time,
+                        ];
+                    } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'report',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'] ?? '',
+                            'url' => $fileMeta['video_url'] ?? '',
+                            'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                            'reportId' => $version->report_id ?? '',
+                            'consultationDate' => $version->consultation_date ?? '',
+                            'consultationTime' => $version->consultation_time ?? '',
+                        ];
+                    } else {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'report',
+                            'id' => $version->id,
+                        ];
+                    }
                 });
             }
 
@@ -2550,6 +2611,8 @@ class V4EvaluationController extends Controller
             } else {
                 $result['status'] = 'pending_assignment';
             }
+
+            $result['versions'] = $submission->versions;
 
             // Add completed date if the status is 'completed'
             if ($submission->status === 'completed') {
@@ -2879,7 +2942,6 @@ class V4EvaluationController extends Controller
                     'player_id' => $user->id,
                 ],
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
