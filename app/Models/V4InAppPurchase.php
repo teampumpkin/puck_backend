@@ -52,4 +52,9 @@ class V4InAppPurchase extends Model
     {
         return $this->hasMany(V4Marketplace::class, 'in_app_purchase_id');
     }
+
+    public function marketplaceItem()
+    {
+        return $this->hasOne(V4Marketplace::class, 'in_app_purchase_id');
+    }
 }
