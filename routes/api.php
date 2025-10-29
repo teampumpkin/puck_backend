@@ -444,6 +444,7 @@ Route::prefix('v4')->group(function () {
             Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction']);
             Route::post('/submit-consultation-assignment', [V4EvaluationController::class, 'submitConsultationAssignment']);
             Route::post('/reject-consultation-assignment', [V4EvaluationController::class, 'rejectConsultationAssignment']);
+            Route::get('/get-consultation-report/{feedback_id}', [V4EvaluationController::class, 'getConsultationReport']);
         });
 
         // Media routes

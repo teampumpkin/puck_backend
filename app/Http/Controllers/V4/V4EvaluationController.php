@@ -3933,6 +3933,124 @@ class V4EvaluationController extends Controller
         }
     }
 
+
+    /**
+     * Get consultation report by feedback ID
+     *
+     * @param int $feedback_id
+     * @return JsonResponse
+     */
+    public function getConsultationReport(int $feedback_id): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Get consultation feedback with all relationships
+            $feedback = V4ConsultationFeedback::with([
+                'evaluator',
+                'submissionVersion.submission.player',
+                'submissionVersion.submission.paymentRequest.inAppPurchase',
+                'evaluation.answers.question',
+            ])->find($feedback_id);
+
+            if (!$feedback) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Consultation feedback not found',
+                ], 404);
+            }
+
+            // Get player and evaluator
+            $player = $feedback->submissionVersion->submission->player ?? null;
+            $evaluator = $feedback->evaluator;
+            $evaluation = $feedback->evaluation;
+            $inAppPurchase = $feedback->submissionVersion->submission->paymentRequest->inAppPurchase ?? null;
+
+            // Format the response
+            $reportData = [
+                'feedback_id' => $feedback->id,
+                'consultation_date' => $feedback->submissionVersion->consultation_date ?? null,
+                'consultation_time' => $feedback->submissionVersion->consultation_time ?? null,
+                'created_at' => $feedback->created_at->toISOString(),
+
+                // Feedback details
+                'feedback' => [
+                    'id' => $feedback->id,
+                    'remarks' => $feedback->remarks,
+                    'urls' => $feedback->urls,
+                ],
+
+                // Evaluator details
+                'evaluator' => $evaluator ? [
+                    'id' => $evaluator->id,
+                    'first_name' => $evaluator->first_name,
+                    'last_name' => $evaluator->last_name,
+                    'full_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                    'email' => $evaluator->email,
+                    'profile_photo' => $evaluator->profile_photo,
+                    'role' => $evaluator->role,
+                ] : null,
+
+                // Player details
+                'player' => $player ? [
+                    'id' => $player->id,
+                    'first_name' => $player->first_name,
+                    'last_name' => $player->last_name,
+                    'full_name' => $player->first_name . ' ' . $player->last_name,
+                    'email' => $player->email,
+                    'profile_photo' => $player->profile_photo,
+                    'role' => $player->role,
+                    'date_of_birth' => $player->date_of_birth,
+                    'location' => $player->state . ', ' . $player->country,
+                ] : null,
+
+                // Evaluation details
+                'evaluation' => $evaluation ? [
+                    'id' => $evaluation->id,
+                    'status' => $evaluation->status,
+                    'overall_rating' => $evaluation->overall_rating,
+                    'notes' => $evaluation->notes,
+                    'created_at' => $evaluation->created_at->toISOString(),
+                    'meta' => $evaluation->meta,
+                ] : null,
+
+                // In-app purchase details
+                'in_app_purchase' => $inAppPurchase ? [
+                    'id' => $inAppPurchase->id,
+                    'sku' => $inAppPurchase->sku,
+                    'title' => $inAppPurchase->title,
+                    'amount' => $inAppPurchase->amount,
+                    'formatted_amount' => $inAppPurchase->formatted_amount,
+                    'currency' => $inAppPurchase->currency,
+                ] : null,
+
+                // Submission details
+                'submission' => [
+                    'id' => $feedback->submission_id,
+                    'status' => $feedback->submissionVersion->submission->status ?? null,
+                ],
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consultation report retrieved successfully',
+                'data' => $reportData,
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching consultation report: ' . $e->getMessage(), [
+                'feedback_id' => $feedback_id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve consultation report',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * Get submission result with evaluation details
      *
