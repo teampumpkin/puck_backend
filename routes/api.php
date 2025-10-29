@@ -440,6 +440,9 @@ Route::prefix('v4')->group(function () {
             Route::post('/reject-evaluator-assignment', [V4EvaluationController::class, 'rejectEvaluatorAssignment']);
             Route::get('/get-evaluation-report/{evaluation_id}', [V4EvaluationController::class, 'getEvaluationReport']);
             Route::post('/make-evaluation-in-progress', [V4EvaluationController::class, 'makeEvaluationInProgress']);
+
+            // Consultation Request
+            Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction']);
         });
 
         // Media routes
