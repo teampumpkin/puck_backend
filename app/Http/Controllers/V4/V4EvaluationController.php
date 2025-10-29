@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -2695,6 +2696,7 @@ class V4EvaluationController extends Controller
      */
     public function allotEvaluatorForSubmission(Request $request, int $id): JsonResponse
     {
+        $authUser = Auth::guard('v4api')->user();
         try {
             // Validate required fields
             $request->validate([
@@ -2758,12 +2760,44 @@ class V4EvaluationController extends Controller
                     }
                 }
 
+                $conversationId = null;
+                try {
+                    $token = $request->bearerToken();
+
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type' => 'application/json',
+                    ])->post($baseUrl . '/conversation/create', [
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
+
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    } else {
+                        Log::warning('Conversation API failed', [
+                            'status' => $response->status(),
+                            'body' => $response->body(),
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Conversation API error', ['error' => $e->getMessage()]);
+                }
+
                 // Create evaluator assignment
                 $assignment = EvaluatorAssignment::create([
                     'submission_id' => $submissionId,
                     'evaluator_id' => $evaluatorId,
                     'status' => EvaluatorAssignment::STATUS_PENDING,
                     'assigned_at' => now(),
+                    'meta' => [
+                        'conversation_id' => $conversationId,
+                    ]
                 ]);
 
                 // Update submission status to assigned
@@ -2965,6 +2999,7 @@ class V4EvaluationController extends Controller
                         'title' => $assignment->submission->paymentRequest->inAppPurchase->title,
                         'active' => $assignment->submission->paymentRequest->inAppPurchase->active,
                     ] : null,
+                    'conversation_id' => $assignment->meta['conversation_id'] ?? ''
                 ];
 
                 // For completed status, add evaluation data
@@ -3298,12 +3333,45 @@ class V4EvaluationController extends Controller
                         'status' => V4ConsultationRequest::STATUS_REQUEST_ACCEPTED,
                     ]);
 
+
+                    $conversationId = null;
+                    try {
+                        $token = $request->bearerToken();
+
+                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                        $response = Http::withHeaders([
+                            'Authorization' => 'Bearer ' . $token,
+                            'Content-Type' => 'application/json',
+                        ])->post($baseUrl . '/conversation/create', [
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
+
+                        if ($response->successful() && isset($response->json()['_id'])) {
+                            $conversationId = $response->json()['_id'];
+                        } else {
+                            Log::warning('Conversation API failed', [
+                                'status' => $response->status(),
+                                'body' => $response->body(),
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('Conversation API error', ['error' => $e->getMessage()]);
+                    }
+
                     // Create evaluator assignment
                     $assignment = EvaluatorAssignment::create([
                         'submission_id' => $consultationRequest->submission_id,
                         'evaluator_id' => $user->id,
                         'status' => EvaluatorAssignment::STATUS_PENDING,
                         'assigned_at' => now(),
+                        'meta' => [
+                            'conversation_id' => $conversationId,
+                        ]
                     ]);
 
                     // Update submission status to assigned
