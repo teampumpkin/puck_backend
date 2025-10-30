@@ -2404,7 +2404,7 @@ class V4EvaluationController extends Controller
                 'versions.report.submission.currentVersion',
                 'evaluatorAssignment',
                 'consultationRequests.evaluator' => function ($q) {
-                    $q->whereNull('deleted_at')->latest('created_at');
+                    $q->latest('created_at');
                 },
                 'currentVersion',
                 'evaluations'
@@ -2773,12 +2773,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3284,7 +3284,6 @@ class V4EvaluationController extends Controller
                             return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'submission_in_process'], 200);
                     }
                 }
-
             }
 
             // Fallback for unexpected/unhandled states
@@ -3421,12 +3420,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
