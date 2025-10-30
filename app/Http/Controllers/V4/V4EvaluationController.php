@@ -2568,7 +2568,7 @@ class V4EvaluationController extends Controller
                 'paymentRequest.inAppPurchase.marketplaceItem',
                 'versions.report.submission.currentVersion',
                 'consultationRequests.evaluator' => function ($q) {
-                    $q->whereNull('deleted_at')->latest('created_at');
+                    $q->latest('created_at');
                 },
                 'currentVersion',
                 'evaluatorAssignment',
@@ -2606,9 +2606,10 @@ class V4EvaluationController extends Controller
                             'reportId' => $version->report_id,
                             'consultationDate' => $version->consultation_date,
                             'consultationTime' => $version->consultation_time,
-                            'name' => $fileMeta['original_name'],
-                            'url' => $fileMeta['video_url'],
-                            'uploadedAt' => $fileMeta['uploaded_at'],
+                            'name' => $fileMeta['original_name'] ?? '',
+                            'url' => $fileMeta['video_url'] ?? '',
+                            'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                            'feedback' => $version->feedback,
                         ];
                     } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                         $fileMeta = $version->file_meta;
@@ -2621,6 +2622,7 @@ class V4EvaluationController extends Controller
                             'reportId' => $version->report_id ?? '',
                             'consultationDate' => $version->consultation_date ?? '',
                             'consultationTime' => $version->consultation_time ?? '',
+                            'mentorshipWeekday' => $version->mentorship_weekday ?? '',
                         ];
                     } else {
                         $fileMeta = $version->file_meta;

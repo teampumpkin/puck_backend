@@ -67,8 +67,11 @@ class V4Marketplace extends Model
         return $summary;
     }
 
-    public function getPaymentNoticeAttribute(): string
+    public function getPaymentNoticeAttribute(): ?string
     {
+        if (empty($this->price_breakdown) || !is_array($this->price_breakdown)) {
+            return null;
+        }
         return "Your next payments will be automatically charged to this method. "
             . "You’ll receive reminders 2 days before each deduction.";
     }
