@@ -270,6 +270,11 @@ Route::prefix('v4')->group(function () {
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
 
         Route::middleware('auth:v4api')->group(function () {
+
+            // Route::prefix('dashboard')->group(function () {});
+
+            // Route::prefix('analytics')->group(function () {});
+
             Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
             Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
 
