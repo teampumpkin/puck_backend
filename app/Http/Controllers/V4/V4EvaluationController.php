@@ -3184,17 +3184,7 @@ class V4EvaluationController extends Controller
 
             // Payment status checks
             if (!$paymentRequest || in_array($paymentRequest->status, [V4PaymentRequest::STATUS_FAILED, V4PaymentRequest::STATUS_PARENT_REJECTED])) {
-                // Determine redirect based on marketplace type
-                switch ($marketplaceType) {
-                    case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
-                        return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
-
-                    case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
-                        return response()->json(['success' => true, 'redirect' => 'make_consult_payment'], 200);
-
-                    default:
-                        return response()->json(['success' => true, 'redirect' => 'payment'], 200);
-                }
+                return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
             }
 
             $statusMap = [
@@ -3254,7 +3244,7 @@ class V4EvaluationController extends Controller
                             return response()->json([
                                 'success' => true,
                                 'status' => 'rejected',
-                                'redirect' => 'rebook_consultation',
+                                'redirect' => 'redo_consultation',
                                 'rejection_reason' => $rejectionReason,
                                 'notes' => $notes
                             ], 200);
