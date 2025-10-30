@@ -2875,9 +2875,7 @@ class V4EvaluationController extends Controller
                 // Get player for notification
                 $player = $submission->player;
 
-                // Send notification to evaluator using FollowController method
-                $followController = new V4FollowController($this->notificationService);
-                $followController->sendConsultationRequestNotification($player, $evaluator, $consultationRequest);
+                $this->sendConsultationRequestNotification($player, $evaluator, $consultationRequest);
 
                 return response()->json([
                     'success' => true,
@@ -3944,7 +3942,7 @@ class V4EvaluationController extends Controller
                 $player = $assignment->submission->player;
                 $evaluatorName = $user->first_name . ' ' . $user->last_name;
                 $title = 'Consultation Completed';
-                $message = "Your 1 on 1 Video Video Evaluation is Completed";
+                $message = "Your 1 on 1 consultation Report is ready";
 
                 $notificationData = [
                     'type' => 'consultation_completed',
@@ -3956,10 +3954,12 @@ class V4EvaluationController extends Controller
                     'recording_url' => $validated['url'],
                 ];
 
-                $this->notificationService->sendToUser(
+                $this->notificationService->sendToUserWithMaterialIcon(
                     $player,
                     $title,
                     $message,
+                    'consultation_completed',
+                    '#4CAF50',
                     $notificationData,
                     'consultation_completed',
                     "evaluation/submissions/{$assignment->submission_id}",
@@ -4115,7 +4115,7 @@ class V4EvaluationController extends Controller
                 $player = $assignment->submission->player;
                 $evaluatorName = $user->first_name . ' ' . $user->last_name;
                 $title = 'Consultation Rejected';
-                $message = "Your  1 on 1 Video Evaluation is Rejected by the evaluator";
+                $message = "Your 1 on 1 Video Evaluation is Rejected by the evaluator";
 
                 $notificationData = [
                     'type' => 'consultation_rejected',
@@ -4126,10 +4126,12 @@ class V4EvaluationController extends Controller
                     'reason' => $validated['notes'] ?? 'No reason provided',
                 ];
 
-                $this->notificationService->sendToUser(
+                $this->notificationService->sendToUserWithMaterialIcon(
                     $player,
                     $title,
                     $message,
+                    'consultation_rejected',
+                    '#F44336',
                     $notificationData,
                     'consultation_rejected',
                     "evaluation/submissions/{$assignment->submission_id}",
@@ -4487,5 +4489,38 @@ class V4EvaluationController extends Controller
         );
 
         return $notification;
+    }
+
+
+    /**
+     * Send consultation request notification to evaluator
+     */
+    public function sendConsultationRequestNotification(V4User $player, V4User $evaluator, V4ConsultationRequest $consultationRequest)
+    {
+        $playerName = $player->first_name . ' ' . $player->last_name;
+        $title = '1-on-1 Consultation Request';
+        $message = "$playerName requested for a 1 on 1 consultation";
+
+        $data = [
+            'type' => 'consultation_request',
+            'action_required' => true,
+            'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+            'consultation_request_id' => $consultationRequest->id,
+            'evaluation_id' => $consultationRequest->evaluation_id,
+            'consultation_date' => $consultationRequest->submissionVersion->consultation_date ?? null,
+            'consultation_time' => $consultationRequest->submissionVersion->consultation_time ?? null,
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $evaluator,
+            $title,
+            $message,
+            $player->profile_photo ?? "",
+            $data,
+            'consultation_request',
+            "consultation/requests/{$consultationRequest->id}",
+            'consultation_request_action',
+            $consultationRequest
+        );
     }
 }

@@ -114,9 +114,9 @@ class V4FollowController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [(string) $authUser->id, (string) $user->id],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [(string) $authUser->id, (string) $user->id],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -1014,38 +1014,6 @@ class V4FollowController extends Controller
             "profile/$fromUser->id",
             'user_follow_rejected_action',
             null // No follow model passed since it may be deleted
-        );
-    }
-
-    /**
-     * Send consultation request notification to evaluator
-     */
-    public function sendConsultationRequestNotification(V4User $player, V4User $evaluator, V4ConsultationRequest $consultationRequest)
-    {
-        $playerName = $player->first_name . ' ' . $player->last_name;
-        $title = '1-on-1 Consultation Request';
-        $message = "$playerName requested for a 1 on 1 consultation";
-
-        $data = [
-            'type' => 'consultation_request',
-            'action_required' => true,
-            'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
-            'consultation_request_id' => $consultationRequest->id,
-            'evaluation_id' => $consultationRequest->evaluation_id,
-            'consultation_date' => $consultationRequest->submissionVersion->consultation_date ?? null,
-            'consultation_time' => $consultationRequest->submissionVersion->consultation_time ?? null,
-        ];
-
-        return $this->notificationService->sendToUserWithImage(
-            $evaluator,
-            $title,
-            $message,
-            $player->profile_photo ?? "",
-            $data,
-            'consultation_request',
-            "consultation/requests/{$consultationRequest->id}",
-            'consultation_request_action',
-            $consultationRequest
         );
     }
 }
