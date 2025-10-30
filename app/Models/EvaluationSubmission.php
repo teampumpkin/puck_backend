@@ -183,19 +183,9 @@ class EvaluationSubmission extends Model
         return $this->status === self::STATUS_ASSIGNED;
     }
 
-    public function isEvaluating()
-    {
-        return $this->status === self::STATUS_EVALUATING;
-    }
-
     public function isRejected()
     {
         return $this->status === self::STATUS_REJECTED;
-    }
-
-    public function isAccepted()
-    {
-        return $this->status === self::STATUS_ACCEPTED;
     }
 
     public function isCompleted()
@@ -206,11 +196,6 @@ class EvaluationSubmission extends Model
     public function canBeAssigned()
     {
         return $this->status === self::STATUS_UPLOADED && !$this->evaluatorAssignment;
-    }
-
-    public function canBeEvaluated()
-    {
-        return in_array($this->status, [self::STATUS_ASSIGNED, self::STATUS_EVALUATING]);
     }
 
     /* --------------------
