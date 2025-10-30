@@ -440,8 +440,10 @@ Route::prefix('v4')->group(function () {
             // Route::get('/is-payment-done', [V4PaymentController::class, 'isPaymentDone']);
 
             // Video Evaluation
-            Route::post('/video-evaluation-status', [V4EvaluationController::class, 'videoEvaluationStatus']);
-            Route::post('/upload-evaluation-video', [V4EvaluationController::class, 'uploadEvaluationVideo']);
+            Route::post('/video-evaluation-status', [V4EvaluationController::class, 'submissionEvaluationStatus']);
+            Route::post('/submission-evaluation-status', [V4EvaluationController::class, 'submissionEvaluationStatus']);
+            Route::post('/upload-evaluation-video', [V4EvaluationController::class, 'uploadEvaluationSubmission']);
+            Route::post('/upload-evaluation-submission', [V4EvaluationController::class, 'uploadEvaluationSubmission']);
             // Route::get('/get-evaluation-videos', [V4EvaluationController::class, 'getEvaluationVideos']);
 
             // Evaluator Assignment
