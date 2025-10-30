@@ -2404,7 +2404,7 @@ class V4EvaluationController extends Controller
                 'versions.report.submission.currentVersion',
                 'evaluatorAssignment',
                 'consultationRequests.evaluator' => function ($q) {
-                    $q->whereNull('deleted_at')->latest('created_at');
+                    $q->latest('created_at');
                 },
                 'currentVersion',
                 'evaluations'
@@ -2460,9 +2460,10 @@ class V4EvaluationController extends Controller
                                 'reportId' => $version->report_id,
                                 'consultationDate' => $version->consultation_date,
                                 'consultationTime' => $version->consultation_time,
-                                'name' => $fileMeta['original_name'],
-                                'url' => $fileMeta['video_url'],
-                                'uploadedAt' => $fileMeta['uploaded_at'],
+                                'name' => $fileMeta['original_name'] ?? '',
+                                'url' => $fileMeta['video_url'] ?? '',
+                                'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                                'feedback' => $version->feedback,
                             ];
                         } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                             $fileMeta = $version->file_meta;
@@ -2475,6 +2476,7 @@ class V4EvaluationController extends Controller
                                 'reportId' => $version->report_id ?? '',
                                 'consultationDate' => $version->consultation_date ?? '',
                                 'consultationTime' => $version->consultation_time ?? '',
+                                'mentorshipWeekday' => $version->mentorship_weekday ?? '',
                             ];
                         } else {
                             $fileMeta = $version->file_meta;
@@ -2773,12 +2775,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3275,7 +3277,6 @@ class V4EvaluationController extends Controller
                             return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'submission_in_process'], 200);
                     }
                 }
-
             }
 
             // Fallback for unexpected/unhandled states
@@ -3381,6 +3382,15 @@ class V4EvaluationController extends Controller
                         'status' => V4ConsultationRequest::STATUS_REQUEST_REJECTED,
                     ]);
 
+                    // 🔹 Delete related pending notifications
+                    $consultationRequest->notifications()
+                        ->where('type', 'consultation_request')
+                        ->delete();
+
+                    // 🔹 Send new rejection notification (to evaluator)
+                    $this->sendConsultationStatusNotification($user, $consultationRequest, 'rejected');
+
+
                     // If consultation was rejected, delete the old request
                     $consultationRequest->delete();
 
@@ -3395,7 +3405,8 @@ class V4EvaluationController extends Controller
                             'submission_status' => $consultationRequest->submission->status,
                         ],
                     ], 200);
-                } else { // accept
+                } else {
+                    // accept
                     // Update consultation request status to accepted
                     $consultationRequest->update([
                         'status' => V4ConsultationRequest::STATUS_REQUEST_ACCEPTED,
@@ -3412,12 +3423,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3446,6 +3457,15 @@ class V4EvaluationController extends Controller
                     $consultationRequest->submission->update([
                         'status' => EvaluationSubmission::STATUS_ASSIGNED,
                     ]);
+
+                    // 🔹 Delete old notification
+                    $consultationRequest->notifications()
+                        ->where('type', 'consultation_request')
+                        ->delete();
+
+                    // 🔹 Send new acceptance notification (to evaluator)
+                    $this->sendConsultationStatusNotification($user, $consultationRequest, 'accepted');
+
 
                     DB::commit();
 
@@ -4494,6 +4514,7 @@ class V4EvaluationController extends Controller
 
         $data = [
             'type' => 'consultation_request',
+            'quick_actions' => ['accept', 'reject'],
             'action_required' => true,
             'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
             'consultation_request_id' => $consultationRequest->id,
@@ -4511,6 +4532,41 @@ class V4EvaluationController extends Controller
             'consultation_request',
             "consultation/requests/{$consultationRequest->id}",
             'consultation_request_action',
+            $consultationRequest
+        );
+    }
+
+
+    public function sendConsultationStatusNotification(V4User $evaluator, V4ConsultationRequest $consultationRequest, string $status)
+    {
+        $player = $consultationRequest->submission->player;
+        $playerName = $player->first_name . ' ' . $player->last_name;
+
+        $title = '1-on-1 Consultation Update';
+        $message = $status === 'accepted'
+            ? "You have accepted $playerName's consultation request."
+            : "You have rejected $playerName's consultation request.";
+
+        $data = [
+            'type' => 'consultation_request_' . $status,
+            'action_required' => false,
+            'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+            'consultation_request_id' => $consultationRequest->id,
+            'evaluation_id' => $consultationRequest->evaluation_id,
+            'consultation_date' => $consultationRequest->submissionVersion->consultation_date ?? null,
+            'consultation_time' => $consultationRequest->submissionVersion->consultation_time ?? null,
+            'status' => $status,
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $evaluator,
+            $title,
+            $message,
+            $player->profile_photo ?? "",
+            $data,
+            'consultation_request_' . $status,
+            "consultation/requests/{$consultationRequest->id}",
+            'consultation_request_status',
             $consultationRequest
         );
     }

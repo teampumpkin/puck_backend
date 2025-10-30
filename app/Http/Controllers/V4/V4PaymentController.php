@@ -342,7 +342,7 @@ class V4PaymentController extends Controller
                     return response()->json(['success' => false, 'message' => 'In-app purchase not found or inactive'], 404);
                 }
 
-                $payerId = '88'; //$user->parent_id;
+                $payerId = $user->parent_id;
                 $playerId = $user->id;
 
                 $player = V4User::find($user->id);
