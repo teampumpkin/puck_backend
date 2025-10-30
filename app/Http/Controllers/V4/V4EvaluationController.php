@@ -3259,16 +3259,7 @@ class V4EvaluationController extends Controller
                 }
 
                 if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
-                    switch ($marketplaceType) {
-                        case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
-                            return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
-
-                        case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
-                            return response()->json(['success' => true, 'redirect' => 'make_consult_payment'], 200);
-
-                        default:
-                            return response()->json(['success' => true, 'redirect' => 'payment'], 200);
-                    }
+                    return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
                 }
 
                 if (in_array($submission->status, [EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_IN_PROGRESS])) {

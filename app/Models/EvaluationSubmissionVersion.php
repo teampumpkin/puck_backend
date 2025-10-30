@@ -25,6 +25,7 @@ class EvaluationSubmissionVersion extends Model
         'report_id',
         'consultation_date',
         'consultation_time',
+        'mentorship_weekday',
     ];
 
     protected $casts = [
