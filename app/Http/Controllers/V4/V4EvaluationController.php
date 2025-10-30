@@ -2773,12 +2773,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            (string) $authUser->id,
-                            (string) $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    (string) $authUser->id,
+                                    (string) $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3163,6 +3163,20 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Invalid SKU'], 400);
             }
 
+            // Get marketplace item to determine type
+            $marketplaceItem = V4Marketplace::where('in_app_purchase_id', $inAppPurchase->id)
+                ->where('active', true)
+                ->first();
+
+            if (!$marketplaceItem) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Marketplace item not found',
+                ], 400);
+            }
+
+            $marketplaceType = $marketplaceItem->type;
+
             $paymentRequest = V4PaymentRequest::where('in_app_purchase_id', $inAppPurchase->id)
                 ->where('player_id', $userId)
                 ->orderBy('updated_at', 'desc')
@@ -3170,7 +3184,17 @@ class V4EvaluationController extends Controller
 
             // Payment status checks
             if (!$paymentRequest || in_array($paymentRequest->status, [V4PaymentRequest::STATUS_FAILED, V4PaymentRequest::STATUS_PARENT_REJECTED])) {
-                return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
+                // Determine redirect based on marketplace type
+                switch ($marketplaceType) {
+                    case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
+                        return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
+
+                    case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
+                        return response()->json(['success' => true, 'redirect' => 'make_consult_payment'], 200);
+
+                    default:
+                        return response()->json(['success' => true, 'redirect' => 'payment'], 200);
+                }
             }
 
             $statusMap = [
@@ -3190,7 +3214,17 @@ class V4EvaluationController extends Controller
                     ->first();
 
                 if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
-                    return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit_video'], 200);
+                    // Determine redirect based on marketplace type
+                    switch ($marketplaceType) {
+                        case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
+                            return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit_video'], 200);
+
+                        case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
+                            return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'book_consultation'], 200);
+
+                        default:
+                            return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit'], 200);
+                    }
                 }
 
                 if ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
@@ -3206,29 +3240,77 @@ class V4EvaluationController extends Controller
                         $rejectionReason = EvaluationRejectionReason::find($latestEvaluation->meta['reason_id']);
                         $notes = $latestEvaluation->meta['notes'];
                     }
-                    return response()->json([
-                        'success' => true,
-                        'status' => 'rejected',
-                        'redirect' => 'redo_video',
-                        'rejection_reason' => $rejectionReason,
-                        'notes' => $notes
-                    ], 200);
+                    switch ($marketplaceType) {
+                        case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
+                            return response()->json([
+                                'success' => true,
+                                'status' => 'rejected',
+                                'redirect' => 'redo_video',
+                                'rejection_reason' => $rejectionReason,
+                                'notes' => $notes
+                            ], 200);
+
+                        case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
+                            return response()->json([
+                                'success' => true,
+                                'status' => 'rejected',
+                                'redirect' => 'rebook_consultation',
+                                'rejection_reason' => $rejectionReason,
+                                'notes' => $notes
+                            ], 200);
+
+                        default:
+                            return response()->json([
+                                'success' => true,
+                                'status' => 'rejected',
+                                'redirect' => 'redo_submission',
+                                'rejection_reason' => $rejectionReason,
+                                'notes' => $notes
+                            ], 200);
+                    }
                 }
 
                 if ($submission->status === EvaluationSubmission::STATUS_COMPLETED) {
-                    return response()->json([
-                        'success' => true,
-                        'redirect' => 'make_payment',
+                    switch ($marketplaceType) {
+                        case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
+                            return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
 
-                    ], 200);
+                        case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
+                            return response()->json(['success' => true, 'redirect' => 'make_consult_payment'], 200);
+
+                        default:
+                            return response()->json(['success' => true, 'redirect' => 'payment'], 200);
+                    }
                 }
 
-                if (in_array($submission->status, [EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_UPLOADED])) {
-                    return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'evaluation_in_process'], 200);
+                if (in_array($submission->status, [EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_IN_PROGRESS])) {
+                    // Determine redirect based on marketplace type
+                    switch ($marketplaceType) {
+                        case MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION:
+                            return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'evaluation_in_process'], 200);
+
+                        case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
+                            return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'consultation_in_process'], 200);
+
+                        default:
+                            return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'submission_in_process'], 200);
+                    }
                 }
+
             }
 
-            return response()->json(['success' => true, 'redirect' => 'make_payment'], 200);
+            // Fallback for unexpected/unhandled states
+            Log::warning('Unexpected payment or submission state in videoEvaluationStatus', [
+                'payment_status' => $paymentRequest->status ?? 'no_payment',
+                'submission_status' => $submission->status ?? 'no_submission',
+                'user_id' => $userId,
+                'sku' => $request->input('sku'),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to determine evaluation status',
+            ], 500);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
@@ -3351,12 +3433,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $consultationRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $consultationRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3803,7 +3885,7 @@ class V4EvaluationController extends Controller
             $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
 
             // Verify this is a consultation assignment
-            if (!in_array($marketplaceType, [MarketplaceTypes::CONSULTATION_VIDEO_CALL, 'consultation', 'one_on_one_consultation'])) {
+            if (!in_array($marketplaceType, [MarketplaceTypes::CONSULTATION_VIDEO_CALL])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This endpoint is only for consultation assignments',
@@ -3955,8 +4037,8 @@ class V4EvaluationController extends Controller
             // Validate request body
             $validated = $request->validate([
                 'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
-                'reason_id' => 'sometimes|integer|exists:evaluation_rejection_reasons,id',
-                'notes' => 'sometimes|string|max:1000',
+                'reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
+                'notes' => 'required|string|max:1000',
             ]);
 
             $assignmentId = $validated['assignment_id'];
@@ -3983,7 +4065,7 @@ class V4EvaluationController extends Controller
             $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
 
             // Verify this is a consultation assignment
-            if (!in_array($marketplaceType, [MarketplaceTypes::CONSULTATION_VIDEO_CALL, 'consultation', 'one_on_one_consultation'])) {
+            if (!in_array($marketplaceType, [MarketplaceTypes::CONSULTATION_VIDEO_CALL])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This endpoint is only for consultation assignments',
