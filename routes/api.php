@@ -38,6 +38,7 @@ use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
 use App\Http\Controllers\V4\V4PostShareController;
 use App\Http\Controllers\V4\V4MarketplaceController;
+use App\Http\Controllers\V4\V4InAppPurchaseController;
 use App\Http\Controllers\V4\V4FollowController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -362,7 +363,12 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{v4MarketplaceId}', [V4MarketplaceController::class, 'destroyMarketplaceById']);
             });
             Route::prefix('in-app-purchases')->group(function () {
-                Route::get('/', [V4MarketplaceController::class, 'getInAppPurchases']);
+                Route::get('/', [V4InAppPurchaseController::class, 'getInAppPurchases']);
+                Route::post('/', [V4InAppPurchaseController::class, 'createInAppPurchase']);
+                Route::get('/{id}', [V4InAppPurchaseController::class, 'getInAppPurchaseById']);    // GET by ID
+                Route::put('/{id}', [V4InAppPurchaseController::class, 'updateInAppPurchaseById']);  // UPDATE by ID
+                Route::delete('/{id}', [V4InAppPurchaseController::class, 'destroyInAppPurchaseById']); // DELETE by ID
+                Route::post('{id}/restore', [V4InAppPurchaseController::class, 'restoreInAppPurchaseById']);
             });
         });
     });

@@ -18,26 +18,30 @@ class V4InAppPurchaseSeeder extends Seeder
             [
                 'sku' => 'personalized_video_evaluation',
                 'title' => 'Personalized Video Evaluation',
+                'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
+                'product_type' => 'service',
                 'meta' => null,
                 'active' => true,
-                'currency' => 'CDN'
+                'currency' => 'CAD'
             ],
             [
                 'sku' => 'one_on_one_consultation_video_call',
                 'title' => "1 on 1 Consultation Video Call",
+                'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
                 'meta' => null,
                 'active' => true,
-                'currency' => 'CDN'
+                'currency' => 'CAD'
             ],
             [
                 'sku' => '12_week_mentorship_program',
                 'title' => "12-Week Mentorship Program",
+                'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
                 'meta' => null,
                 'active' => true,
-                'currency' => 'CDN'
+                'currency' => 'CAD'
             ],
         ];
 

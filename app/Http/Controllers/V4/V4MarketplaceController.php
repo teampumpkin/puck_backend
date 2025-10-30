@@ -5,7 +5,6 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\V4Marketplace;
-use App\Models\V4InAppPurchase;
 use App\Constants\MarketplaceTypes;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -15,8 +14,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 
@@ -45,18 +42,31 @@ class V4MarketplaceController extends Controller
                 'with_trashed' => 'nullable|boolean',
                 'per_page' => 'nullable|integer|min:1|max:100',
                 'page' => 'nullable|integer|min:1',
+                'sort_by' => 'nullable|string',   // column to sort
+                'sort_order' => 'nullable|in:asc,desc', // sort direction
             ]);
 
             $query = V4Marketplace::with('inAppPurchase');
 
             // Optional filters
-            if (!empty($validated['with_trashed'])) {
+            if (!empty($validated['with_trashed']) || $request->boolean('with_trashed')) {
                 $query->withTrashed();
             }
 
-            if ($request->boolean('with_trashed')) {
-                $query->withTrashed();
+            if (isset($validated['active'])) {
+                $query->where('active', $validated['active']);
             }
+
+            // ✅ Sorting
+            $sortBy = $validated['sort_by'] ?? 'created_at'; // default column
+            $sortOrder = $validated['sort_order'] ?? 'asc'; // default order
+
+            $allowedSortColumns = ['id', 'title', 'created_at', 'updated_at'];
+            if (!in_array($sortBy, $allowedSortColumns)) {
+                $sortBy = 'created_at';
+            }
+
+            $query->orderBy($sortBy, $sortOrder);
 
             // Handle pagination parameters safely
             $perPage = $validated['per_page'] ?? 15;
@@ -187,7 +197,7 @@ class V4MarketplaceController extends Controller
                 ],
             ]);
 
-            $validated['currency'] = $validated['currency'] ?? 'CDN';
+            $validated['currency'] = $validated['currency'] ?? 'USD';
 
             if ($request->hasFile('header_url')) {
                 $filePath = $request->file('header_url')->store('marketplace/headers', 's3');
@@ -516,83 +526,6 @@ class V4MarketplaceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong while deleting the marketplace item.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
-        }
-    }
-
-    public function getInAppPurchases(Request $request): JsonResponse
-    {
-        $authUser = Auth::guard('v4api')->user();
-
-        if (!$authUser) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 401);
-        }
-
-        try {
-
-            // ✅ Validate query parameters
-            $validated = $request->validate([
-                'active' => 'nullable|boolean',
-                'with_trashed' => 'nullable|boolean',
-                'only_trashed' => 'nullable|boolean',
-                'per_page' => 'nullable|integer|min:1|max:100',
-                'page' => 'nullable|integer|min:1',
-            ]);
-
-            $query = V4InAppPurchase::query();
-
-            // Optional filters
-            if ($request->boolean('only_trashed')) {
-                $query->onlyTrashed();
-            } elseif ($request->boolean('with_trashed')) {
-                $query->withTrashed();
-            }
-
-            if (isset($validated['active'])) {
-                $query->where('is_active', $validated['active']);
-            }
-
-            // Handle pagination parameters safely
-            $perPage = $validated['per_page'] ?? 15;
-            $page = $validated['page'] ?? 1;
-
-            // ✅ Fetch paginated results
-            $purchases = $query->paginate($perPage, ['*'], 'page', $page);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'In-app purchases retrieved successfully.',
-                'data' => $purchases->items(),
-                'pagination' => [
-                    'current_page' => $purchases->currentPage(),
-                    'per_page' => $purchases->perPage(),
-                    'total' => $purchases->total(),
-                    'last_page' => $purchases->lastPage(),
-                    'from' => $purchases->firstItem(),
-                    'to' => $purchases->lastItem(),
-                    'has_more_pages' => $purchases->hasMorePages(),
-                ],
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid query parameters.',
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (Exception $e) {
-            Log::error('Failed to fetch in-app purchases.', [
-                'user_id' => $authUser->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Something went wrong while fetching in-app purchases.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }

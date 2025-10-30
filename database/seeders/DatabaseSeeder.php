@@ -30,6 +30,5 @@ class DatabaseSeeder extends Seeder
         $this->call(EvaluationQuestionSeeder::class);
         $this->call(EvaluationQuestionOptionSeeder::class);
         $this->call(V4InAppPurchaseSeeder::class);
-        $this->call(V4InAppPurchaseSeeder::class);
     }
 }
