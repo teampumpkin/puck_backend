@@ -51,4 +51,9 @@ class V4ConsultationRequest extends Model
     {
         return $this->hasOne(V4ConsultationFeedback::class);
     }
+
+    public function notifications()
+    {
+        return $this->morphMany(Notification::class, 'reference');
+    }
 }
