@@ -119,11 +119,6 @@ class V4PaymentRequest extends Model
     /* --------------------
      | Helpers
      --------------------*/
-    public function markParentApproved()
-    {
-        $this->status = self::STATUS_PARENT_APPROVED;
-        $this->save();
-    }
 
     public function markParentRejected(string $reason = null)
     {
