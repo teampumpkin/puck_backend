@@ -2029,7 +2029,7 @@ class V4EvaluationController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function uploadEvaluationVideo(Request $request): JsonResponse
+    public function uploadEvaluationSubmission(Request $request): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
