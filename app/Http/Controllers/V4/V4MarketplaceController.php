@@ -165,6 +165,26 @@ class V4MarketplaceController extends Controller
                 'type' => 'required|string|in:' . implode(',', MarketplaceTypes::all()),
                 'active' => 'nullable|boolean',
                 'currency' => ['nullable', 'string', 'size:3'],
+                'tutorial_url' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'mp4', 'mov', 'webm'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png, mp4, mov, webm.');
+                            }
+                            if ($file->getSize() > 50 * 1024 * 1024) { // 50MB max (for video)
+                                $fail('The ' . $attribute . ' may not be greater than 50MB.');
+                            }
+                            return;
+                        }
+
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
             ]);
 
             $validated['currency'] = $validated['currency'] ?? 'CDN';
@@ -177,6 +197,11 @@ class V4MarketplaceController extends Controller
             if ($request->hasFile('icon')) {
                 $filePath = $request->file('icon')->store('marketplace/icons', 's3');
                 $validated['icon'] = Storage::disk('s3')->url($filePath);
+            }
+
+            if ($request->hasFile('tutorial_url')) {
+                $filePath = $request->file('tutorial_url')->store('marketplace/tutorials', 's3');
+                $validated['tutorial_url'] = Storage::disk('s3')->url($filePath);
             }
 
             $marketplace = V4Marketplace::create($validated);
@@ -342,6 +367,26 @@ class V4MarketplaceController extends Controller
                         }
                     },
                 ],
+                'tutorial_url' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'mp4', 'mov', 'webm'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png, mp4, mov, webm.');
+                            }
+                            if ($file->getSize() > 50 * 1024 * 1024) {
+                                $fail('The ' . $attribute . ' may not be greater than 50MB.');
+                            }
+                            return;
+                        }
+
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
                 'currency' => 'sometimes|string|size:3',
                 'type' => 'required|string|in:' . implode(',', MarketplaceTypes::all()),
                 'active' => 'nullable|boolean',
@@ -361,6 +406,11 @@ class V4MarketplaceController extends Controller
                 $validated['icon'] = Storage::disk('s3')->url($filePath);
             }
 
+            if ($request->hasFile('tutorial_url')) {
+                $filePath = $request->file('tutorial_url')->store('marketplace/tutorials', 's3');
+                $validated['tutorial_url'] = Storage::disk('s3')->url($filePath);
+            }
+
             // Merge with existing fields to avoid overwriting missing fields
             $updateData = array_merge($marketplace->only([
                 'title',
@@ -370,6 +420,7 @@ class V4MarketplaceController extends Controller
                 'in_app_purchase_id',
                 'header_url',
                 'icon',
+                'tutorial_url',
                 'currency',
                 'type',
                 'active'

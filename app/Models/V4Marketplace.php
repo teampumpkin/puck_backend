@@ -14,6 +14,7 @@ class V4Marketplace extends Model
         'in_app_purchase_id',
         'icon',
         'header_url',
+        'tutorial_url',
         'type',
         'title',
         'description',
