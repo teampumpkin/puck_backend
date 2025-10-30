@@ -3140,7 +3140,7 @@ class V4EvaluationController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function videoEvaluationStatus(Request $request): JsonResponse
+    public function submissionEvaluationStatus(Request $request): JsonResponse
     {
         try {
             $request->validate([
