@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V4;
 
 use App\Constants\MarketplaceTypes;
+use App\Constants\Weekdays;
 use App\Http\Controllers\Controller;
 use App\Models\EvaluationCategory;
 use App\Models\EvaluationQuestion;
@@ -2093,7 +2094,7 @@ class V4EvaluationController extends Controller
 
                 // Check submission status
                 if ($submission) {
-                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED])) {
+                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_IN_PROGRESS])) {
                         return response()->json(['success' => false, 'message' => 'A submission is already in process'], 400);
                     }
 
@@ -2286,15 +2287,240 @@ class V4EvaluationController extends Controller
                         DB::rollBack();
                         throw $e;
                     }
-                } else {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Not applicable for provided sku.',
-                    ], 400);
+                } else if ($marketplaceType == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                    // === MENTORSHIP PROGRAM LOGIC ===
+
+                    // Validate mentorship-specific fields
+                    $validated = $request->validate([
+                        'weekday' => [
+                            'required',
+                            'string',
+                            'in:' . implode(',', Weekdays::all())
+                        ],
+                        'time' => 'required|date_format:H:i',
+                        'video' => 'nullable|file',
+                        'evaluation_id' => 'nullable|integer|exists:evaluations,id',
+                    ]);
+
+                    // Ensure exactly one of video or evaluation_id is provided
+                    if (!$request->hasFile('video') xor !empty($validated['evaluation_id'])) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Either video or evaluation_id is required',
+                        ], 422);
+                    }
+
+                    // Handle evaluation_id (evaluation-based mentorship)
+                    if (!empty($validated['evaluation_id'])) {
+                        // Check if submission status is request_video
+                        if ($submission && $submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Upload video instead of evaluation-id',
+                                'submission_status' => $submission->status,
+                            ], 400);
+                        }
+
+                        // Verify evaluation exists and is submitted
+                        $evaluation = Evaluation::find($validated['evaluation_id']);
+                        if (!$evaluation || $evaluation->status !== Evaluation::STATUS_SUBMITTED) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Invalid evaluation or evaluation is not submitted'
+                            ], 400);
+                        }
+
+                        // Verify the evaluation belongs to the player
+                        if ($evaluation->submission->player_id !== $playerId) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'This evaluation does not belong to you'
+                            ], 403);
+                        }
+
+                        // Create/update submission with evaluation_id
+                        DB::beginTransaction();
+                        try {
+                            if (!$submission) {
+                                $submission = EvaluationSubmission::create([
+                                    'player_id' => $playerId,
+                                    'payment_request_id' => $paymentRequest->id,
+                                    'status' => EvaluationSubmission::STATUS_UPLOADED,
+                                ]);
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                            }
+
+                            $submissionVersion = EvaluationSubmissionVersion::create([
+                                'submission_id' => $submission->id,
+                                'report_id' => $validated['evaluation_id'],
+                                'mentorship_weekday' => $validated['weekday'],
+                                'consultation_time' => $validated['time'],
+                                'file_path' => 'N/A',
+                                'uploaded_by' => $user->id,
+                                'file_meta' => [],
+                            ]);
+
+                            $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                            DB::commit();
+
+                            return response()->json([
+                                'success' => true,
+                                'message' => 'Mentorship program booked successfully with evaluation',
+                                'data' => [
+                                    'player_id' => $playerId,
+                                    'submission_id' => $submission->id,
+                                    'submission_version_id' => $submissionVersion->id,
+                                    'weekday' => $validated['weekday'],
+                                    'time' => $validated['time'],
+                                    'evaluation_id' => $validated['evaluation_id'],
+                                    'status' => $submission->status,
+                                    'booked_at' => now()->toISOString(),
+                                ],
+                            ], 201);
+                        } catch (Exception $e) {
+                            DB::rollBack();
+                            throw $e;
+                        }
+                    }
+
+                    // Handle video (video-based mentorship with S3 upload)
+                    else if ($request->hasFile('video')) {
+                        $file = $request->file('video');
+
+                        // Validate file
+                        if (!$file->isValid()) {
+                            return response()->json(['success' => false, 'message' => 'File upload failed: ' . $file->getError()], 422);
+                        }
+
+                        $mimeType = $file->getClientMimeType();
+                        $fileSize = $file->getSize();
+
+                        if (!str_starts_with($mimeType, 'video/')) {
+                            return response()->json(['success' => false, 'message' => 'File must be a video'], 422);
+                        }
+
+                        // Check file size (100MB max)
+                        $maxSizeInBytes = 100 * 1024 * 1024;
+                        if ($fileSize > $maxSizeInBytes) {
+                            return response()->json(['success' => false, 'message' => 'Video file size must not exceed 100MB'], 422);
+                        }
+
+                        // Generate unique filename
+                        $filename = 'mentorship_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                        // Upload to S3 (before transaction)
+                        $path = $file->storeAs('mentorship-videos/' . $playerId, $filename, 's3');
+                        $videoUrl = Storage::disk('s3')->url($path);
+                        $originalName = $file->getClientOriginalName();
+
+                        // Prepare file metadata
+                        $fileMeta = [
+                            'type' => 'mentorship_with_video',
+                            'original_name' => $originalName,
+                            'file_size' => $fileSize,
+                            'mime_type' => $mimeType,
+                            'video_url' => $videoUrl,
+                            'marketplace_type' => $marketplaceType,
+                            'booked_at' => now()->toISOString(),
+                        ];
+
+                        // Create/update submission with video
+                        DB::beginTransaction();
+                        try {
+                            if (!$submission) {
+                                $submission = EvaluationSubmission::create([
+                                    'player_id' => $playerId,
+                                    'payment_request_id' => $paymentRequest->id,
+                                    'status' => EvaluationSubmission::STATUS_UPLOADED,
+                                ]);
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
+                                // Handle requested video re-upload
+                                $previousVersion = $submission->currentVersion;
+
+                                // Create new version based on previous one, only update file_path
+                                $submissionVersion = EvaluationSubmissionVersion::create([
+                                    'submission_id' => $submission->id,
+                                    'report_id' => $previousVersion->report_id,
+                                    'mentorship_weekday' => $previousVersion->mentorship_weekday,
+                                    'consultation_time' => $previousVersion->consultation_time,
+                                    'file_path' => $videoUrl,
+                                    'uploaded_by' => $user->id,
+                                    'file_meta' => $fileMeta,
+                                ]);
+
+                                // Update submission with new version and status
+                                $submission->update([
+                                    'current_version_id' => $submissionVersion->id,
+                                    'status' => EvaluationSubmission::STATUS_IN_PROGRESS,
+                                ]);
+
+                                DB::commit();
+
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Requested Video uploaded',
+                                    'data' => [
+                                        'player_id' => $playerId,
+                                        'submission_id' => $submission->id,
+                                        'submission_version_id' => $submissionVersion->id,
+                                        'weekday' => $previousVersion->mentorship_weekday,
+                                        'time' => $previousVersion->consultation_time,
+                                        'video_url' => $videoUrl,
+                                        'file_size' => $fileSize,
+                                        'mime_type' => $mimeType,
+                                        'status' => $submission->status,
+                                        'uploaded_at' => now()->toISOString(),
+                                    ],
+                                ], 201);
+                            }
+
+                            $submissionVersion = EvaluationSubmissionVersion::create([
+                                'submission_id' => $submission->id,
+                                'report_id' => null,
+                                'mentorship_weekday' => $validated['weekday'],
+                                'consultation_time' => $validated['time'],
+                                'file_path' => $videoUrl,
+                                'uploaded_by' => $user->id,
+                                'file_meta' => $fileMeta,
+                            ]);
+
+                            $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                            DB::commit();
+
+                            return response()->json([
+                                'success' => true,
+                                'message' => 'Mentorship program booked successfully with video',
+                                'data' => [
+                                    'player_id' => $playerId,
+                                    'submission_id' => $submission->id,
+                                    'submission_version_id' => $submissionVersion->id,
+                                    'weekday' => $validated['weekday'],
+                                    'time' => $validated['time'],
+                                    'video_url' => $videoUrl,
+                                    'file_size' => $fileSize,
+                                    'mime_type' => $mimeType,
+                                    'status' => $submission->status,
+                                    'booked_at' => now()->toISOString(),
+                                ],
+                            ], 201);
+                        } catch (Exception $e) {
+                            DB::rollBack();
+                            // Delete uploaded file from S3 if DB transaction fails
+                            Storage::disk('s3')->delete($path);
+                            throw $e;
+                        }
+                    }
+
+                    return response()->json(['success' => false, 'message' => 'Something went wrong in validation'], 400);
                 }
             }
 
-            return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
+            return response()->json(['success' => false, 'message' => 'Marketplace type not supported'], 400);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
@@ -2777,12 +3003,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            (string) $authUser->id,
-                            (string) $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    (string) $authUser->id,
+                                    (string) $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -2884,6 +3110,67 @@ class V4EvaluationController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Evaluator allotted for consultation successfully',
+                    'data' => [
+                        'consultation_request_id' => $consultationRequest->id,
+                        'evaluator_id' => $evaluator->id,
+                        'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                        'request_status' => $consultationRequest->status,
+                        'consultation_date' => $submissionVersion->consultation_date,
+                        'consultation_time' => $submissionVersion->consultation_time,
+                    ],
+                ], 201);
+            } else if ($marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                // === MENTORSHIP PROGRAM LOGIC ===
+                // Check submission status - only allow if status is 'uploaded'
+                if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Submission already {$submission->status}",
+                        'submission_id' => $submissionId,
+                        'current_status' => $submission->status,
+                    ], 400);
+                }
+
+                $submissionVersion = $submission->currentVersion;
+
+                // Check if consultation request already exists for this submission
+                $existingRequest = V4ConsultationRequest::where('submission_id', $submissionId)
+                    ->where('submission_version_id', $submissionVersion->id)
+                    ->first();
+
+                if ($existingRequest) {
+                    // If consultation request exists and is not rejected, return error
+                    if ($existingRequest->status !== V4ConsultationRequest::STATUS_REQUEST_REJECTED) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Mentorship already allotted',
+                            'request_id' => $existingRequest->id,
+                            'evaluator_id' => $existingRequest->evaluator_id,
+                            'status' => $existingRequest->status,
+                        ], 400);
+                    }
+
+                    // If consultation was rejected, delete the old request
+                    $existingRequest->delete();
+                }
+
+                // Create consultation request
+                $consultationRequest = V4ConsultationRequest::create([
+                    'submission_version_id' => $submissionVersion->id,
+                    'submission_id' => $submissionId,
+                    'evaluation_id' => $submissionVersion->report_id,
+                    'evaluator_id' => $evaluatorId,
+                    'status' => V4ConsultationRequest::STATUS_PENDING,
+                ]);
+
+                // Get player for notification
+                $player = $submission->player;
+
+                $this->sendMentorshipRequestNotification($player, $evaluator, $consultationRequest);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator allotted for mentorship successfully',
                     'data' => [
                         'consultation_request_id' => $consultationRequest->id,
                         'evaluator_id' => $evaluator->id,
@@ -3425,12 +3712,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $consultationRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $consultationRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3466,7 +3753,7 @@ class V4EvaluationController extends Controller
                         ->delete();
 
                     // 🔹 Send new acceptance notification (to evaluator)
-                    $this->sendConsultationStatusNotification($user, $consultationRequest, 'accepted');
+                    $this->sendConsultationStatusNotification(v4User::find($user->id), $consultationRequest, 'accepted');
 
 
                     DB::commit();
@@ -3507,6 +3794,241 @@ class V4EvaluationController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    /**
+     * Handle mentorship request action (accept/reject)
+     *
+     * @param Request $request
+     * @param string $action
+     * @return JsonResponse
+     */
+    public function handleMentorshipRequestAction(Request $request, string $action): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate action parameter
+            if (!in_array($action, ['accept', 'reject'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid action. Must be either "accept" or "reject"',
+                ], 400);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'mentorship_req_id' => 'required|integer|exists:v4_consultation_requests,id',
+            ]);
+
+            $mentorshipRequestId = $validated['mentorship_req_id'];
+
+            // Get mentorship request
+            $mentorshipRequest = V4ConsultationRequest::with([
+                'submissionVersion',
+                'submission.player',
+                'evaluator'
+            ])->find($mentorshipRequestId);
+
+            if (!$mentorshipRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mentorship request not found',
+                ], 404);
+            }
+
+            // ✅ Authorization: ensure evaluator owns the mentorship request
+            if ($mentorshipRequest->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This mentorship request does not belong to you.',
+                ], 403);
+            }
+
+            // Check if mentorship request is not pending
+            if ($mentorshipRequest->status !== V4ConsultationRequest::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Mentorship already {$mentorshipRequest->status}",
+                    'current_status' => $mentorshipRequest->status,
+                ], 400);
+            }
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                if ($action === 'reject') {
+                    // Update mentorship request status to rejected
+                    $mentorshipRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REQUEST_REJECTED,
+                    ]);
+
+                    // Delete related pending notifications
+                    $mentorshipRequest->notifications()
+                        ->where('type', 'mentorship_request')
+                        ->delete();
+
+                    // Send new rejection notification
+                    $this->sendMentorshipStatusNotification(V4User::find($user->id), $mentorshipRequest, 'rejected');
+
+                    // If mentorship was rejected, delete the old request
+                    $mentorshipRequest->delete();
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Mentorship request rejected successfully',
+                        'data' => [
+                            'mentorship_request_id' => $mentorshipRequest->id,
+                            'status' => $mentorshipRequest->status,
+                            'submission_status' => $mentorshipRequest->submission->status,
+                        ],
+                    ], 200);
+                } else {
+                    // accept
+                    // Update mentorship request status to accepted
+                    $mentorshipRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REQUEST_ACCEPTED,
+                    ]);
+
+                    $conversationId = null;
+                    try {
+                        $token = $request->bearerToken();
+
+                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                        $response = Http::withHeaders([
+                            'Authorization' => 'Bearer ' . $token,
+                            'Content-Type' => 'application/json',
+                        ])->post($baseUrl . '/conversation/create', [
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $mentorshipRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
+
+                        if ($response->successful() && isset($response->json()['_id'])) {
+                            $conversationId = $response->json()['_id'];
+                        } else {
+                            Log::warning('Conversation API failed', [
+                                'status' => $response->status(),
+                                'body' => $response->body(),
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('Conversation API error', ['error' => $e->getMessage()]);
+                    }
+
+                    // Create evaluator assignment
+                    $assignment = EvaluatorAssignment::create([
+                        'submission_id' => $mentorshipRequest->submission_id,
+                        'evaluator_id' => $user->id,
+                        'status' => EvaluatorAssignment::STATUS_PENDING,
+                        'assigned_at' => now(),
+                        'meta' => [
+                            'conversation_id' => $conversationId,
+                        ]
+                    ]);
+
+                    // Update submission status to assigned
+                    $mentorshipRequest->submission->update([
+                        'status' => EvaluationSubmission::STATUS_ASSIGNED,
+                    ]);
+
+                    // Delete old notification
+                    $mentorshipRequest->notifications()
+                        ->where('type', 'mentorship_request')
+                        ->delete();
+
+                    // Send new acceptance notification
+                    $this->sendMentorshipStatusNotification(V4User::find($user->id), $mentorshipRequest, 'accepted');
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Mentorship request accepted successfully',
+                        'data' => [
+                            'mentorship_request_id' => $mentorshipRequest->id,
+                            'assignment_id' => $assignment->id,
+                            'status' => $mentorshipRequest->status,
+                            'submission_status' => $mentorshipRequest->submission->status,
+                            'weekday' => $mentorshipRequest->submissionVersion->mentorship_weekday ?? null,
+                            'time' => $mentorshipRequest->submissionVersion->consultation_time ?? null,
+                        ],
+                    ], 200);
+                }
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error handling mentorship request action: ' . $e->getMessage(), [
+                'action' => $action ?? 'unknown',
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process mentorship request action',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Send mentorship status notification to evaluator
+     */
+    public function sendMentorshipStatusNotification(V4User $evaluator, V4ConsultationRequest $mentorshipRequest, string $status)
+    {
+        $player = $mentorshipRequest->submission->player;
+        $playerName = $player->first_name . ' ' . $player->last_name;
+
+        $title = '12-Week Mentorship Program Update';
+        $message = $status === 'accepted'
+            ? "You have accepted $playerName's mentorship program request."
+            : "You have rejected $playerName's mentorship program request.";
+
+        $data = [
+            'type' => 'mentorship_request_' . $status,
+            'action_required' => false,
+            'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+            'mentorship_request_id' => $mentorshipRequest->id,
+            'evaluation_id' => $mentorshipRequest->evaluation_id ?? null,
+            'weekday' => $mentorshipRequest->submissionVersion->mentorship_weekday ?? null,
+            'time' => $mentorshipRequest->submissionVersion->consultation_time ?? null,
+            'has_video' => !empty($mentorshipRequest->submissionVersion->file_path) && $mentorshipRequest->submissionVersion->file_path !== 'N/A',
+            'status' => $status,
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $evaluator,
+            $title,
+            $message,
+            $player->profile_photo ?? "",
+            $data,
+            'mentorship_request_' . $status,
+            "mentorship/requests/{$mentorshipRequest->id}",
+            'mentorship_request_status',
+            $mentorshipRequest
+        );
     }
 
     public function makeEvaluationInProgress(Request $request): JsonResponse
@@ -4188,6 +4710,175 @@ class V4EvaluationController extends Controller
         }
     }
 
+    /**
+     * Reject mentorship assignment
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function rejectMentorshipAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
+                'notes' => 'required|string|max:1000',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // ✅ Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship assignment
+            if (!in_array($marketplaceType, [MarketplaceTypes::MENTORSHIP_PROGRAM])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship assignments',
+                ], 400);
+            }
+
+            // Validate assignment status - must be pending or in_progress
+            if (!in_array($assignment->status, [EvaluatorAssignment::STATUS_PENDING, EvaluatorAssignment::STATUS_IN_PROGRESS])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot reject assignment with status: {$assignment->status}",
+                ], 400);
+            }
+
+            // Get mentorship request for this assignment
+            $mentorshipRequest = V4ConsultationRequest::where('submission_id', $assignment->submission_id)
+                ->where('evaluator_id', $user->id)
+                ->first();
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation with rejected status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignment->id,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_REJECTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'reason_id' => $validated['reason_id'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'at' => now()->format('Y-m-d H:i:s'),
+                    ],
+                ]);
+
+                // Update assignment status to rejected
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_REJECTED,
+                ]);
+
+                // Update submission status to rejected
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_REJECTED,
+                ]);
+
+                // Update mentorship request status to rejected if exists
+                if ($mentorshipRequest) {
+                    $mentorshipRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REJECTED,
+                    ]);
+                }
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $assignment->submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Mentorship Program Rejected';
+                $message = "Your 12-Week Mentorship Program submission has been rejected by the evaluator";
+
+                $notificationData = [
+                    'type' => 'mentorship_rejected',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'evaluation_id' => $evaluation->id,
+                    'reason' => $validated['notes'] ?? 'No reason provided',
+                ];
+
+                $this->notificationService->sendToUserWithMaterialIcon(
+                    $player,
+                    $title,
+                    $message,
+                    'mentorship_rejected',
+                    '#F44336',
+                    $notificationData,
+                    'mentorship_rejected',
+                    "evaluation/submissions/{$assignment->submission_id}",
+                    'mentorship_rejected_action',
+                    $assignment
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Mentorship assignment rejected successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluation_id' => $evaluation->id,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                        'mentorship_request_status' => $mentorshipRequest->status ?? null,
+                        'marketplace_type' => $marketplaceType,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error rejecting mentorship assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject mentorship assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 
     /**
      * Get consultation report by feedback ID
@@ -4535,6 +5226,42 @@ class V4EvaluationController extends Controller
             "consultation/requests/{$consultationRequest->id}",
             'consultation_request_action',
             $consultationRequest
+        );
+    }
+
+    /**
+     * Send mentorship request notification to evaluator
+     */
+    public function sendMentorshipRequestNotification(V4User $player, V4User $evaluator, V4ConsultationRequest $mentorshipRequest)
+    {
+        $playerName = $player->first_name . ' ' . $player->last_name;
+        $title = '12-Week Mentorship Program Request';
+        $message = "$playerName requested for a 12-week mentorship program";
+
+        $data = [
+            'type' => 'mentorship_request',
+            'quick_actions' => ['accept', 'reject'],
+            'action_required' => true,
+            'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+            'consultation_request_id' => $mentorshipRequest->id,
+            'submission_id' => $mentorshipRequest->submission_id,
+            'evaluation_id' => $mentorshipRequest->evaluation_id ?? null,
+            'weekday' => $mentorshipRequest->submissionVersion->mentorship_weekday ?? null,
+            'time' => $mentorshipRequest->submissionVersion->consultation_time ?? null,
+            'has_video' => !empty($mentorshipRequest->submissionVersion->file_path) && $mentorshipRequest->submissionVersion->file_path !== 'N/A',
+            'video_url' => $mentorshipRequest->submissionVersion->file_path !== 'N/A' ? $mentorshipRequest->submissionVersion->file_path : null,
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $evaluator,
+            $title,
+            $message,
+            $player->profile_photo ?? "",
+            $data,
+            'mentorship_request',
+            "mentorship/requests/{$mentorshipRequest->id}",
+            'mentorship_request_action',
+            $mentorshipRequest
         );
     }
 
