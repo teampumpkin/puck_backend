@@ -196,6 +196,10 @@ class V4PaymentController extends Controller
 
                 $paymentRequest->markPaid();
 
+                if ($paymentRequest->notification) {
+                    $this->handlePaymentSuccessNotifications($paymentRequest, $$inAppPurchase, $user);
+                }
+
                 DB::commit();
 
                 // Create evaluation submission entry outside transaction
@@ -420,7 +424,7 @@ class V4PaymentController extends Controller
                 'purpose'            => $purpose,
                 'status'             => 'pending',
                 'action_required'    => true,
-                'quick_actions'      => ['approve', 'decline'],
+                'quick_actions'      => ['pay', 'decline'],
                 // 'parent' => $parent,
             ];
             $icon = 'payments';
@@ -457,6 +461,46 @@ class V4PaymentController extends Controller
             ]);
 
             return null;
+        }
+    }
+
+    protected function handlePaymentSuccessNotifications(
+        V4PaymentRequest $paymentRequest,
+        V4InAppPurchase $inAppPurchase,
+        V4User $player
+    ): void {
+        try {
+            // 1️⃣ Delete old child-to-parent payment request notification
+            if ($paymentRequest->notification) {
+                $paymentRequest->notification->delete();
+            }
+
+            // 2️⃣ Determine who receives the success notification
+            $payer = $player->parent ?? $player;
+
+            // 3️⃣ Send success notification
+            $this->notificationService->sendToUserWithImage(
+                $payer,
+                '✅ Payment Successful',
+                'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.',
+                $player->profile_photo ?? '',
+                [
+                    'sku' => $inAppPurchase->sku,
+                    'payment_request_id' => $paymentRequest->id,
+                    'amount' => $inAppPurchase->amount_cents,
+                    'currency' => $inAppPurchase->currency,
+                    'status' => 'paid',
+                ],
+                'payment_success',
+                "/payments/{$paymentRequest->id}", // Redirect or deep link
+                'payment_completed_action',
+                $paymentRequest
+            );
+        } catch (Exception $e) {
+            Log::error('Error sending payment success notification', [
+                'payment_request_id' => $paymentRequest->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

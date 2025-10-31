@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V4;
 
 
 use App\Http\Controllers\Controller;
+use App\Models\V4InAppPurchase;
 use App\Models\V4Marketplace;
 use App\Constants\MarketplaceTypes;
 use Exception;
@@ -271,6 +272,77 @@ class V4MarketplaceController extends Controller
                 'message' => 'Marketplace item retrieved successfully.',
                 'data' => $marketplace,
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid marketplace ID.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            Log::warning('Post not found or access denied.', [
+                'user_id' => $authUser->id,
+                'marketplace_id' => $v4MarketplaceId,
+                'error' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Marketplace item not found.',
+            ], 404);
+        } catch (Exception $e) {
+            Log::error('Error retrieving marketplace item.', [
+                'user_id' => $authUser->id,
+                'marketplace_id' => $v4MarketplaceId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while retrieving the marketplace item.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Show a specific marketplace item.
+     */
+    public function getMarketPlaceBySku(Request $request, $sku): JsonResponse
+    {
+
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+        try {
+            // ✅ Validate SKU format (simple sanity check)
+            $request->merge(['sku' => $sku]);
+            $validated = $request->validate([
+                'sku' => 'required|string|max:255|exists:v4_in_app_purchases,sku',
+            ]);
+
+            // ✅ Fetch the related in-app purchase
+            $inAppPurchase = V4InAppPurchase::active()
+                ->where('sku', $validated['sku'])
+                ->firstOrFail();
+
+            // ✅ Fetch the marketplace item linked to this purchase
+            $marketplace = V4Marketplace::with('inAppPurchase')
+                ->where('in_app_purchase_id', $inAppPurchase->id)
+                ->where('active', true)
+                ->firstOrFail();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Marketplace item retrieved successfully.',
+                'data' => $marketplace,
+            ], 200);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
