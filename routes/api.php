@@ -468,6 +468,8 @@ Route::prefix('v4')->group(function () {
             // Mentorship Request
             Route::post('/mentorship-request/{action}', [V4EvaluationController::class, 'handleMentorshipRequestAction'])
                 ->where('action', 'accept|reject');
+            Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
+
         });
 
         // Media routes

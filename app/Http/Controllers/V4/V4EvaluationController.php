@@ -3131,14 +3131,7 @@ class V4EvaluationController extends Controller
                     ], 400);
                 }
 
-                // Check if submission has a current version with evaluation (report_id)
                 $submissionVersion = $submission->currentVersion;
-                if (!$submissionVersion || !$submissionVersion->report_id) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Mentorship request must have a valid evaluation report',
-                    ], 400);
-                }
 
                 // Check if consultation request already exists for this submission
                 $existingRequest = V4ConsultationRequest::where('submission_id', $submissionId)
@@ -4717,6 +4710,175 @@ class V4EvaluationController extends Controller
         }
     }
 
+    /**
+     * Reject mentorship assignment
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function rejectMentorshipAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
+                'notes' => 'required|string|max:1000',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // ✅ Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship assignment
+            if (!in_array($marketplaceType, [MarketplaceTypes::MENTORSHIP_PROGRAM])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship assignments',
+                ], 400);
+            }
+
+            // Validate assignment status - must be pending or in_progress
+            if (!in_array($assignment->status, [EvaluatorAssignment::STATUS_PENDING, EvaluatorAssignment::STATUS_IN_PROGRESS])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot reject assignment with status: {$assignment->status}",
+                ], 400);
+            }
+
+            // Get mentorship request for this assignment
+            $mentorshipRequest = V4ConsultationRequest::where('submission_id', $assignment->submission_id)
+                ->where('evaluator_id', $user->id)
+                ->first();
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation with rejected status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignment->id,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_REJECTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'reason_id' => $validated['reason_id'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'at' => now()->format('Y-m-d H:i:s'),
+                    ],
+                ]);
+
+                // Update assignment status to rejected
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_REJECTED,
+                ]);
+
+                // Update submission status to rejected
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_REJECTED,
+                ]);
+
+                // Update mentorship request status to rejected if exists
+                if ($mentorshipRequest) {
+                    $mentorshipRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REJECTED,
+                    ]);
+                }
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $assignment->submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Mentorship Program Rejected';
+                $message = "Your 12-Week Mentorship Program submission has been rejected by the evaluator";
+
+                $notificationData = [
+                    'type' => 'mentorship_rejected',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'evaluation_id' => $evaluation->id,
+                    'reason' => $validated['notes'] ?? 'No reason provided',
+                ];
+
+                $this->notificationService->sendToUserWithMaterialIcon(
+                    $player,
+                    $title,
+                    $message,
+                    'mentorship_rejected',
+                    '#F44336',
+                    $notificationData,
+                    'mentorship_rejected',
+                    "evaluation/submissions/{$assignment->submission_id}",
+                    'mentorship_rejected_action',
+                    $assignment
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Mentorship assignment rejected successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluation_id' => $evaluation->id,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                        'mentorship_request_status' => $mentorshipRequest->status ?? null,
+                        'marketplace_type' => $marketplaceType,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error rejecting mentorship assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject mentorship assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 
     /**
      * Get consultation report by feedback ID
