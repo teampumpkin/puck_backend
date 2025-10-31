@@ -9,7 +9,7 @@
         "ext-curl": "*",
         "ext-json": "*",
         "darkaonline/l5-swagger": "^8.0",
-        "doctrine/dbal": "^3.1",
+        "doctrine/dbal": "^3.10",
         "fideloper/proxy": "^4.4",
         "fruitcake/laravel-cors": "^3.0",
         "guzzlehttp/guzzle": "^7.0.1",

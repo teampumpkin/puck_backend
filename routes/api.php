@@ -461,10 +461,16 @@ Route::prefix('v4')->group(function () {
             Route::post('/make-evaluation-in-progress', [V4EvaluationController::class, 'makeEvaluationInProgress']);
 
             // Consultation Request
-            Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction']);
+            Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction'])->where('action', 'accept|reject');
             Route::post('/submit-consultation-assignment', [V4EvaluationController::class, 'submitConsultationAssignment']);
             Route::post('/reject-consultation-assignment', [V4EvaluationController::class, 'rejectConsultationAssignment']);
             Route::get('/get-consultation-report/{feedback_id}', [V4EvaluationController::class, 'getConsultationReport']);
+
+            // Mentorship Request
+            Route::post('/mentorship-request/{action}', [V4EvaluationController::class, 'handleMentorshipRequestAction'])
+                ->where('action', 'accept|reject');
+            Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
+
         });
 
         // Media routes
