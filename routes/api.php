@@ -470,7 +470,7 @@ Route::prefix('v4')->group(function () {
                 ->where('action', 'accept|reject');
             Route::post('/submit-mentorship-assignment', [V4EvaluationController::class, 'submitMentorshipAssignment']);
             Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
-
+            Route::post('/upload-mentorship-assignment-request-video', [V4EvaluationController::class, 'uploadMentorshipAssignmentRequestVideo']);
         });
 
         // Media routes

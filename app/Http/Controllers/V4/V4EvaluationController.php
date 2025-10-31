@@ -4971,6 +4971,193 @@ class V4EvaluationController extends Controller
     }
 
     /**
+     * Upload requested video for mentorship assignment
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function uploadMentorshipAssignmentRequestVideo(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be a player
+            if (!$user || $user->role !== 'player') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only players can upload videos.',
+                ], 403);
+            }
+
+            // Validate video file
+            $request->validate([
+                'video' => 'required|file',
+            ]);
+
+            if (!$request->hasFile('video')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No video file provided'
+                ], 400);
+            }
+
+            $playerId = $user->id;
+            $file = $request->file('video');
+
+            // Validate file
+            if (!$file->isValid()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File upload failed: ' . $file->getError()
+                ], 422);
+            }
+
+            $mimeType = $file->getClientMimeType();
+            $fileSize = $file->getSize();
+
+            if (!str_starts_with($mimeType, 'video/')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File must be a video'
+                ], 422);
+            }
+
+            // Check file size (100MB max)
+            $maxSizeInBytes = 100 * 1024 * 1024;
+            if ($fileSize > $maxSizeInBytes) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Video file size must not exceed 100MB'
+                ], 422);
+            }
+
+            // Get latest mentorship submission for this player
+            $submission = EvaluationSubmission::with([
+                'currentVersion',
+                'paymentRequest.inAppPurchase.marketplaceItems'
+            ])
+                ->where('player_id', $playerId)
+                ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($query) {
+                    $query->where('type', MarketplaceTypes::MENTORSHIP_PROGRAM)
+                        ->where('active', true);
+                })
+                ->orderBy('updated_at', 'desc')
+                ->first();
+
+            // Check if submission exists
+            if (!$submission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No mentorship submission found for this player',
+                ], 404);
+            }
+
+            // Check submission status must be request_video
+            if ($submission->status !== EvaluationSubmission::STATUS_REQUEST_VIDEO) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot upload video. Submission status is '{$submission->status}', but must be 'request_video'",
+                    'current_status' => $submission->status,
+                ], 400);
+            }
+
+            // Get previous version
+            $previousVersion = $submission->currentVersion;
+
+            if (!$previousVersion) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No previous submission version found',
+                ], 404);
+            }
+
+            // Generate unique filename
+            $filename = 'mentorship_requested_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            // Upload to S3 (before transaction)
+            $path = $file->storeAs('mentorship-videos/' . $playerId, $filename, 's3');
+            $videoUrl = Storage::disk('s3')->url($path);
+            $originalName = $file->getClientOriginalName();
+
+            // Prepare file metadata
+            $fileMeta = [
+                'type' => 'mentorship_requested_video',
+                'original_name' => $originalName,
+                'file_size' => $fileSize,
+                'mime_type' => $mimeType,
+                'video_url' => $videoUrl,
+                'marketplace_type' => MarketplaceTypes::MENTORSHIP_PROGRAM,
+                'uploaded_at' => now()->toISOString(),
+                'request_type' => 'evaluator_requested',
+            ];
+
+            // Wrap all database operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create new submission version based on previous one, only update file_path and file_meta
+                $newVersion = EvaluationSubmissionVersion::create([
+                    'submission_id' => $submission->id,
+                    'report_id' => $previousVersion->report_id,
+                    'mentorship_weekday' => $previousVersion->mentorship_weekday,
+                    'consultation_time' => $previousVersion->consultation_time,
+                    'consultation_date' => $previousVersion->consultation_date,
+                    'file_path' => $videoUrl,
+                    'uploaded_by' => $user->id,
+                    'file_meta' => $fileMeta,
+                ]);
+
+                // Update submission with new version and change status to in_progress
+                $submission->update([
+                    'current_version_id' => $newVersion->id,
+                    'status' => EvaluationSubmission::STATUS_IN_PROGRESS,
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Requested video uploaded successfully',
+                    'data' => [
+                        'player_id' => $playerId,
+                        'submission_id' => $submission->id,
+                        'submission_version_id' => $newVersion->id,
+                        'previous_version_id' => $previousVersion->id,
+                        'weekday' => $previousVersion->mentorship_weekday,
+                        'time' => $previousVersion->consultation_time,
+                        'video_url' => $videoUrl,
+                        'file_size' => $fileSize,
+                        'mime_type' => $mimeType,
+                        'status' => $submission->status,
+                        'uploaded_at' => now()->toISOString(),
+                    ],
+                ], 201);
+            } catch (Exception $e) {
+                DB::rollBack();
+                // Delete uploaded file from S3 if DB transaction fails
+                Storage::disk('s3')->delete($path);
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error uploading mentorship requested video: ' . $e->getMessage(), [
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload requested video',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Reject mentorship assignment
      *
      * @param Request $request
