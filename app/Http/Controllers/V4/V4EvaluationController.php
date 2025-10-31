@@ -4710,6 +4710,249 @@ class V4EvaluationController extends Controller
         }
     }
 
+
+    /**
+     * Submit mentorship assignment with evaluation and feedback
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function submitMentorshipAssignment(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            // Validate request body
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'remark' => 'required|string',
+                'url' => 'required|url',
+                'notes' => 'sometimes|array',
+                'notes.*' => 'nullable|string',
+                'answers' => 'required|array',
+                'answers.*' => 'required|integer',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+            $notes = $validated['notes'] ?? [];
+            $answers = $validated['answers'];
+
+            // Get assignment with submission
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json(['success' => false, 'message' => 'Assignment not found'], 404);
+            }
+
+            // ✅ Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship assignment
+            if (!in_array($marketplaceType, [MarketplaceTypes::MENTORSHIP_PROGRAM])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship assignments',
+                ], 400);
+            }
+
+            // Validate assignment status - must be pending or in_progress
+            if (!in_array($assignment->status, [EvaluatorAssignment::STATUS_PENDING, EvaluatorAssignment::STATUS_IN_PROGRESS])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot submit assignment with status: {$assignment->status}",
+                ], 400);
+            }
+
+            // Validate all category slugs in one query
+            $slugs = array_keys($notes);
+            $categories = EvaluationCategory::whereIn('slug', $slugs)->where('active', true)->get()->keyBy('slug');
+
+            $invalidSlugs = array_diff($slugs, $categories->keys()->toArray());
+            if (!empty($invalidSlugs)) {
+                return response()->json(['success' => false, 'message' => 'Invalid category slug: ' . implode(', ', $invalidSlugs)], 400);
+            }
+
+            // Fetch all questions and options in one query
+            $questionIds = array_keys($answers);
+            $questions = EvaluationQuestion::with(['category', 'options'])
+                ->whereIn('id', $questionIds)
+                ->get()
+                ->keyBy('id');
+
+            // Validate all questions exist and are active
+            $missingOrInactiveQuestions = array_diff($questionIds, $questions->keys()->toArray());
+            if (!empty($missingOrInactiveQuestions)) {
+                return response()->json(['success' => false, 'message' => 'Invalid or inactive question_id: ' . implode(', ', $missingOrInactiveQuestions)], 400);
+            }
+
+            // Validate options and prepare answer data
+            $evaluationAnswers = [];
+            foreach ($answers as $questionId => $optionId) {
+                $question = $questions[$questionId];
+                $option = $question->options->firstWhere('id', $optionId);
+
+                if (!$option) {
+                    return response()->json(['success' => false, 'message' => "Invalid option_id: {$optionId} for question_id: {$questionId}"], 400);
+                }
+
+                $categorySlug = $question->category->slug ?? null;
+                $evaluationAnswers[] = [
+                    'question_id' => $questionId,
+                    'question_option_id' => $optionId,
+                    'comment' => $categorySlug && isset($notes[$categorySlug]) ? $notes[$categorySlug] : null,
+                    'rating' => $option->rating,
+                ];
+            }
+
+            // Get mentorship request for this assignment
+            $mentorshipRequest = V4ConsultationRequest::where('submission_id', $assignment->submission_id)
+                ->where('evaluator_id', $user->id)
+                ->first();
+
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation with submitted status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignment->id,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_SUBMITTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'completed_at' => now()->format('Y-m-d H:i:s'),
+                    ],
+                ]);
+
+                // Bulk insert evaluation answers with timestamps
+                $timestamp = now();
+                $answersToInsert = array_map(function ($answer) use ($evaluation, $timestamp) {
+                    return array_merge($answer, [
+                        'evaluation_id' => $evaluation->id,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ]);
+                }, $evaluationAnswers);
+
+                EvaluationAnswer::insert($answersToInsert);
+
+                // Create mentorship feedback entry
+                $mentorshipFeedback = V4ConsultationFeedback::create([
+                    'submission_version_id' => $assignment->submission->current_version_id,
+                    'submission_id' => $assignment->submission_id,
+                    'evaluation_id' => $evaluation->id,
+                    'evaluator_id' => $user->id,
+                    'remarks' => $validated['remark'],
+                    'urls' => $validated['url'],
+                ]);
+
+                // Update assignment status to completed
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_COMPLETED,
+                    'completed_at' => $timestamp,
+                ]);
+
+                // Update submission status to completed
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_COMPLETED,
+                ]);
+
+                // Update mentorship request status to completed if exists
+                if ($mentorshipRequest) {
+                    $mentorshipRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_COMPLETED,
+                    ]);
+                }
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $assignment->submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Mentorship Program Completed';
+                $message = "Your 12-Week Mentorship Program evaluation is ready";
+
+                $notificationData = [
+                    'type' => 'mentorship_completed',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'evaluation_id' => $evaluation->id,
+                    'feedback_id' => $mentorshipFeedback->id,
+                    'recording_url' => $validated['url'],
+                    'total_answers' => count($evaluationAnswers),
+                ];
+
+                $this->notificationService->sendToUserWithMaterialIcon(
+                    $player,
+                    $title,
+                    $message,
+                    'mentorship_completed',
+                    '#4CAF50',
+                    $notificationData,
+                    'mentorship_completed',
+                    "evaluation/submissions/{$assignment->submission_id}",
+                    'mentorship_completed_action',
+                    $assignment
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Mentorship assignment submitted successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'evaluation_id' => $evaluation->id,
+                        'feedback_id' => $mentorshipFeedback->id,
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                        'mentorship_request_status' => $mentorshipRequest->status ?? null,
+                        'marketplace_type' => $marketplaceType,
+                        'total_answers' => count($evaluationAnswers),
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error submitting mentorship assignment: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit mentorship assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * Reject mentorship assignment
      *
