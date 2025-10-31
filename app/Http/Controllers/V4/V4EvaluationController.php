@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V4;
 
 use App\Constants\MarketplaceTypes;
+use App\Constants\Weekdays;
 use App\Http\Controllers\Controller;
 use App\Models\EvaluationCategory;
 use App\Models\EvaluationQuestion;
@@ -2093,7 +2094,7 @@ class V4EvaluationController extends Controller
 
                 // Check submission status
                 if ($submission) {
-                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED])) {
+                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_IN_PROGRESS])) {
                         return response()->json(['success' => false, 'message' => 'A submission is already in process'], 400);
                     }
 
@@ -2286,15 +2287,243 @@ class V4EvaluationController extends Controller
                         DB::rollBack();
                         throw $e;
                     }
-                } else {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Not applicable for provided sku.',
-                    ], 400);
+                } else if ($marketplaceType == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                    // === MENTORSHIP PROGRAM LOGIC ===
+
+                    // Validate mentorship-specific fields
+                    $validated = $request->validate([
+                        'weekday' => [
+                            'required',
+                            'string',
+                            'in:' . implode(',', Weekdays::all())
+                        ],
+                        'time' => 'required|date_format:H:i',
+                        'video' => 'nullable|file',
+                        'evaluation_id' => 'nullable|integer|exists:evaluations,id',
+                    ]);
+
+                    // Ensure exactly one of video or evaluation_id is provided
+                    if (!$request->hasFile('video') xor !empty($validated['evaluation_id'])) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Either video or evaluation_id is required',
+                        ], 422);
+                    }
+
+                    // Handle evaluation_id (evaluation-based mentorship)
+                    if (!empty($validated['evaluation_id'])) {
+                        // Check if submission status is request_video
+                        if ($submission && $submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Upload video instead of evaluation-id',
+                                'submission_status' => $submission->status,
+                            ], 400);
+                        }
+
+                        // Verify evaluation exists and is submitted
+                        $evaluation = Evaluation::find($validated['evaluation_id']);
+                        if (!$evaluation || $evaluation->status !== Evaluation::STATUS_SUBMITTED) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Invalid evaluation or evaluation is not submitted'
+                            ], 400);
+                        }
+
+                        // Verify the evaluation belongs to the player
+                        if ($evaluation->submission->player_id !== $playerId) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'This evaluation does not belong to you'
+                            ], 403);
+                        }
+
+                        // Create/update submission with evaluation_id
+                        DB::beginTransaction();
+                        try {
+                            if (!$submission) {
+                                $submission = EvaluationSubmission::create([
+                                    'player_id' => $playerId,
+                                    'payment_request_id' => $paymentRequest->id,
+                                    'status' => EvaluationSubmission::STATUS_UPLOADED,
+                                ]);
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                            }
+
+                            $submissionVersion = EvaluationSubmissionVersion::create([
+                                'submission_id' => $submission->id,
+                                'report_id' => $validated['evaluation_id'],
+                                'mentorship_weekday' => $validated['weekday'],
+                                'consultation_time' => $validated['time'],
+                                'file_path' => 'N/A',
+                                'uploaded_by' => $user->id,
+                                'file_meta' => [
+                                    'type' => 'mentorship_with_evaluation',
+                                    'booked_at' => now()->toISOString(),
+                                ],
+                            ]);
+
+                            $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                            DB::commit();
+
+                            return response()->json([
+                                'success' => true,
+                                'message' => 'Mentorship program booked successfully with evaluation',
+                                'data' => [
+                                    'player_id' => $playerId,
+                                    'submission_id' => $submission->id,
+                                    'submission_version_id' => $submissionVersion->id,
+                                    'weekday' => $validated['weekday'],
+                                    'time' => $validated['time'],
+                                    'evaluation_id' => $validated['evaluation_id'],
+                                    'status' => $submission->status,
+                                    'booked_at' => now()->toISOString(),
+                                ],
+                            ], 201);
+                        } catch (Exception $e) {
+                            DB::rollBack();
+                            throw $e;
+                        }
+                    }
+
+                    // Handle video (video-based mentorship with S3 upload)
+                    else if ($request->hasFile('video')) {
+                        $file = $request->file('video');
+
+                        // Validate file
+                        if (!$file->isValid()) {
+                            return response()->json(['success' => false, 'message' => 'File upload failed: ' . $file->getError()], 422);
+                        }
+
+                        $mimeType = $file->getClientMimeType();
+                        $fileSize = $file->getSize();
+
+                        if (!str_starts_with($mimeType, 'video/')) {
+                            return response()->json(['success' => false, 'message' => 'File must be a video'], 422);
+                        }
+
+                        // Check file size (100MB max)
+                        $maxSizeInBytes = 100 * 1024 * 1024;
+                        if ($fileSize > $maxSizeInBytes) {
+                            return response()->json(['success' => false, 'message' => 'Video file size must not exceed 100MB'], 422);
+                        }
+
+                        // Generate unique filename
+                        $filename = 'mentorship_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                        // Upload to S3 (before transaction)
+                        $path = $file->storeAs('mentorship-videos/' . $playerId, $filename, 's3');
+                        $videoUrl = Storage::disk('s3')->url($path);
+                        $originalName = $file->getClientOriginalName();
+
+                        // Prepare file metadata
+                        $fileMeta = [
+                            'type' => 'mentorship_with_video',
+                            'original_name' => $originalName,
+                            'file_size' => $fileSize,
+                            'mime_type' => $mimeType,
+                            'video_url' => $videoUrl,
+                            'marketplace_type' => $marketplaceType,
+                            'booked_at' => now()->toISOString(),
+                        ];
+
+                        // Create/update submission with video
+                        DB::beginTransaction();
+                        try {
+                            if (!$submission) {
+                                $submission = EvaluationSubmission::create([
+                                    'player_id' => $playerId,
+                                    'payment_request_id' => $paymentRequest->id,
+                                    'status' => EvaluationSubmission::STATUS_UPLOADED,
+                                ]);
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
+                                // Handle requested video re-upload
+                                $previousVersion = $submission->currentVersion;
+
+                                // Create new version based on previous one, only update file_path
+                                $submissionVersion = EvaluationSubmissionVersion::create([
+                                    'submission_id' => $submission->id,
+                                    'report_id' => $previousVersion->report_id,
+                                    'mentorship_weekday' => $previousVersion->mentorship_weekday,
+                                    'consultation_time' => $previousVersion->consultation_time,
+                                    'file_path' => $videoUrl,
+                                    'uploaded_by' => $user->id,
+                                    'file_meta' => $fileMeta,
+                                ]);
+
+                                // Update submission with new version and status
+                                $submission->update([
+                                    'current_version_id' => $submissionVersion->id,
+                                    'status' => EvaluationSubmission::STATUS_IN_PROGRESS,
+                                ]);
+
+                                DB::commit();
+
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Requested Video uploaded',
+                                    'data' => [
+                                        'player_id' => $playerId,
+                                        'submission_id' => $submission->id,
+                                        'submission_version_id' => $submissionVersion->id,
+                                        'weekday' => $previousVersion->mentorship_weekday,
+                                        'time' => $previousVersion->consultation_time,
+                                        'video_url' => $videoUrl,
+                                        'file_size' => $fileSize,
+                                        'mime_type' => $mimeType,
+                                        'status' => $submission->status,
+                                        'uploaded_at' => now()->toISOString(),
+                                    ],
+                                ], 201);
+                            }
+
+                            $submissionVersion = EvaluationSubmissionVersion::create([
+                                'submission_id' => $submission->id,
+                                'report_id' => null,
+                                'mentorship_weekday' => $validated['weekday'],
+                                'consultation_time' => $validated['time'],
+                                'file_path' => $videoUrl,
+                                'uploaded_by' => $user->id,
+                                'file_meta' => $fileMeta,
+                            ]);
+
+                            $submission->update(['current_version_id' => $submissionVersion->id]);
+
+                            DB::commit();
+
+                            return response()->json([
+                                'success' => true,
+                                'message' => 'Mentorship program booked successfully with video',
+                                'data' => [
+                                    'player_id' => $playerId,
+                                    'submission_id' => $submission->id,
+                                    'submission_version_id' => $submissionVersion->id,
+                                    'weekday' => $validated['weekday'],
+                                    'time' => $validated['time'],
+                                    'video_url' => $videoUrl,
+                                    'file_size' => $fileSize,
+                                    'mime_type' => $mimeType,
+                                    'status' => $submission->status,
+                                    'booked_at' => now()->toISOString(),
+                                ],
+                            ], 201);
+                        } catch (Exception $e) {
+                            DB::rollBack();
+                            // Delete uploaded file from S3 if DB transaction fails
+                            Storage::disk('s3')->delete($path);
+                            throw $e;
+                        }
+                    }
+
+                    return response()->json(['success' => false, 'message' => 'Something went wrong in validation'], 400);
                 }
             }
 
-            return response()->json(['success' => false, 'message' => 'Payment is not done'], 400);
+            return response()->json(['success' => false, 'message' => 'Marketplace type not supported'], 400);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
