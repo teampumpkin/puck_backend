@@ -3006,12 +3006,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            (string) $authUser->id,
-                            (string) $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    (string) $authUser->id,
+                                    (string) $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3113,6 +3113,74 @@ class V4EvaluationController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Evaluator allotted for consultation successfully',
+                    'data' => [
+                        'consultation_request_id' => $consultationRequest->id,
+                        'evaluator_id' => $evaluator->id,
+                        'evaluator_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                        'request_status' => $consultationRequest->status,
+                        'consultation_date' => $submissionVersion->consultation_date,
+                        'consultation_time' => $submissionVersion->consultation_time,
+                    ],
+                ], 201);
+            } else if ($marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                // === MENTORSHIP PROGRAM LOGIC ===
+                // Check submission status - only allow if status is 'uploaded'
+                if ($submission->status !== EvaluationSubmission::STATUS_UPLOADED) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Submission already {$submission->status}",
+                        'submission_id' => $submissionId,
+                        'current_status' => $submission->status,
+                    ], 400);
+                }
+
+                // Check if submission has a current version with evaluation (report_id)
+                $submissionVersion = $submission->currentVersion;
+                if (!$submissionVersion || !$submissionVersion->report_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Mentorship request must have a valid evaluation report',
+                    ], 400);
+                }
+
+                // Check if consultation request already exists for this submission
+                $existingRequest = V4ConsultationRequest::where('submission_id', $submissionId)
+                    ->where('submission_version_id', $submissionVersion->id)
+                    ->first();
+
+                if ($existingRequest) {
+                    // If consultation request exists and is not rejected, return error
+                    if ($existingRequest->status !== V4ConsultationRequest::STATUS_REQUEST_REJECTED) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Mentorship already allotted',
+                            'request_id' => $existingRequest->id,
+                            'evaluator_id' => $existingRequest->evaluator_id,
+                            'status' => $existingRequest->status,
+                        ], 400);
+                    }
+
+                    // If consultation was rejected, delete the old request
+                    $existingRequest->delete();
+                }
+
+                // Create consultation request
+                $consultationRequest = V4ConsultationRequest::create([
+                    'submission_version_id' => $submissionVersion->id,
+                    'submission_id' => $submissionId,
+                    'evaluation_id' => $submissionVersion->report_id,
+                    'evaluator_id' => $evaluatorId,
+                    'status' => V4ConsultationRequest::STATUS_PENDING,
+                ]);
+
+                // Get player for notification
+                $player = $submission->player;
+
+                $this->sendMentorshipRequestNotification($player, $evaluator, $consultationRequest);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Evaluator allotted for mentorship successfully',
                     'data' => [
                         'consultation_request_id' => $consultationRequest->id,
                         'evaluator_id' => $evaluator->id,
@@ -3654,12 +3722,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $consultationRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $consultationRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4764,6 +4832,42 @@ class V4EvaluationController extends Controller
             "consultation/requests/{$consultationRequest->id}",
             'consultation_request_action',
             $consultationRequest
+        );
+    }
+
+    /**
+     * Send mentorship request notification to evaluator
+     */
+    public function sendMentorshipRequestNotification(V4User $player, V4User $evaluator, V4ConsultationRequest $mentorshipRequest)
+    {
+        $playerName = $player->first_name . ' ' . $player->last_name;
+        $title = '12-Week Mentorship Program Request';
+        $message = "$playerName requested for a 12-week mentorship program";
+
+        $data = [
+            'type' => 'mentorship_request',
+            'quick_actions' => ['accept', 'reject'],
+            'action_required' => true,
+            'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+            'consultation_request_id' => $mentorshipRequest->id,
+            'submission_id' => $mentorshipRequest->submission_id,
+            'evaluation_id' => $mentorshipRequest->evaluation_id ?? null,
+            'weekday' => $mentorshipRequest->submissionVersion->mentorship_weekday ?? null,
+            'time' => $mentorshipRequest->submissionVersion->consultation_time ?? null,
+            'has_video' => !empty($mentorshipRequest->submissionVersion->file_path) && $mentorshipRequest->submissionVersion->file_path !== 'N/A',
+            'video_url' => $mentorshipRequest->submissionVersion->file_path !== 'N/A' ? $mentorshipRequest->submissionVersion->file_path : null,
+        ];
+
+        return $this->notificationService->sendToUserWithImage(
+            $evaluator,
+            $title,
+            $message,
+            $player->profile_photo ?? "",
+            $data,
+            'mentorship_request',
+            "mentorship/requests/{$mentorshipRequest->id}",
+            'mentorship_request_action',
+            $mentorshipRequest
         );
     }
 
