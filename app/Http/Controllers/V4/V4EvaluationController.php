@@ -3500,6 +3500,8 @@ class V4EvaluationController extends Controller
 
                         case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
                             return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'book_consultation'], 200);
+                        case MarketplaceTypes::MENTORSHIP_PROGRAM:
+                            return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'book_mentorship'], 200);
 
                         default:
                             return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit'], 200);
@@ -3538,6 +3540,15 @@ class V4EvaluationController extends Controller
                                 'notes' => $notes
                             ], 200);
 
+                        case MarketplaceTypes::MENTORSHIP_PROGRAM:
+                            return response()->json([
+                                'success' => true,
+                                'status' => 'rejected',
+                                'redirect' => 'redo_mentorship',
+                                'rejection_reason' => $rejectionReason,
+                                'notes' => $notes
+                            ], 200);
+
                         default:
                             return response()->json([
                                 'success' => true,
@@ -3561,10 +3572,16 @@ class V4EvaluationController extends Controller
 
                         case MarketplaceTypes::CONSULTATION_VIDEO_CALL:
                             return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'consultation_in_process'], 200);
+                        case MarketplaceTypes::MENTORSHIP_PROGRAM:
+                            return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'mentorship_in_process'], 200);
 
                         default:
                             return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'submission_in_process'], 200);
                     }
+                }
+
+                if ($submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO && $marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                    return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'mentorship_request_video'], 200);
                 }
             }
 
