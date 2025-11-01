@@ -464,7 +464,7 @@ Route::prefix('v4')->group(function () {
             Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction'])->where('action', 'accept|reject');
             Route::post('/submit-consultation-assignment', [V4EvaluationController::class, 'submitConsultationAssignment']);
             Route::post('/reject-consultation-assignment', [V4EvaluationController::class, 'rejectConsultationAssignment']);
-            Route::get('/get-consultation-report/{feedback_id}', [V4EvaluationController::class, 'getConsultationReport']);
+            Route::get('/get-consultation-report/{evaluation_id}', [V4EvaluationController::class, 'getConsultationReport']);
 
             // Mentorship Request
             Route::post('/mentorship-request/{action}', [V4EvaluationController::class, 'handleMentorshipRequestAction'])
@@ -472,6 +472,9 @@ Route::prefix('v4')->group(function () {
             Route::post('/submit-mentorship-assignment', [V4EvaluationController::class, 'submitMentorshipAssignment']);
             Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
             Route::post('/upload-mentorship-assignment-request-video', [V4EvaluationController::class, 'uploadMentorshipAssignmentRequestVideo']);
+
+            // My Report
+            Route::get('/get-my-reports/{status}', [V4EvaluationController::class, 'getStatusFilteredMyReports'])->where('status', 'pending|on_going|completed');
         });
 
         // Media routes
