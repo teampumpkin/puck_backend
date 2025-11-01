@@ -54,7 +54,7 @@ class NotificationController extends Controller
             // Base query without reference relation for better performance
             $user =  Auth::guard('v4api')->user();
 
-            $query = Notification::forUser($user->Id);
+            $query = Notification::forUser($user->id);
             if ($withTrashed) {
                 $query->withTrashed();
             }
@@ -107,7 +107,7 @@ class NotificationController extends Controller
         } catch (QueryException $e) {
             // Log and handle database errors
             Log::error('Database error during getUserNotifications operation.', [
-                'user_id' => $user->Id,  // Logging the correct user ID
+                'user_id' => $user->id,  // Logging the correct user ID
                 'error' => $e->getMessage(),
             ]);
 
@@ -118,7 +118,7 @@ class NotificationController extends Controller
             ], 500);
         } catch (Exception $e) {
             Log::error('Unexpected error during getUserNotifications operation.', [
-                'user_id' => $user->Id,  // Logging the correct user ID
+                'user_id' => $user->id,  // Logging the correct user ID
                 'error' => $e->getMessage(),
             ]);
             return response()->json([
