@@ -140,6 +140,11 @@ class Notification extends Model
         return $query->whereNull('deleted_at')->orWhereNotNull('deleted_at');
     }
 
+    public function getTrashed($user)
+    {
+        return $user->notifications()->onlyTrashed()->get();
+    }
+
     public function scopeOnlyTrashed($query)
     {
         return $query->whereNotNull('deleted_at');

@@ -203,6 +203,15 @@ class V4User extends Authenticatable implements JWTSubject
     public function getBlockStatusAttribute()
     {
         $currentUserId = auth()->id();
+
+        if (!$currentUserId) {
+            return [
+                'you_blocked_them' => false,
+                'they_blocked_you' => false,
+                'is_blocked' => false,
+            ];
+        }
+
         return [
             'you_blocked_them' => $this->hasBlocked($currentUserId),
             'they_blocked_you' => $this->isBlockedBy($currentUserId),

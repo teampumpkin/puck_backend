@@ -515,11 +515,21 @@ Route::prefix('v4')->group(function () {
         });
 
         Route::prefix('notifications')->group(function () {
-            // Basic CRUD operations
+            /*
+            |--------------------------------------------------------------------------
+            | USER NOTIFICATIONS
+            |--------------------------------------------------------------------------
+            */
+
+            // Get all notifications (with pagination and filters)
             Route::get('/', [NotificationController::class, 'getUserNotifications']);
+            // Get trashed (soft-deleted) notifications
             Route::get('/trashed', [NotificationController::class, 'getUserTrashedNotifications']);
+            // Get unread count
             Route::get('/unread-count', [NotificationController::class, 'getUserUnreadCount']);
+            // Get statistics
             Route::get('/statistics', [NotificationController::class, 'getUserNotificationStatistics']);
+            // Get a single notification by ID
             Route::get('/{id}', [NotificationController::class, 'getUserNotification']);
 
             // Mark as read operations
@@ -538,6 +548,43 @@ Route::prefix('v4')->group(function () {
             // Permanent delete operations
             Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteUserNotification']);
             Route::delete('/empty-trash', [NotificationController::class, 'emptyUserTrash']);
+
+            /*
+            |--------------------------------------------------------------------------
+            | CHILD NOTIFICATIONS (Parent access)
+            |--------------------------------------------------------------------------
+            */
+
+            Route::prefix('child/{childId}')->group(function () {
+
+                // Get all notifications (with pagination and filters)
+                Route::get('/', [NotificationController::class, 'getChildNotifications']);
+                // Get trashed (soft-deleted) notifications
+                Route::get('/trashed', [NotificationController::class, 'getChildTrashedNotifications']);
+                // Get unread count
+                Route::get('/unread-count', [NotificationController::class, 'getChildUnreadCount']);
+                // Get statistics
+                Route::get('/statistics', [NotificationController::class, 'getChildNotificationStatistics']);
+                // Get a single notification by ID
+                Route::get('/{id}', [NotificationController::class, 'getChildNotification']);
+
+                // Mark as read operations
+                Route::post('/mark-all-read', [NotificationController::class, 'markAllChildNotificationsAsRead']);
+                Route::post('/{id}/mark-read', [NotificationController::class, 'markChildNotificationAsRead']);
+                Route::post('/{id}/mark-unread', [NotificationController::class, 'markChildNotificationAsUnRead']);
+
+                // Soft delete operations
+                Route::delete('/{id}', [NotificationController::class, 'deleteChildNotification']);
+                Route::delete('/', [NotificationController::class, 'clearAllChildNotifications']);
+
+                // Restore operations
+                Route::post('/{id}/restore', [NotificationController::class, 'restoreChildNotification']);
+                Route::post('/restore-all', [NotificationController::class, 'restoreAllChildNotifications']);
+
+                // Permanent delete operations
+                Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteChildNotification']);
+                Route::delete('/empty-trash', [NotificationController::class, 'emptyChildTrash']);
+            });
         });
 
         Route::prefix('posts')->group(function () {
