@@ -92,6 +92,10 @@ class V4PaymentController extends Controller
                     ->where('player_id', $playerId)
                     ->first();
 
+                // if ($latestPayment->notification) {
+                //     $this->handlePaymentSuccessNotifications($latestPayment, $$inAppPurchase, $user);
+                // }
+
                 if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
                     return response()->json(['success' => false, 'message' => 'Submission is pending for previous payment'], 400);
                 }
