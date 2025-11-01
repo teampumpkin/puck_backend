@@ -92,10 +92,6 @@ class V4PaymentController extends Controller
                     ->where('player_id', $playerId)
                     ->first();
 
-                // if ($latestPayment->notification) {
-                //     $this->handlePaymentSuccessNotifications($latestPayment, $$inAppPurchase, $user);
-                // }
-
                 if (!$submission || $submission->status === EvaluationSubmission::STATUS_PENDING) {
                     return response()->json(['success' => false, 'message' => 'Submission is pending for previous payment'], 400);
                 }
@@ -177,6 +173,10 @@ class V4PaymentController extends Controller
                         'success' => false,
                         'message' => 'Only the parent can approve this pending payment request.',
                     ], 403);
+                }
+
+                if ($latestPayment->notification) {
+                    $this->handlePaymentSuccessNotifications($latestPayment, $inAppPurchase, $user);
                 }
 
                 // Transaction for payment approval
@@ -268,10 +268,6 @@ class V4PaymentController extends Controller
                     ]);
 
                     $paymentRequest->markPaid();
-
-                    if ($paymentRequest->notification) {
-                        $this->handlePaymentSuccessNotifications($paymentRequest, $$inAppPurchase, $user);
-                    }
 
                     DB::commit();
 
