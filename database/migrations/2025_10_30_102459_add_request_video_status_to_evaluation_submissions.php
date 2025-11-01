@@ -9,13 +9,41 @@ class AddRequestVideoStatusToEvaluationSubmissions extends Migration
 {
     public function up()
     {
-        // For MySQL, we need to modify the enum column
-        DB::statement("ALTER TABLE evaluation_submissions MODIFY COLUMN status ENUM('pending', 'in_progress', 'uploaded', 'assigned', 'rejected', 'completed', 'request_video') NOT NULL DEFAULT 'uploaded'");
+        // Drop the old constraint if it exists
+        DB::statement("ALTER TABLE evaluation_submissions DROP CONSTRAINT IF EXISTS evaluation_submissions_status_check");
+
+        // Add new constraint including 'request_video'
+        DB::statement("
+            ALTER TABLE evaluation_submissions
+            ADD CONSTRAINT evaluation_submissions_status_check
+            CHECK (status IN (
+                'pending',
+                'uploaded',
+                'assigned',
+                'in_progress',
+                'rejected',
+                'completed',
+                'request_video'
+            ))
+        ");
     }
 
     public function down()
     {
-        // Remove the 'request_video' status
-        DB::statement("ALTER TABLE evaluation_submissions MODIFY COLUMN status ENUM('pending', 'in_progress', 'uploaded', 'assigned', 'rejected', 'completed') NOT NULL DEFAULT 'uploaded'");
+        // Revert to previous constraint (without 'request_video')
+        DB::statement("ALTER TABLE evaluation_submissions DROP CONSTRAINT IF EXISTS evaluation_submissions_status_check");
+
+        DB::statement("
+            ALTER TABLE evaluation_submissions
+            ADD CONSTRAINT evaluation_submissions_status_check
+            CHECK (status IN (
+                'pending',
+                'uploaded',
+                'assigned',
+                'in_progress',
+                'rejected',
+                'completed'
+            ))
+        ");
     }
 }
