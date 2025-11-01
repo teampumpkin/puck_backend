@@ -185,4 +185,9 @@ class V4PaymentRequest extends Model
     {
         return !is_null($this->parent_id) && $this->status === self::STATUS_PENDING;
     }
+
+    public function notification()
+    {
+        return $this->morphOne(Notification::class, 'reference');
+    }
 }
