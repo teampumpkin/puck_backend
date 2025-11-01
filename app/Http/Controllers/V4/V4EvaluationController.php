@@ -5328,43 +5328,67 @@ class V4EvaluationController extends Controller
     }
 
     /**
-     * Get consultation report by feedback ID
+     * Get consultation report by evaluation ID
      *
-     * @param int $feedback_id
+     * @param int $evaluation_id
      * @return JsonResponse
      */
-    public function getConsultationReport(int $feedback_id): JsonResponse
+    public function getConsultationReport(int $evaluation_id): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
 
-            // Get consultation feedback with all relationships
-            $feedback = V4ConsultationFeedback::with([
+            // Get evaluation with all relationships
+            $evaluation = Evaluation::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.player',
                 'evaluator',
-                'submissionVersion.submission.player',
-                'submissionVersion.submission.paymentRequest.inAppPurchase',
-                'evaluation.answers.question',
-            ])->find($feedback_id);
+                'answers.question',
+            ])->find($evaluation_id);
+
+            if (!$evaluation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Evaluation not found',
+                ], 404);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a one-on-one consultation
+            if ($marketplaceType !== MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for one-on-one consultation evaluations',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
+            }
+
+            // Get consultation feedback for this evaluation
+            $feedback = V4ConsultationFeedback::with([
+                'submissionVersion'
+            ])->where('evaluation_id', $evaluation_id)->first();
 
             if (!$feedback) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Consultation feedback not found',
+                    'message' => 'Consultation feedback not found for this evaluation',
                 ], 404);
             }
 
             // Get player and evaluator
-            $player = $feedback->submissionVersion->submission->player ?? null;
-            $evaluator = $feedback->evaluator;
-            $evaluation = $feedback->evaluation;
-            $inAppPurchase = $feedback->submissionVersion->submission->paymentRequest->inAppPurchase ?? null;
+            $player = $evaluation->submission->player ?? null;
+            $evaluator = $evaluation->evaluator;
+            $inAppPurchase = $evaluation->submission->paymentRequest->inAppPurchase ?? null;
 
             // Format the response
             $reportData = [
+                'evaluation_id' => $evaluation->id,
                 'feedback_id' => $feedback->id,
                 'consultation_date' => $feedback->submissionVersion->consultation_date ?? null,
                 'consultation_time' => $feedback->submissionVersion->consultation_time ?? null,
-                'created_at' => $feedback->created_at->toISOString(),
+                'created_at' => $evaluation->created_at->toISOString(),
 
                 // Feedback details
                 'feedback' => [
@@ -5398,14 +5422,14 @@ class V4EvaluationController extends Controller
                 ] : null,
 
                 // Evaluation details
-                'evaluation' => $evaluation ? [
+                'evaluation' => [
                     'id' => $evaluation->id,
                     'status' => $evaluation->status,
                     'overall_rating' => $evaluation->overall_rating,
                     'notes' => $evaluation->notes,
                     'created_at' => $evaluation->created_at->toISOString(),
                     'meta' => $evaluation->meta,
-                ] : null,
+                ],
 
                 // In-app purchase details
                 'in_app_purchase' => $inAppPurchase ? [
@@ -5419,9 +5443,12 @@ class V4EvaluationController extends Controller
 
                 // Submission details
                 'submission' => [
-                    'id' => $feedback->submission_id,
-                    'status' => $feedback->submissionVersion->submission->status ?? null,
+                    'id' => $evaluation->submission_id,
+                    'status' => $evaluation->submission->status ?? null,
                 ],
+
+                // Marketplace type
+                'marketplace_type' => $marketplaceType,
             ];
 
             return response()->json([
@@ -5431,7 +5458,7 @@ class V4EvaluationController extends Controller
             ], 200);
         } catch (Exception $e) {
             Log::error('Error fetching consultation report: ' . $e->getMessage(), [
-                'feedback_id' => $feedback_id,
+                'evaluation_id' => $evaluation_id,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -5450,7 +5477,7 @@ class V4EvaluationController extends Controller
      * @param int $evaluationId
      * @return JsonResponse
      */
-    public function getEvaluationReport(Request $request, int $evaluationId): JsonResponse
+    public function getEvaluationReport(int $evaluationId): JsonResponse
     {
         try {
             // Get evaluation with all related data
@@ -5464,6 +5491,18 @@ class V4EvaluationController extends Controller
 
             if (!$evaluation) {
                 return response()->json(['success' => false, 'message' => 'Evaluation not found'], 404);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a one-on-one consultation
+            if ($marketplaceType !== MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for personalized video evaluations',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
             }
 
             $player = $evaluation->submission->player;
@@ -5577,6 +5616,118 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve submission result',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get player's own evaluation reports filtered by status
+     *
+     * @param Request $request
+     * @param string $status
+     * @return JsonResponse
+     */
+    public function getStatusFilteredMyReports(Request $request, string $status): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be a player
+            if (!$user || $user->role !== 'player') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only players can access their reports.',
+                ], 403);
+            }
+
+            $playerId = $user->id;
+
+            // Define status mapping
+            $statusMap = [
+                'pending' => [EvaluationSubmission::STATUS_PENDING],
+                'completed' => [
+                    EvaluationSubmission::STATUS_COMPLETED,
+                    EvaluationSubmission::STATUS_REJECTED,
+                ],
+                'on_going' => 'exclude', // Special case: all except pending, completed, rejected
+            ];
+
+            // Validate status parameter
+            if (!array_key_exists($status, $statusMap)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid status. Must be pending, on_going, or completed',
+                ], 400);
+            }
+
+            // Build base query
+            $query = EvaluationSubmission::with([
+                'paymentRequest.inAppPurchase.marketplaceItems',
+            ])->where('player_id', $playerId);
+
+            // Apply status filter
+            if ($status === 'on_going') {
+                // Exclude pending, completed, and rejected
+                $query->whereNotIn('status', [
+                    EvaluationSubmission::STATUS_PENDING,
+                    EvaluationSubmission::STATUS_COMPLETED,
+                    EvaluationSubmission::STATUS_REJECTED,
+                ]);
+            } else {
+                // Use specific status values
+                $query->whereIn('status', $statusMap[$status]);
+            }
+
+            $query->orderBy('created_at', 'desc');
+
+            $submissions = $query->get();
+
+            // Format the response
+            $reports = $submissions->map(function ($submission) use ($status) {
+                $marketplaceItem = $submission->paymentRequest->inAppPurchase->marketplaceItems->first();
+
+                $report = [
+                    'submission_id' => $submission->id,
+                    'created_at' => $submission->created_at->toISOString(),
+                    'status' => $submission->status,
+                    'marketplace_title' => $marketplaceItem->title ?? null,
+                    'in_app_purchase_sku' => $submission->paymentRequest->inAppPurchase->sku ?? null,
+                ];
+
+                // Add evaluation_id for completed status
+                if ($status === 'completed') {
+                    // Get latest evaluation for this submission
+                    $latestEvaluation = Evaluation::where('submission_id', $submission->id)
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+
+                    $report['evaluation_id'] = $latestEvaluation ? $latestEvaluation->id : null;
+                }
+
+                return $report;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Reports retrieved successfully',
+                'data' => [
+                    'reports' => $reports,
+                    'total_count' => $reports->count(),
+                    'status_filter' => $status,
+                    'player_id' => $playerId,
+                ],
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching player reports: ' . $e->getMessage(), [
+                'user_id' => Auth::guard('v4api')->id(),
+                'status' => $status,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve reports',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
