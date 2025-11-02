@@ -5710,6 +5710,15 @@ class V4EvaluationController extends Controller
                     $report['evaluation_id'] = $latestEvaluation ? $latestEvaluation->id : null;
                 }
 
+                if ($status === 'rejected') {
+                    // get latest assignment for this submission
+                    $latestAssignment = EvaluatorAssignment::where('submssion_id', $submission->id)
+                        ->orderBy('created_by', 'desc')
+                        ->first();
+
+                    $report['assignment_id'] = $latestAssignment ? $latestAssignment->id : null;
+                }
+
                 return $report;
             });
 
