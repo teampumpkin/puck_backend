@@ -5692,6 +5692,7 @@ class V4EvaluationController extends Controller
                     'created_at' => $submission->created_at->toISOString(),
                     'status' => $submission->status,
                     'marketplace_title' => $marketplaceItem->title ?? null,
+                    'marketplace_type' => $marketplaceItem->type ?? null,
                     'in_app_purchase_sku' => $submission->paymentRequest->inAppPurchase->sku ?? null,
                 ];
 
