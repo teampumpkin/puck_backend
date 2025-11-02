@@ -2170,6 +2170,9 @@ class V4EvaluationController extends Controller
                             // Update pending submission to uploaded
                             $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
                         } elseif (in_array($submission->status, [EvaluationSubmission::STATUS_REJECTED])) {
+                            // 💥 Before updating status, delete old rejection notifications
+                            $this->deleteEvaluationRejectionNotifications($submission);
+
                             // Update rejected submission to assigned
                             $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
                             $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
@@ -2248,6 +2251,10 @@ class V4EvaluationController extends Controller
                                 'status' => EvaluationSubmission::STATUS_UPLOADED,
                             ]);
                         } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                            if ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                // Delete old consultation rejection notifications
+                                $this->deleteEvaluationRejectionNotifications($submission);;
+                            }
                             // Update pending or rejected submission to uploaded
                             $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
                         }
@@ -2612,14 +2619,14 @@ class V4EvaluationController extends Controller
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
-                'sort_by' => 'nullable|string|in:first_name,last_name,role,current_version_updated_at',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role,current_version_created_at',
                 'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
             $page = $validated['page'] ?? 1;
             $perPage = $validated['per_page'] ?? 15;
-            $sortBy = $validated['sort_by'] ?? 'current_version_updated_at';
+            $sortBy = $validated['sort_by'] ?? 'current_version_created_at';
             $sortOrder = $validated['sort_order'] ?? 'desc';
 
             $query = EvaluationSubmission::query();
@@ -2644,13 +2651,13 @@ class V4EvaluationController extends Controller
             // }
 
             // Handle sorting by related model field
-            // if ($sortBy === 'current_version_updated_at') {
-            //     $query->leftJoin('evaluation_submission_versions as current_versions', 'current_versions.id', '=', 'evaluation_submissions.current_version_id')
-            //         ->orderBy('current_versions.updated_at', $sortOrder)
-            //         ->select('evaluation_submissions.*'); // Important to avoid overriding base model fields
-            // } else {
-            //     $query->orderBy($sortBy, $sortOrder);
-            // }
+            if ($sortBy === 'current_version_created_at') {
+                $query->leftJoin('evaluation_submission_versions as current_versions', 'current_versions.id', '=', 'evaluation_submissions.current_version_id')
+                    ->orderBy('current_versions.created_at', $sortOrder)
+                    ->select('evaluation_submissions.*'); // Important to avoid overriding base model fields
+            } else {
+                $query->orderBy($sortBy, $sortOrder);
+            }
 
             $data = collect();
 
@@ -3007,12 +3014,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3733,12 +3740,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3931,12 +3938,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $mentorshipRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $mentorshipRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4282,12 +4289,12 @@ class V4EvaluationController extends Controller
             $validated = $request->validate([
                 'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
                 'rejection_reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
-                'notes' => 'required|string',
+                'notes' => 'nullable|string',
             ]);
 
             $assignmentId = $validated['assignment_id'];
             $reasonId = $validated['rejection_reason_id'];
-            $notes = $validated['notes'];
+            $notes = $validated['notes'] ?? "";
 
             $rejectionReason = EvaluationRejectionReason::find($reasonId);
 
@@ -4584,7 +4591,7 @@ class V4EvaluationController extends Controller
             $validated = $request->validate([
                 'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
                 'reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
-                'notes' => 'required|string|max:1000',
+                'notes' => 'nullable|string',
             ]);
 
             $assignmentId = $validated['assignment_id'];
@@ -4634,6 +4641,9 @@ class V4EvaluationController extends Controller
             // Wrap all operations in a transaction
             DB::beginTransaction();
             try {
+
+                $rejectionReason = EvaluationRejectionReason::find($validated['reason_id']);
+
                 // Create evaluation with rejected status
                 $evaluation = Evaluation::create([
                     'submission_id' => $assignment->submission_id,
@@ -4643,7 +4653,7 @@ class V4EvaluationController extends Controller
                     'meta' => [
                         'by_evaluator' => $user->id,
                         'reason_id' => $validated['reason_id'] ?? null,
-                        'notes' => $validated['notes'] ?? null,
+                        'notes' => $validated['notes'] ?? "",
                         'at' => now()->format('Y-m-d H:i:s'),
                     ],
                 ]);
@@ -4665,7 +4675,6 @@ class V4EvaluationController extends Controller
                     ]);
                 }
 
-                DB::commit();
 
                 // Send notification to player
                 $player = $assignment->submission->player;
@@ -4674,12 +4683,13 @@ class V4EvaluationController extends Controller
                 $message = "Your 1 on 1 Video Evaluation is Rejected by the evaluator";
 
                 $notificationData = [
-                    'type' => 'consultation_rejected',
-                    'action_required' => false,
-                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
-                    'assignment_id' => $assignment->id,
+                    'marketplace_item_type' => '1on1 Consultation Video Call',
                     'evaluation_id' => $evaluation->id,
-                    'reason' => $validated['notes'] ?? 'No reason provided',
+                    'assignment_id' => $assignment->id,
+                    'submission_id' => $assignment->submission->id,
+                    'rejection_reason' => $rejectionReason,
+                    'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
+                    'notes' => $validated['notes'] ?? 'No reason provided',
                 ];
 
                 $this->notificationService->sendToUserWithMaterialIcon(
@@ -4692,8 +4702,10 @@ class V4EvaluationController extends Controller
                     'consultation_rejected',
                     "evaluation/submissions/{$assignment->submission_id}",
                     'consultation_rejected_action',
-                    $assignment
+                    $evaluation,
                 );
+
+                DB::commit();
 
                 return response()->json([
                     'success' => true,
@@ -5769,11 +5781,12 @@ class V4EvaluationController extends Controller
         $message = "Your Personalized Video Evaluation is Rejected by the evaluator";
 
         $data = [
+            'marketplace_item_type' => 'Personalized Video Evaluation',
             'evaluation_id' => $evaluation->id,
             'submission_id' => $assignment->submission_id,
             'rejection_reason' => $rejectionReason,
             'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
-            'notes' => $notes,
+            'notes' => $notes ?? 'No reason provided',
         ];
 
         // Send notification with appropriate icon
@@ -5800,6 +5813,7 @@ class V4EvaluationController extends Controller
         $message = "Your Personalized Video Evaluation is Completed";
 
         $data = [
+            'marketplace_item_type' => 'Personalized Video Evaluation',
             'evaluation_id' => $evaluation->id,
             'submission_id' => $assignment->submission_id,
             'sku' => $assignment->submission->paymentRequest->inAppPurchase->sku,
@@ -5925,5 +5939,30 @@ class V4EvaluationController extends Controller
             'consultation_request_status',
             $consultationRequest
         );
+    }
+
+    protected function deleteEvaluationRejectionNotifications(EvaluationSubmission $submission)
+    {
+        try {
+            // Ensure evaluations are loaded to minimize queries
+            $submission->load('evaluations.notifications');
+
+            // Loop through each evaluation for this submission
+            foreach ($submission->evaluations as $evaluation) {
+                $evaluation->notifications()
+                    ->where('type', 'video_evaluation_rejected')
+                    ->delete();
+            }
+
+            Log::info('Deleted rejection notifications for resubmitted evaluation.', [
+                'submission_id' => $submission->id,
+                'evaluation_ids' => $submission->evaluations->pluck('id'),
+            ]);
+        } catch (Exception $e) {
+            Log::warning('Failed to delete evaluation rejection notifications', [
+                'submission_id' => $submission->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
