@@ -3007,12 +3007,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            (string) $authUser->id,
-                            (string) $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    (string) $authUser->id,
+                                    (string) $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3733,12 +3733,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $consultationRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $consultationRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3931,12 +3931,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $mentorshipRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $mentorshipRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -5345,9 +5345,9 @@ class V4EvaluationController extends Controller
             // Get evaluation with all relationships
             $evaluation = Evaluation::with([
                 'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.currentVersion',
                 'submission.player',
-                'evaluator',
-                'answers.question',
+                'evaluator'
             ])->find($evaluation_id);
 
             if (!$evaluation) {
@@ -5367,6 +5367,37 @@ class V4EvaluationController extends Controller
                     'message' => 'This endpoint is only for one-on-one consultation evaluations',
                     'marketplace_type' => $marketplaceType,
                 ], 400);
+            }
+
+            // Get the submission and current version
+            $submission = $evaluation->submission;
+            $currentVersion = $submission->currentVersion;
+
+            if (!$currentVersion) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No current version found for this submission',
+                ], 404);
+            }
+
+            // Get the report_id from current version
+            $reportId = $currentVersion->report_id;
+
+            if (!$reportId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No personalized report linked to this consultation',
+                ], 404);
+            }
+
+            // Now get the actual personalized evaluation report
+            $personalizedEvaluation = Evaluation::find($reportId);
+
+            if (!$personalizedEvaluation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Personalized evaluation report not found',
+                ], 404);
             }
 
             // Get consultation feedback for this evaluation
@@ -5426,14 +5457,7 @@ class V4EvaluationController extends Controller
                 ] : null,
 
                 // Evaluation details
-                'evaluation' => [
-                    'id' => $evaluation->id,
-                    'status' => $evaluation->status,
-                    'overall_rating' => $evaluation->overall_rating,
-                    'notes' => $evaluation->notes,
-                    'created_at' => $evaluation->created_at->toISOString(),
-                    'meta' => $evaluation->meta,
-                ],
+                'personalized_evaluation' => $personalizedEvaluation,
 
                 // In-app purchase details
                 'in_app_purchase' => $inAppPurchase ? [
@@ -5707,16 +5731,7 @@ class V4EvaluationController extends Controller
                         ->orderBy('created_at', 'desc')
                         ->first();
 
-                    $report['evaluation_id'] = $latestEvaluation ? $latestEvaluation->id : null;
-                }
-
-                if ($status === 'rejected') {
-                    // get latest assignment for this submission
-                    $latestAssignment = EvaluatorAssignment::where('submssion_id', $submission->id)
-                        ->orderBy('created_by', 'desc')
-                        ->first();
-
-                    $report['assignment_id'] = $latestAssignment ? $latestAssignment->id : null;
+                    $report['evaluation'] = $latestEvaluation;
                 }
 
                 return $report;
