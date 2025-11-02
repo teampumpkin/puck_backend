@@ -2644,13 +2644,13 @@ class V4EvaluationController extends Controller
             // }
 
             // Handle sorting by related model field
-            if ($sortBy === 'current_version_updated_at') {
-                $query->leftJoin('evaluation_submission_versions as current_versions', 'current_versions.id', '=', 'evaluation_submissions.current_version_id')
-                    ->orderBy('current_versions.updated_at', $sortOrder)
-                    ->select('evaluation_submissions.*'); // Important to avoid overriding base model fields
-            } else {
-                $query->orderBy($sortBy, $sortOrder);
-            }
+            // if ($sortBy === 'current_version_updated_at') {
+            //     $query->leftJoin('evaluation_submission_versions as current_versions', 'current_versions.id', '=', 'evaluation_submissions.current_version_id')
+            //         ->orderBy('current_versions.updated_at', $sortOrder)
+            //         ->select('evaluation_submissions.*'); // Important to avoid overriding base model fields
+            // } else {
+            //     $query->orderBy($sortBy, $sortOrder);
+            // }
 
             $data = collect();
 
@@ -2712,6 +2712,8 @@ class V4EvaluationController extends Controller
                             ];
                         }
                     });
+                } else {
+                    $result['materials'] = [];
                 }
 
                 if ($submission->evaluatorAssignment != null) {
@@ -2858,6 +2860,8 @@ class V4EvaluationController extends Controller
                         ];
                     }
                 });
+            } else {
+                $result['materials'] = [];
             }
 
             // Include evaluator details if assigned
@@ -3003,12 +3007,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3729,12 +3733,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3927,12 +3931,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $mentorshipRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $mentorshipRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
