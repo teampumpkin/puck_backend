@@ -306,11 +306,35 @@ class V4FollowController extends Controller
         }
 
         try {
+            $validated = $request->validate([
+                'player_id' => 'nullable|integer|exists:v4_users,id',
+            ]);
+
+            $playerId = $validated['player_id'] ?? $authUser->id;
+
+            try {
+                $player = V4User::findOrFail($playerId);
+            } catch (ModelNotFoundException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Player not found.',
+                ], 404);
+            }
+
+            if ($validated['player_id'] != null) {
+                if ($player->parent_id != $authUser->id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized. Only the parent can accept a follow request for this child.'
+                    ], 403);
+                }
+            }
+
             $user = V4User::findOrFail($userId);
 
             $follow = V4Follow::where([
                 'follower_id' => $user->id,     // $user is the follower (request sender)
-                'following_id' => $authUser->id, // Auth user is the one being followed (request receiver)
+                'following_id' => $player->id, // Auth user is the one being followed (request receiver)
                 'status' => 'pending',
             ])->first();
 
@@ -331,7 +355,7 @@ class V4FollowController extends Controller
 
             DB::commit();
 
-            $this->sendFollowRequestAcceptedNotification($user, $authUser, $follow);
+            $this->sendFollowRequestAcceptedNotification($user, $player, $follow);
 
             return response()->json([
                 'success' => true,
@@ -348,36 +372,44 @@ class V4FollowController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'User not found.',
+                'message' => 'Follower not found.',
             ], 404);
+        } catch (ValidationException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (QueryException $e) {
             DB::rollBack();
 
-            Log::error('Database error while accepting follow request: ' . $e->getMessage(), [
-                'user_id' => $authUser->id,
+            Log::error('Database error while accepting follow request.', [
+                'auth_user_id' => $authUser->id,
                 'follower_id' => $userId,
-                'target_user_id' => $authUser->id,
-                'trace' => $e->getTraceAsString(),
+                'player_id' => $playerId,
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Database error occurred.',
+                'message' => 'A database error occurred.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         } catch (Exception $e) {
             DB::rollBack();
 
-            Log::error('Unexpected error while accepting follow request: ' . $e->getMessage(), [
-                'user_id' => $authUser->id,
+            Log::error('Unexpected error while accepting follow request.', [
+                'auth_user_id' => $authUser->id,
                 'follower_id' => $userId,
-                'target_user_id' => $authUser->id,
-                'trace' => $e->getTraceAsString(),
+                'player_id' => $playerId,
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while accepting the follow request.',
+                'message' => 'An unexpected error occurred while accepting the follow request.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -405,11 +437,36 @@ class V4FollowController extends Controller
         }
 
         try {
+            $validated = $request->validate([
+                'player_id' => 'nullable|integer|exists:v4_users,id',
+            ]);
+
+            $playerId = $validated['player_id'] ?? $authUser->id;
+
+            try {
+                $player = V4User::findOrFail($playerId);
+            } catch (ModelNotFoundException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Player not found.',
+                ], 404);
+            }
+
+            if ($validated['player_id'] != null) {
+                if ($player->parent_id != $authUser->id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized. Only the parent can accept a follow request for this child.'
+                    ], 403);
+                }
+            }
+
+
             $user = V4User::findOrFail($userId);
 
             $follow = V4Follow::where([
                 'follower_id' => $user->id,     // $user is the follower (request sender)
-                'following_id' => $authUser->id, // Auth user is the one being followed (request receiver)
+                'following_id' => $player->id, // Auth user is the one being followed (request receiver)
                 'status' => 'pending',
             ])->first();
 
