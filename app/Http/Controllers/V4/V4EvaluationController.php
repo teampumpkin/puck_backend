@@ -2251,6 +2251,10 @@ class V4EvaluationController extends Controller
                                 'status' => EvaluationSubmission::STATUS_UPLOADED,
                             ]);
                         } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                            if ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                // Delete old consultation rejection notifications
+                                $this->deleteEvaluationRejectionNotifications($submission);;
+                            }
                             // Update pending or rejected submission to uploaded
                             $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
                         }
@@ -3010,12 +3014,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3736,12 +3740,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3934,12 +3938,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $mentorshipRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $mentorshipRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4671,7 +4675,6 @@ class V4EvaluationController extends Controller
                     ]);
                 }
 
-                DB::commit();
 
                 // Send notification to player
                 $player = $assignment->submission->player;
@@ -4699,8 +4702,10 @@ class V4EvaluationController extends Controller
                     'consultation_rejected',
                     "evaluation/submissions/{$assignment->submission_id}",
                     'consultation_rejected_action',
-                    $assignment
+                    $evaluation,
                 );
+
+                DB::commit();
 
                 return response()->json([
                     'success' => true,
