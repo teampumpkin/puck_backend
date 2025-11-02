@@ -437,11 +437,36 @@ class V4FollowController extends Controller
         }
 
         try {
+            $validated = $request->validate([
+                'player_id' => 'nullable|integer|exists:v4_users,id',
+            ]);
+
+            $playerId = $validated['player_id'] ?? $authUser->id;
+
+            try {
+                $player = V4User::findOrFail($playerId);
+            } catch (ModelNotFoundException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Player not found.',
+                ], 404);
+            }
+
+            if ($validated['player_id'] != null) {
+                if ($player->parent_id != $authUser->id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized. Only the parent can accept a follow request for this child.'
+                    ], 403);
+                }
+            }
+
+
             $user = V4User::findOrFail($userId);
 
             $follow = V4Follow::where([
                 'follower_id' => $user->id,     // $user is the follower (request sender)
-                'following_id' => $authUser->id, // Auth user is the one being followed (request receiver)
+                'following_id' => $player->id, // Auth user is the one being followed (request receiver)
                 'status' => 'pending',
             ])->first();
 
