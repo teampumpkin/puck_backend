@@ -257,4 +257,9 @@ class Evaluation extends Model
 
         return $breakdown;
     }
+
+    public function notifications()
+    {
+        return $this->morphMany(Notification::class, 'reference');
+    }
 }
