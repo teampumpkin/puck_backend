@@ -3007,12 +3007,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            (string) $authUser->id,
-                            (string) $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    (string) $authUser->id,
+                                    (string) $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3733,12 +3733,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $consultationRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $consultationRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3931,12 +3931,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $mentorshipRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $mentorshipRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -5707,16 +5707,7 @@ class V4EvaluationController extends Controller
                         ->orderBy('created_at', 'desc')
                         ->first();
 
-                    $report['evaluation_id'] = $latestEvaluation ? $latestEvaluation->id : null;
-                }
-
-                if ($status === 'rejected') {
-                    // get latest assignment for this submission
-                    $latestAssignment = EvaluatorAssignment::where('submssion_id', $submission->id)
-                        ->orderBy('created_by', 'desc')
-                        ->first();
-
-                    $report['assignment_id'] = $latestAssignment ? $latestAssignment->id : null;
+                    $report['evaluation'] = $latestEvaluation;
                 }
 
                 return $report;
