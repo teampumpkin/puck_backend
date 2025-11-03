@@ -2359,8 +2359,18 @@ class V4EvaluationController extends Controller
                                     'payment_request_id' => $paymentRequest->id,
                                     'status' => EvaluationSubmission::STATUS_UPLOADED,
                                 ]);
-                            } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                            } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
+                                // Update pending submission to uploaded
                                 $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                // Delete old consultation rejection notifications
+                                $this->deleteEvaluationRejectionNotifications($submission);
+
+                                // Update rejected submission to assigned
+                                $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
+                                $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
+
                             }
 
                             $submissionVersion = EvaluationSubmissionVersion::create([
@@ -2447,8 +2457,17 @@ class V4EvaluationController extends Controller
                                     'payment_request_id' => $paymentRequest->id,
                                     'status' => EvaluationSubmission::STATUS_UPLOADED,
                                 ]);
-                            } elseif ($submission->status === EvaluationSubmission::STATUS_PENDING || $submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                            } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
+                                // Update pending submission to uploaded
                                 $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
+
+                            } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
+                                // Delete old consultation rejection notifications
+                                $this->deleteEvaluationRejectionNotifications($submission);
+
+                                // Update rejected submission to assigned
+                                $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
+                                $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
                             } elseif ($submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
                                 // Handle requested video re-upload
                                 $previousVersion = $submission->currentVersion;
@@ -5955,7 +5974,11 @@ class V4EvaluationController extends Controller
             // Loop through each evaluation for this submission
             foreach ($submission->evaluations as $evaluation) {
                 $evaluation->notifications()
-                    ->where('type', 'video_evaluation_rejected')
+                    ->where('type', [
+                        'video_evaluation_rejected',
+                        'consultation_rejected',
+                        'mentorship_rejected'
+                    ])
                     ->delete();
             }
 
