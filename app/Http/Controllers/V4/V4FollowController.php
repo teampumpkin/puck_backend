@@ -306,11 +306,7 @@ class V4FollowController extends Controller
         }
 
         try {
-            $validated = $request->validate([
-                'player_id' => 'nullable|integer|exists:v4_users,id',
-            ]);
-
-            $playerId = $validated['player_id'] ?? $authUser->id;
+            $playerId = $request->input('player_id', $authUser->id);
 
             try {
                 $player = V4User::findOrFail($playerId);
@@ -321,7 +317,7 @@ class V4FollowController extends Controller
                 ], 404);
             }
 
-            if ($validated['player_id'] != null) {
+            if ($request->has('player_id')) {
                 if ($player->parent_id != $authUser->id) {
                     return response()->json([
                         'success' => false,
@@ -437,11 +433,8 @@ class V4FollowController extends Controller
         }
 
         try {
-            $validated = $request->validate([
-                'player_id' => 'nullable|integer|exists:v4_users,id',
-            ]);
 
-            $playerId = $validated['player_id'] ?? $authUser->id;
+            $playerId = $request->input('player_id', $authUser->id);
 
             try {
                 $player = V4User::findOrFail($playerId);
@@ -452,7 +445,7 @@ class V4FollowController extends Controller
                 ], 404);
             }
 
-            if ($validated['player_id'] != null) {
+            if ($request->has('player_id')) {
                 if ($player->parent_id != $authUser->id) {
                     return response()->json([
                         'success' => false,
