@@ -472,6 +472,7 @@ Route::prefix('v4')->group(function () {
             Route::post('/submit-mentorship-assignment', [V4EvaluationController::class, 'submitMentorshipAssignment']);
             Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
             Route::post('/upload-mentorship-assignment-request-video', [V4EvaluationController::class, 'uploadMentorshipAssignmentRequestVideo']);
+            Route::get('/get-mentorship-report/{evaluation_id}', [V4EvaluationController::class, 'getMentorshipReport']);
 
             // My Report
             Route::get('/get-my-reports/{status}', [V4EvaluationController::class, 'getStatusFilteredMyReports'])->where('status', 'pending|on_going|completed');
