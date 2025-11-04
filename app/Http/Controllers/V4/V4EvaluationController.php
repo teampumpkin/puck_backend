@@ -5563,7 +5563,8 @@ class V4EvaluationController extends Controller
             }
 
             // Get marketplace type
-            $marketplaceType = optional($evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+            $marketplace = $evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first() ?? null;
+            $marketplaceType = $marketplace->type ?? null;
 
             // Verify this is a mentorship program
             if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
@@ -5713,7 +5714,6 @@ class V4EvaluationController extends Controller
             // Format the response
             $reportData = [
                 'evaluation_id' => $evaluation->id,
-                'marketplace_type' => $marketplaceType,
                 'feedback_id' => $feedback->id,
                 'mentorship_type' => $mentorshipType,
                 'mentorship_weekday' => $feedback->submissionVersion->mentorship_weekday ?? null,
@@ -5776,6 +5776,9 @@ class V4EvaluationController extends Controller
                     'formatted_amount' => $inAppPurchase->formatted_amount,
                     'currency' => $inAppPurchase->currency,
                 ] : null,
+
+                // Marketplace
+                'marketplace' => $marketplace,
 
                 // Submission details
                 'submission' => [
