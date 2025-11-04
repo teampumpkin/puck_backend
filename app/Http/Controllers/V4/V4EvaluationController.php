@@ -2253,7 +2253,6 @@ class V4EvaluationController extends Controller
                         } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
                             // Update pending submission to uploaded
                             $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-
                         } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
                             // Delete old consultation rejection notifications
                             $this->deleteEvaluationRejectionNotifications($submission);
@@ -2362,7 +2361,6 @@ class V4EvaluationController extends Controller
                             } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
                                 // Update pending submission to uploaded
                                 $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-
                             } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
                                 // Delete old consultation rejection notifications
                                 $this->deleteEvaluationRejectionNotifications($submission);
@@ -2370,7 +2368,6 @@ class V4EvaluationController extends Controller
                                 // Update rejected submission to assigned
                                 $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
                                 $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
-
                             }
 
                             $submissionVersion = EvaluationSubmissionVersion::create([
@@ -2460,7 +2457,6 @@ class V4EvaluationController extends Controller
                             } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
                                 // Update pending submission to uploaded
                                 $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-
                             } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
                                 // Delete old consultation rejection notifications
                                 $this->deleteEvaluationRejectionNotifications($submission);
@@ -2712,7 +2708,7 @@ class V4EvaluationController extends Controller
                         } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                             $fileMeta = $version->report->submission->currentVersion->file_meta;
                             return [
-                                'type' => 'video',
+                                'type' => 'consultation_report',
                                 'id' => $version->id,
                                 'reportId' => $version->report_id,
                                 'consultationDate' => $version->consultation_date,
@@ -2725,7 +2721,7 @@ class V4EvaluationController extends Controller
                         } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                             $fileMeta = $version->file_meta;
                             return [
-                                'type' => 'report',
+                                'type' => 'mentorship_report',
                                 'id' => $version->id,
                                 'name' => $fileMeta['original_name'] ?? '',
                                 'url' => $fileMeta['video_url'] ?? '',
@@ -2860,7 +2856,7 @@ class V4EvaluationController extends Controller
                     } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                         $fileMeta = $version->report->submission->currentVersion->file_meta;
                         return [
-                            'type' => 'video',
+                            'type' => 'consultation_report',
                             'id' => $version->id,
                             'reportId' => $version->report_id,
                             'consultationDate' => $version->consultation_date,
@@ -2873,7 +2869,7 @@ class V4EvaluationController extends Controller
                     } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                         $fileMeta = $version->file_meta;
                         return [
-                            'type' => 'report',
+                            'type' => 'mentorship_report',
                             'id' => $version->id,
                             'name' => $fileMeta['original_name'] ?? '',
                             'url' => $fileMeta['video_url'] ?? '',
@@ -3038,12 +3034,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3764,12 +3760,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3962,12 +3958,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $mentorshipRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $mentorshipRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
