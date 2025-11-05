@@ -2378,6 +2378,7 @@ class V4EvaluationController extends Controller
                                 'report_id' => $validated['evaluation_id'],
                                 'mentorship_weekday' => $validated['weekday'],
                                 'consultation_time' => $validated['time'],
+                                'mentorship_upload_type' => EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO,
                                 'file_path' => 'N/A',
                                 'uploaded_by' => $user->id,
                                 'file_meta' => [],
@@ -5141,6 +5142,7 @@ class V4EvaluationController extends Controller
                     'mentorship_weekday' => $previousVersion->mentorship_weekday,
                     'consultation_time' => $previousVersion->consultation_time,
                     'consultation_date' => $previousVersion->consultation_date,
+                    'mentorship_upload_type' => EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_REQUESTED_VIDEO,
                     'file_path' => $videoUrl,
                     'uploaded_by' => $user->id,
                     'file_meta' => $fileMeta,
@@ -5373,7 +5375,7 @@ class V4EvaluationController extends Controller
      * @param int $evaluation_id
      * @return JsonResponse
      */
-    public function getConsultationReport(int $evaluation_id): JsonResponse
+    public function getConsultationReport(string $evaluation_id): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
@@ -5384,7 +5386,7 @@ class V4EvaluationController extends Controller
                 'submission.currentVersion',
                 'submission.player',
                 'evaluator'
-            ])->find($evaluation_id);
+            ])->find((int) $evaluation_id);
 
             if (!$evaluation) {
                 return response()->json([
@@ -5535,13 +5537,266 @@ class V4EvaluationController extends Controller
     }
 
     /**
+     * Get mentorship report by evaluation ID
+     *
+     * @param int $evaluation_id
+     * @return JsonResponse
+     */
+    public function getMentorshipReport(string $evaluation_id): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Get evaluation with all relationships
+            $evaluation = Evaluation::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.currentVersion',
+                'submission.player.playerProfile',
+                'evaluator',
+                'answers.question.category',
+                'answers.option'
+            ])->find((int) $evaluation_id);
+
+            if (!$evaluation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Evaluation not found',
+                ], 404);
+            }
+
+            // Get marketplace type
+            $marketplaceType = $evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first()->type ?? null;
+
+            // Verify this is a mentorship program
+            if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for 12-week mentorship program evaluations',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
+            }
+
+            // Get the submission and current version
+            $submission = $evaluation->submission;
+            $currentVersion = $submission->currentVersion;
+
+            if (!$currentVersion) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No current version found for this submission',
+                ], 404);
+            }
+
+            // Get the report_id from current version (for linked personalized evaluation)
+            $reportId = $currentVersion->report_id;
+
+            // Determine mentorship type
+            $mentorshipType = $reportId ? 'by_evaluation' : 'by_video';
+
+            // Get personalized evaluation if linked (only for by_evaluation type)
+            $personalizedEvaluation = null;
+            if ($mentorshipType === 'by_evaluation' && $reportId) {
+                $personalizedEvaluation = Evaluation::find($reportId);
+            }
+
+            // Get mentorship feedback for this evaluation
+            $feedback = V4ConsultationFeedback::with([
+                'submissionVersion'
+            ])->where('evaluation_id', $evaluation_id)->first();
+
+            if (!$feedback) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mentorship feedback not found for this evaluation',
+                ], 404);
+            }
+
+            // Get player and evaluator
+            $player = $evaluation->submission->player ?? null;
+            $playerProfile = $player->playerProfile ?? null;
+            $evaluator = $evaluation->evaluator;
+            $inAppPurchase = $evaluation->submission->paymentRequest->inAppPurchase ?? null;
+
+            // Group answers by category (using same structure as getEvaluationReport)
+            $categorizedAnswers = [];
+
+            foreach ($evaluation->answers as $answer) {
+                $category = $answer->question->category;
+                $categorySlug = $category->slug;
+
+                // Initialize category if not exists
+                if (!isset($categorizedAnswers[$categorySlug])) {
+                    $categorizedAnswers[$categorySlug] = [
+                        'category_id' => $category->id,
+                        'category_name' => $category->name,
+                        'category_slug' => $categorySlug,
+                        'note' => null,
+                        'average_rating' => 0,
+                        'total_rating' => 0,
+                        'question_count' => 0,
+                        'questions' => []
+                    ];
+                }
+
+                // Add question and answer details
+                $categorizedAnswers[$categorySlug]['questions'][] = [
+                    'question_id' => $answer->question->id,
+                    'question_title' => $answer->question->title,
+                    'question_text' => $answer->question->question,
+                    'selected_option_id' => $answer->question_option_id,
+                    'selected_option_text' => $answer->option->option ?? null,
+                    'rating' => $answer->rating,
+                ];
+
+                // Accumulate ratings for average calculation
+                $categorizedAnswers[$categorySlug]['total_rating'] += $answer->rating;
+                $categorizedAnswers[$categorySlug]['question_count']++;
+
+                // Set note for category (same for all questions in category)
+                if ($answer->comment && !$categorizedAnswers[$categorySlug]['note']) {
+                    $categorizedAnswers[$categorySlug]['note'] = $answer->comment;
+                }
+            }
+
+            // Calculate average rating for each category and clean up temporary fields
+            foreach ($categorizedAnswers as $slug => &$category) {
+                if ($category['question_count'] > 0) {
+                    $category['average_rating'] = round($category['total_rating'] / $category['question_count'], 1);
+                }
+                // Remove temporary calculation fields
+                unset($category['total_rating']);
+                unset($category['question_count']);
+            }
+
+            // Convert to indexed array
+            $categories = array_values($categorizedAnswers);
+
+            // Helper function to get video path from submission version
+            $getVideoPath = function ($submissionVersion) {
+                if (!$submissionVersion) {
+                    return null;
+                }
+
+                // If submission version has report_id, follow the chain
+                if ($submissionVersion->report_id) {
+                    $linkedEvaluation = Evaluation::with('submission.currentVersion')->find($submissionVersion->report_id);
+                    if ($linkedEvaluation && $linkedEvaluation->submission && $linkedEvaluation->submission->currentVersion) {
+                        return $linkedEvaluation->submission->currentVersion->file_path;
+                    }
+                }
+
+                // Otherwise, return the file_path directly
+                return $submissionVersion->file_path;
+            };
+
+            // Get new video (latest submission version)
+            $latestSubmissionVersion = EvaluationSubmissionVersion::where('submission_id', $submission->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+            $newVideo = $getVideoPath($latestSubmissionVersion);
+
+            // Get old video (oldest submission version)
+            $oldestSubmissionVersion = EvaluationSubmissionVersion::where('submission_id', $submission->id)
+                ->where('mentorship_upload_type', EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO)
+                ->orderBy('created_at', 'asc')
+                ->first();
+            $oldVideo = $getVideoPath($oldestSubmissionVersion);
+
+            // Build evaluation object based on mentorship type
+            $evaluationData = [
+                'id' => $evaluation->id,
+                'status' => $evaluation->status,
+                'notes' => $evaluation->notes,
+                'created_at' => $evaluation->created_at->toISOString(),
+                'meta' => $evaluation->meta,
+                'new_video' => $newVideo,
+                'old_video' => $oldVideo,
+            ];
+
+            // Format the response
+            $reportData = [
+                'evaluation_id' => $evaluation->id,
+                'feedback_id' => $feedback->id,
+                'mentorship_type' => $mentorshipType,
+                'mentorship_weekday' => $feedback->submissionVersion->mentorship_weekday ?? null,
+                'mentorship_time' => $feedback->submissionVersion->consultation_time ?? null,
+                'created_at' => $evaluation->created_at->toISOString(),
+
+                // Feedback details
+                'feedback' => $feedback,
+
+                // Evaluator details
+                'evaluator' => $evaluator ? [
+                    'id' => $evaluator->id,
+                    'first_name' => $evaluator->first_name,
+                    'last_name' => $evaluator->last_name,
+                    'full_name' => $evaluator->first_name . ' ' . $evaluator->last_name,
+                    'email' => $evaluator->email,
+                    'profile_photo' => $evaluator->profile_photo,
+                    'role' => $evaluator->role,
+                ] : null,
+
+                // Player details
+                'player' => $player ? [
+                    'id' => $player->id,
+                    'first_name' => $player->first_name,
+                    'last_name' => $player->last_name,
+                    'full_name' => $player->first_name . ' ' . $player->last_name,
+                    'email' => $player->email,
+                    'profile_photo' => $player->profile_photo,
+                    'role' => $player->role,
+                    'date_of_birth' => $player->date_of_birth,
+                    'location' => $player->state . ', ' . $player->country,
+                    'player_profile' => $playerProfile,
+                ] : null,
+
+                'personalized_evaluation' => ($mentorshipType === 'by_evaluation' && $personalizedEvaluation) ? $personalizedEvaluation : null,
+
+                'mentorship_result' => [
+                    // Evaluation details (with conditional personalized_evaluation)
+                    'evaluation' => $evaluationData,
+
+                    // Categories with average ratings (same structure as getEvaluationReport)
+                    'categories' => $categories,
+                ],
+
+                // In-app purchase details
+                'in_app_purchase' => $inAppPurchase,
+
+                // Submission details
+                'submission' => [
+                    'id' => $evaluation->submission_id,
+                    'status' => $evaluation->submission->status ?? null,
+                ],
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mentorship report retrieved successfully',
+                'data' => $reportData,
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching mentorship report: ' . $e->getMessage(), [
+                'evaluation_id' => $evaluation_id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve mentorship report',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Get submission result with evaluation details
      *
      * @param Request $request
      * @param int $evaluationId
      * @return JsonResponse
      */
-    public function getEvaluationReport(int $evaluationId): JsonResponse
+    public function getEvaluationReport(string $evaluationId): JsonResponse
     {
         try {
             // Get evaluation with all related data
@@ -5551,7 +5806,7 @@ class V4EvaluationController extends Controller
                 'evaluator',
                 'answers.question.category',
                 'answers.option'
-            ])->find($evaluationId);
+            ])->find((int) $evaluationId);
 
             if (!$evaluation) {
                 return response()->json(['success' => false, 'message' => 'Evaluation not found'], 404);
