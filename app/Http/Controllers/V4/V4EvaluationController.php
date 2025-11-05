@@ -2378,6 +2378,7 @@ class V4EvaluationController extends Controller
                                 'report_id' => $validated['evaluation_id'],
                                 'mentorship_weekday' => $validated['weekday'],
                                 'consultation_time' => $validated['time'],
+                                'mentorship_upload_type' => EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO,
                                 'file_path' => 'N/A',
                                 'uploaded_by' => $user->id,
                                 'file_meta' => [],
@@ -5141,6 +5142,7 @@ class V4EvaluationController extends Controller
                     'mentorship_weekday' => $previousVersion->mentorship_weekday,
                     'consultation_time' => $previousVersion->consultation_time,
                     'consultation_date' => $previousVersion->consultation_date,
+                    'mentorship_upload_type' => EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_REQUESTED_VIDEO,
                     'file_path' => $videoUrl,
                     'uploaded_by' => $user->id,
                     'file_meta' => $fileMeta,
@@ -5696,6 +5698,7 @@ class V4EvaluationController extends Controller
 
             // Get old video (oldest submission version)
             $oldestSubmissionVersion = EvaluationSubmissionVersion::where('submission_id', $submission->id)
+                ->where('mentorship_upload_type', EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO)
                 ->orderBy('created_at', 'asc')
                 ->first();
             $oldVideo = $getVideoPath($oldestSubmissionVersion);

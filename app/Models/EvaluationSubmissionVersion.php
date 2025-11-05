@@ -16,6 +16,10 @@ class EvaluationSubmissionVersion extends Model
 {
     use HasFactory;
 
+    // Mentorship upload type constants
+    const MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO = 'submitted_video';
+    const MENTORSHIP_UPLOAD_TYPE_REQUESTED_VIDEO = 'requested_video';
+
     protected $fillable = [
         'submission_id',
         'file_path',
@@ -26,6 +30,7 @@ class EvaluationSubmissionVersion extends Model
         'consultation_date',
         'consultation_time',
         'mentorship_weekday',
+        'mentorship_upload_type',
     ];
 
     protected $casts = [
