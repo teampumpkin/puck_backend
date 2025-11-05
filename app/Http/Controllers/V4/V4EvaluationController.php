@@ -5375,7 +5375,7 @@ class V4EvaluationController extends Controller
      * @param int $evaluation_id
      * @return JsonResponse
      */
-    public function getConsultationReport(int $evaluation_id): JsonResponse
+    public function getConsultationReport(string $evaluation_id): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
@@ -5386,7 +5386,7 @@ class V4EvaluationController extends Controller
                 'submission.currentVersion',
                 'submission.player',
                 'evaluator'
-            ])->find($evaluation_id);
+            ])->find((int) $evaluation_id);
 
             if (!$evaluation) {
                 return response()->json([
@@ -5542,7 +5542,7 @@ class V4EvaluationController extends Controller
      * @param int $evaluation_id
      * @return JsonResponse
      */
-    public function getMentorshipReport(int $evaluation_id): JsonResponse
+    public function getMentorshipReport(string $evaluation_id): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
@@ -5555,7 +5555,7 @@ class V4EvaluationController extends Controller
                 'evaluator',
                 'answers.question.category',
                 'answers.option'
-            ])->find($evaluation_id);
+            ])->find((int) $evaluation_id);
 
             if (!$evaluation) {
                 return response()->json([
@@ -5565,8 +5565,7 @@ class V4EvaluationController extends Controller
             }
 
             // Get marketplace type
-            $marketplace = $evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first() ?? null;
-            $marketplaceType = $marketplace->type ?? null;
+            $marketplaceType = $evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first()->type ?? null;
 
             // Verify this is a mentorship program
             if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
@@ -5724,11 +5723,7 @@ class V4EvaluationController extends Controller
                 'created_at' => $evaluation->created_at->toISOString(),
 
                 // Feedback details
-                'feedback' => [
-                    'id' => $feedback->id,
-                    'remarks' => $feedback->remarks,
-                    'urls' => $feedback->urls,
-                ],
+                'feedback' => $feedback,
 
                 // Evaluator details
                 'evaluator' => $evaluator ? [
@@ -5752,12 +5747,7 @@ class V4EvaluationController extends Controller
                     'role' => $player->role,
                     'date_of_birth' => $player->date_of_birth,
                     'location' => $player->state . ', ' . $player->country,
-                    'player_profile' => $playerProfile ? [
-                        'position' => $playerProfile->position,
-                        'height' => $playerProfile->height,
-                        'weight' => $playerProfile->weight,
-                        'jersey_number' => $playerProfile->jersey_number,
-                    ] : null,
+                    'player_profile' => $playerProfile,
                 ] : null,
 
                 'personalized_evaluation' => ($mentorshipType === 'by_evaluation' && $personalizedEvaluation) ? $personalizedEvaluation : null,
@@ -5771,17 +5761,7 @@ class V4EvaluationController extends Controller
                 ],
 
                 // In-app purchase details
-                'in_app_purchase' => $inAppPurchase ? [
-                    'id' => $inAppPurchase->id,
-                    'sku' => $inAppPurchase->sku,
-                    'title' => $inAppPurchase->title,
-                    'amount' => $inAppPurchase->amount,
-                    'formatted_amount' => $inAppPurchase->formatted_amount,
-                    'currency' => $inAppPurchase->currency,
-                ] : null,
-
-                // Marketplace
-                'marketplace' => $marketplace,
+                'in_app_purchase' => $inAppPurchase,
 
                 // Submission details
                 'submission' => [
@@ -5816,7 +5796,7 @@ class V4EvaluationController extends Controller
      * @param int $evaluationId
      * @return JsonResponse
      */
-    public function getEvaluationReport(int $evaluationId): JsonResponse
+    public function getEvaluationReport(string $evaluationId): JsonResponse
     {
         try {
             // Get evaluation with all related data
@@ -5826,7 +5806,7 @@ class V4EvaluationController extends Controller
                 'evaluator',
                 'answers.question.category',
                 'answers.option'
-            ])->find($evaluationId);
+            ])->find((int) $evaluationId);
 
             if (!$evaluation) {
                 return response()->json(['success' => false, 'message' => 'Evaluation not found'], 404);
