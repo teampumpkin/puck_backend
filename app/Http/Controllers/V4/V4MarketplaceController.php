@@ -283,7 +283,7 @@ class V4MarketplaceController extends Controller
                 'user_id' => $authUser->id,
                 'marketplace_id' => $v4MarketplaceId,
                 'error' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -352,9 +352,8 @@ class V4MarketplaceController extends Controller
         } catch (ModelNotFoundException $e) {
             Log::warning('Post not found or access denied.', [
                 'user_id' => $authUser->id,
-                'marketplace_id' => $v4MarketplaceId,
                 'error' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -364,7 +363,6 @@ class V4MarketplaceController extends Controller
         } catch (Exception $e) {
             Log::error('Error retrieving marketplace item.', [
                 'user_id' => $authUser->id,
-                'marketplace_id' => $v4MarketplaceId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -578,7 +576,7 @@ class V4MarketplaceController extends Controller
             Log::warning('Post not found during deletion attempt.', [
                 'marketplace_id' => $v4MarketplaceId,
                 'user_id' => $authUser->id,
-                'trace'   => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             DB::rollBack();
