@@ -472,7 +472,9 @@ Route::prefix('v4')->group(function () {
                 ->where('action', 'accept|reject');
             Route::post('/submit-mentorship-assignment', [V4EvaluationController::class, 'submitMentorshipAssignment']);
             Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
+            Route::post('/request-video-for-mentorship', [V4EvaluationController::class, 'requestVideoForMentorship']);
             Route::post('/upload-mentorship-assignment-request-video', [V4EvaluationController::class, 'uploadMentorshipAssignmentRequestVideo']);
+            Route::post('/reject-uploaded-request-video', [V4EvaluationController::class, 'rejectUploadedRequestVideo']);
             Route::get('/get-mentorship-report/{evaluation_id}', [V4EvaluationController::class, 'getMentorshipReport']);
 
             // My Report
