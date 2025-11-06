@@ -78,6 +78,12 @@ class EvaluationSubmission extends Model
         return $this->hasMany(Evaluation::class, 'submission_id');
     }
 
+
+    public function evaluation()
+    {
+        return $this->hasOne(Evaluation::class, 'submission_id');
+    }
+
     /* --------------------
      | Scopes
      --------------------*/
