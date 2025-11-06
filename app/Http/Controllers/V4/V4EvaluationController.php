@@ -2253,7 +2253,6 @@ class V4EvaluationController extends Controller
                         } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
                             // Update pending submission to uploaded
                             $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-
                         } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
                             // Delete old consultation rejection notifications
                             $this->deleteEvaluationRejectionNotifications($submission);
@@ -2362,7 +2361,6 @@ class V4EvaluationController extends Controller
                             } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
                                 // Update pending submission to uploaded
                                 $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-
                             } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
                                 // Delete old consultation rejection notifications
                                 $this->deleteEvaluationRejectionNotifications($submission);
@@ -2370,7 +2368,6 @@ class V4EvaluationController extends Controller
                                 // Update rejected submission to assigned
                                 $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
                                 $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
-
                             }
 
                             $submissionVersion = EvaluationSubmissionVersion::create([
@@ -2461,7 +2458,6 @@ class V4EvaluationController extends Controller
                             } else if ($submission->status === EvaluationSubmission::STATUS_PENDING) {
                                 // Update pending submission to uploaded
                                 $submission->update(['status' => EvaluationSubmission::STATUS_UPLOADED]);
-
                             } elseif ($submission->status === EvaluationSubmission::STATUS_REJECTED) {
                                 // Delete old consultation rejection notifications
                                 $this->deleteEvaluationRejectionNotifications($submission);
@@ -2713,7 +2709,7 @@ class V4EvaluationController extends Controller
                         } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                             $fileMeta = $version->report->submission->currentVersion->file_meta;
                             return [
-                                'type' => 'video',
+                                'type' => 'consultation_report',
                                 'id' => $version->id,
                                 'reportId' => $version->report_id,
                                 'consultationDate' => $version->consultation_date,
@@ -2726,7 +2722,7 @@ class V4EvaluationController extends Controller
                         } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                             $fileMeta = $version->file_meta;
                             return [
-                                'type' => 'report',
+                                'type' => 'mentorship_report',
                                 'id' => $version->id,
                                 'name' => $fileMeta['original_name'] ?? '',
                                 'url' => $fileMeta['video_url'] ?? '',
@@ -2861,7 +2857,7 @@ class V4EvaluationController extends Controller
                     } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                         $fileMeta = $version->report->submission->currentVersion->file_meta;
                         return [
-                            'type' => 'video',
+                            'type' => 'consultation_report',
                             'id' => $version->id,
                             'reportId' => $version->report_id,
                             'consultationDate' => $version->consultation_date,
@@ -2874,7 +2870,154 @@ class V4EvaluationController extends Controller
                     } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                         $fileMeta = $version->file_meta;
                         return [
+                            'type' => 'mentorship_report',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'] ?? '',
+                            'url' => $fileMeta['video_url'] ?? '',
+                            'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                            'reportId' => $version->report_id ?? '',
+                            'consultationDate' => $version->consultation_date ?? '',
+                            'consultationTime' => $version->consultation_time ?? '',
+                            'mentorshipWeekday' => $version->mentorship_weekday ?? '',
+                        ];
+                    } else {
+                        $fileMeta = $version->file_meta;
+                        return [
                             'type' => 'report',
+                            'id' => $version->id,
+                        ];
+                    }
+                });
+            } else {
+                $result['materials'] = [];
+            }
+
+            // Include evaluator details if assigned
+            if ($submission->evaluatorAssignment != null) {
+                $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
+                $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
+                $result['status'] = $submission->status;
+            } else if ($submission->consultationRequests->isNotEmpty()) {
+                $latestConsultationRequest = $submission->consultationRequests->first();
+                if ($latestConsultationRequest) {
+                    $result['consultationRequest'] = [
+                        'id' => $latestConsultationRequest->id,
+                        'status' => $latestConsultationRequest->status,
+                        'evaluatorId' => $latestConsultationRequest->evaluator_id,
+                        'evaluationId' => $latestConsultationRequest->evaluation_id,
+                        'submissionVersionId' => $latestConsultationRequest->submission_version_id,
+                        'adminNotes' => $latestConsultationRequest->admin_notes,
+                        'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
+                    ];
+                    $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
+                    $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                    $result['status'] = $latestConsultationRequest->status;
+                } else {
+                    $result['status'] = 'pending_assignment';
+                }
+            } else {
+                $result['status'] = 'pending_assignment';
+            }
+
+
+            // Add completed date if the status is 'completed'
+            if ($submission->status === 'completed') {
+                $result['completedDate'] = $submission->updated_at;
+            }
+
+            return response()->json([
+                'data' => $result,
+            ]);
+        } catch (ModelNotFoundException $e) {
+            // Handle case where the record is not found
+            Log::error('Evaluation Submission not found', [
+                'submission_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Evaluation submission not found',
+            ], 404);
+        } catch (Exception $e) {
+            // Log any other unexpected errors
+            Log::error('Error fetching evaluation submission by ID: ' . $e->getMessage(), [
+                'submission_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch evaluation submission',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    public function getEvaluationRequestByIdAndReportId(Request $request, int $id, int $reportId): JsonResponse
+    {
+        try {
+            // Validate that the ID is a valid integer and exists in the database.
+            // No need to validate as part of the request body anymore.
+            // The id is already passed as a route parameter.
+
+            // Fetch the specific submission by ID, with related models
+            $submission = EvaluationSubmission::with([
+                'player',
+                'paymentRequest.inAppPurchase.marketplaceItem',
+                'versions.report.submission.currentVersion',
+                'consultationRequests.evaluator' => function ($q) {
+                    $q->latest('created_at');
+                },
+                'currentVersion',
+                'evaluatorAssignment',
+                'evaluations',
+                'evaluation',
+            ])
+                ->whereHas('evaluation', function ($q) use ($reportId) {
+                    $q->where('id', $reportId);
+                }) // or 'report_id', depending on your schema
+                ->firstOrFail();
+
+            // Prepare the response data
+            $result = [
+                'id' => $submission->id,
+                'playerId' => $submission->player->id,
+                'playerName' => $submission->player->name,
+                'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
+                'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
+                'price' => $submission->paymentRequest->amount_cents,
+                'updated_at' => $submission->updated_at,
+            ];
+
+            // Include the materials if available
+            if ($submission->versions->isNotEmpty()) {
+                $result['materials'] = $submission->versions->map(function ($version) use ($result) {
+                    if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'video',
+                            'id' => $version->id,
+                            'name' => $fileMeta['original_name'],
+                            'url' => $fileMeta['video_url'],
+                            'uploadedAt' => $fileMeta['uploaded_at'],
+                        ];
+                    } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                        $fileMeta = $version->report->submission->currentVersion->file_meta;
+                        return [
+                            'type' => 'consultation_report',
+                            'id' => $version->id,
+                            'reportId' => $version->report_id,
+                            'consultationDate' => $version->consultation_date,
+                            'consultationTime' => $version->consultation_time,
+                            'name' => $fileMeta['original_name'] ?? '',
+                            'url' => $fileMeta['video_url'] ?? '',
+                            'uploadedAt' => $fileMeta['uploaded_at'] ?? '',
+                            'feedback' => $version->feedback,
+                        ];
+                    } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'mentorship_report',
                             'id' => $version->id,
                             'name' => $fileMeta['original_name'] ?? '',
                             'url' => $fileMeta['video_url'] ?? '',
@@ -3039,12 +3182,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3765,12 +3908,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3963,12 +4106,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $mentorshipRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $mentorshipRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];

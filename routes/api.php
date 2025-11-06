@@ -338,6 +338,7 @@ Route::prefix('v4')->group(function () {
             Route::prefix('evaluations')->group(function () {
                 Route::get('/evaluation-requests', [V4EvaluationController::class, 'getAllEvaluationRequests']);
                 Route::get('/evaluation-requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
+                Route::get('/evaluation-requests/{id}/reports/{reportId}', [V4EvaluationController::class, 'getEvaluationRequestByIdAndReportId']);
                 Route::post('/evaluation-requests/{id}/assign', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
             });
 
