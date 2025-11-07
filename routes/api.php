@@ -406,6 +406,12 @@ Route::prefix('v4')->group(function () {
 
             Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
             Route::get('{userId}/following', [V4FollowController::class, 'following']);
+
+            // Achievement routes
+            Route::get('/get-achievements', [ProfileController::class, 'getAchievements']);
+            Route::post('/create-achievement', [ProfileController::class, 'createAchievement']);
+            Route::post('/update-achievement', [ProfileController::class, 'updateAchievement']);
+            Route::delete('/delete-achievement/{achievementId}', [ProfileController::class, 'deleteAchievement']);
         });
 
 
