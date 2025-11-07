@@ -25,6 +25,8 @@ class EvaluationSubmission extends Model
     const STATUS_REJECTED = 'rejected';
     const STATUS_COMPLETED = 'completed';
     const STATUS_REQUEST_VIDEO = 'request_video';
+    const STATUS_REQUEST_VIDEO_ACCEPTED = 'request_video_accepted';
+    const STATUS_REQUEST_VIDEO_REJECTED = 'request_video_rejected';
 
     protected $fillable = [
         'player_id',
