@@ -5354,6 +5354,161 @@ class V4EvaluationController extends Controller
     }
 
     /**
+     * Get requested video status for mentorship program
+     *
+     * @param String $assignment_id
+     * @return JsonResponse
+     */
+    public function getRequestedVideoStatus(string $assignment_id): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can check video status.',
+                ], 403);
+            }
+
+            // Get assignment with relationships
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.currentVersion',
+                'evaluator'
+            ])->find((int) $assignment_id);
+
+            if (!$assignment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Assignment not found',
+                ], 404);
+            }
+
+            // Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship program
+            if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship program assignments',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
+            }
+
+            $submission = $assignment->submission;
+            $submissionStatus = $submission->status;
+
+            // Check if status is STATUS_REQUEST_VIDEO_REJECTED or STATUS_REQUEST_VIDEO
+            if (in_array($submissionStatus, [EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED, EvaluationSubmission::STATUS_REQUEST_VIDEO])) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Video request is in progress',
+                    'data' => [
+                        'status' => 'in_progress',
+                    ],
+                ], 200);
+            }
+
+            // Check if status is IN_PROGRESS
+            if ($submissionStatus === EvaluationSubmission::STATUS_IN_PROGRESS) {
+                $currentVersion = $submission->currentVersion;
+
+                if (!$currentVersion) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No current version found for this submission',
+                    ], 404);
+                }
+
+                $mentorshipUploadType = $currentVersion->mentorship_upload_type;
+
+                // If mentorship_upload_type is SUBMITTED_VIDEO
+                if ($mentorshipUploadType === EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Video upload is pending review',
+                        'data' => [
+                            'status' => 'pending',
+                        ],
+                    ], 200);
+                }
+
+                // If mentorship_upload_type is REQUESTED_VIDEO
+                if ($mentorshipUploadType === EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_REQUESTED_VIDEO) {
+                    $getVideoPath = function ($submissionVersion) {
+                        if (!$submissionVersion) {
+                            return null;
+                        }
+
+                        if ($submissionVersion->report_id) {
+                            $linkedEvaluation = Evaluation::with('submission.currentVersion')->find($submissionVersion->report_id);
+                            if ($linkedEvaluation && $linkedEvaluation->submission && $linkedEvaluation->submission->currentVersion) {
+                                return $linkedEvaluation->submission->currentVersion->file_path;
+                            }
+                        }
+
+                        return $submissionVersion->file_path;
+                    };
+
+                    $newVideo = $currentVersion->file_path;
+
+                    $oldestSubmissionVersion = EvaluationSubmissionVersion::where('submission_id', $submission->id)
+                        ->where('mentorship_upload_type', EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO)
+                        ->orderBy('created_at', 'asc')
+                        ->first();
+                    $oldVideo = $getVideoPath($oldestSubmissionVersion);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Requested video has been uploaded',
+                        'data' => [
+                            'status' => 'uploaded',
+                            'new_video' => $newVideo,
+                            'old_video' => $oldVideo,
+                        ],
+                    ], 200);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid mentorship upload type',
+                    'current_upload_type' => $mentorshipUploadType,
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid submission status for video request check',
+                'submission_status' => $submissionStatus,
+            ], 400);
+
+        } catch (Exception $e) {
+            Log::error('Error getting requested video status: ' . $e->getMessage(), [
+                'assignment_id' => $assignment_id,
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get requested video status',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Reject uploaded request video for mentorship program
      *
      * @param Request $request
