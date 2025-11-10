@@ -19,13 +19,14 @@ class AddFieldsToV4PaymentTransactionsTable extends Migration
             $table->string('purchase_id')->nullable()->before('status');
             $table->enum('source', ['ios', 'android', 'web', 'window', 'linux', 'macos'])->nullable()->after('purchase_id');
             $table->json('verification_data')->nullable()->after('source');
-            $table->json('local_data')->nullable()->after('verification_data');
-            $table->string('store_status')->nullable()->after('local_data');
+            $table->string('store_status')->nullable()->after('verification_data');
             $table->timestamp('transaction_date')->nullable()->after('store_status');
             $table->json('payload')->nullable()->after('transaction_date');
 
             $table->foreign('product_id')->references('id')->on('v4_in_app_purchases')->onDelete('set null');
             $table->index('product_id');
+
+            $table->unique(['purchase_id', 'source'], 'unique_purchase_source');
         });
     }
 
@@ -37,16 +38,16 @@ class AddFieldsToV4PaymentTransactionsTable extends Migration
     public function down()
     {
         Schema::table('v4_payment_transactions', function (Blueprint $table) {
+            $table->dropUnique('unique_purchase_source');
             // Drop FK + index + column
             $table->dropForeign(['product_id']);
             $table->dropIndex(['product_id']);
-            $table->dropColumn('product_id');
 
             // Reverse the store fields
+            $table->dropColumn('product_id');
             $table->dropColumn('purchase_id');
             $table->dropColumn('source');
             $table->dropColumn('verification_data');
-            $table->dropColumn('local_data');
             $table->dropColumn('store_status');
             $table->dropColumn('transaction_date');
             $table->dropColumn('payload');
