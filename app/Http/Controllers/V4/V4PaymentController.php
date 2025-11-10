@@ -197,7 +197,7 @@ class V4PaymentController extends Controller
                 }
 
                 if ($latestPayment->notification) {
-                    $this->handlePaymentSuccessNotifications($latestPayment, $inAppPurchase, $user);
+                    $this->handlePaymentSuccessNotifications($latestPayment, $inAppPurchase, $player);
                 }
 
                 // Transaction for payment approval
