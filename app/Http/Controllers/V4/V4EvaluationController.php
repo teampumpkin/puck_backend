@@ -2640,14 +2640,14 @@ class V4EvaluationController extends Controller
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
-                'sort_by' => 'nullable|string|in:first_name,last_name,role,current_version_created_at',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role,created_at',
                 'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
             $searchTerm = $validated['q'] ?? '';
             $page = $validated['page'] ?? 1;
-            $perPage = $validated['per_page'] ?? 15;
-            $sortBy = $validated['sort_by'] ?? 'current_version_created_at';
+            $perPage = $validated['per_page'] ?? 10;
+            $sortBy = $validated['sort_by'] ?? 'created_at';
             $sortOrder = $validated['sort_order'] ?? 'desc';
 
             $query = EvaluationSubmission::query();
@@ -2773,7 +2773,6 @@ class V4EvaluationController extends Controller
                 if ($submission['status'] === 'completed') {
                     $result['completedDate'] = $submission->updated_at;
                 }
-                $result['submission'] = $submission;
 
                 return $result;
             }));
