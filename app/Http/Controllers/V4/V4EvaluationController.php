@@ -5718,6 +5718,7 @@ class V4EvaluationController extends Controller
             // Get assignment with submission
             $assignment = EvaluatorAssignment::with([
                 'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.currentVersion',
                 'evaluator'
             ])->find($assignmentId);
 
