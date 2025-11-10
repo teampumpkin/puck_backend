@@ -2094,7 +2094,7 @@ class V4EvaluationController extends Controller
 
                 // Check submission status
                 if ($submission) {
-                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_IN_PROGRESS])) {
+                    if (in_array($submission->status, [EvaluationSubmission::STATUS_UPLOADED, EvaluationSubmission::STATUS_ASSIGNED, EvaluationSubmission::STATUS_IN_PROGRESS, EvaluationSubmission::STATUS_REQUEST_VIDEO, EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED])) {
                         return response()->json(['success' => false, 'message' => 'A submission is already in process'], 400);
                     }
 
@@ -2323,15 +2323,6 @@ class V4EvaluationController extends Controller
 
                     // Handle evaluation_id (evaluation-based mentorship)
                     if (!empty($validated['evaluation_id'])) {
-                        // Check if submission status is request_video
-                        if ($submission && $submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Upload video instead of evaluation-id',
-                                'submission_status' => $submission->status,
-                            ], 400);
-                        }
-
                         // Verify evaluation exists and is submitted
                         $evaluation = Evaluation::find($validated['evaluation_id']);
                         if (!$evaluation || $evaluation->status !== Evaluation::STATUS_SUBMITTED) {
@@ -2465,45 +2456,6 @@ class V4EvaluationController extends Controller
                                 // Update rejected submission to assigned
                                 $submission->update(['status' => EvaluationSubmission::STATUS_ASSIGNED]);
                                 $submission->evaluatorAssignment->update(['status' => EvaluatorAssignment::STATUS_PENDING]);
-                            } elseif ($submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO) {
-                                // Handle requested video re-upload
-                                $previousVersion = $submission->currentVersion;
-
-                                // Create new version based on previous one, only update file_path
-                                $submissionVersion = EvaluationSubmissionVersion::create([
-                                    'submission_id' => $submission->id,
-                                    'report_id' => $previousVersion->report_id,
-                                    'mentorship_weekday' => $previousVersion->mentorship_weekday,
-                                    'consultation_time' => $previousVersion->consultation_time,
-                                    'file_path' => $videoUrl,
-                                    'uploaded_by' => $user->id,
-                                    'file_meta' => $fileMeta,
-                                ]);
-
-                                // Update submission with new version and status
-                                $submission->update([
-                                    'current_version_id' => $submissionVersion->id,
-                                    'status' => EvaluationSubmission::STATUS_IN_PROGRESS,
-                                ]);
-
-                                DB::commit();
-
-                                return response()->json([
-                                    'success' => true,
-                                    'message' => 'Requested Video uploaded',
-                                    'data' => [
-                                        'player_id' => $playerId,
-                                        'submission_id' => $submission->id,
-                                        'submission_version_id' => $submissionVersion->id,
-                                        'weekday' => $previousVersion->mentorship_weekday,
-                                        'time' => $previousVersion->consultation_time,
-                                        'video_url' => $videoUrl,
-                                        'file_size' => $fileSize,
-                                        'mime_type' => $mimeType,
-                                        'status' => $submission->status,
-                                        'uploaded_at' => now()->toISOString(),
-                                    ],
-                                ], 201);
                             }
 
                             $submissionVersion = EvaluationSubmissionVersion::create([
@@ -3181,12 +3133,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            (string) $authUser->id,
-                            (string) $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    (string) $authUser->id,
+                                    (string) $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3758,7 +3710,7 @@ class V4EvaluationController extends Controller
                     }
                 }
 
-                if ($submission->status === EvaluationSubmission::STATUS_REQUEST_VIDEO && $marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                if (in_array($submission->status, [EvaluationSubmission::STATUS_REQUEST_VIDEO, EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED]) && $marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
                     return response()->json(['success' => true, 'status' => $submission->status, 'redirect' => 'mentorship_request_video'], 200);
                 }
             }
@@ -3907,12 +3859,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $consultationRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $consultationRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4105,12 +4057,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                (string) $mentorshipRequest->submission->player_id,
-                                (string) $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        (string) $mentorshipRequest->submission->player_id,
+                                        (string) $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -5236,10 +5188,10 @@ class V4EvaluationController extends Controller
             }
 
             // Check submission status must be request_video
-            if ($submission->status !== EvaluationSubmission::STATUS_REQUEST_VIDEO) {
+            if (!in_array($submission->status, [EvaluationSubmission::STATUS_REQUEST_VIDEO, EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED])) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Cannot upload video. Submission status is '{$submission->status}', but must be 'request_video'",
+                    'message' => "Cannot upload video. Submission status is '{$submission->status}', but must be 'request_video' or 'request_video_rejected'",
                     'current_status' => $submission->status,
                 ], 400);
             }
@@ -5298,6 +5250,65 @@ class V4EvaluationController extends Controller
 
                 DB::commit();
 
+                // Send notification to evaluator
+                $submission->load('evaluatorAssignment.evaluator', 'player');
+                $evaluator = $submission->evaluatorAssignment->evaluator ?? null;
+                $player = $submission->player ?? $user;
+
+                if ($evaluator) {
+                    $playerName = $player->first_name . ' ' . $player->last_name;
+                    $title = 'Mentorship Video Uploaded';
+                    $message = "{$playerName} uploaded the video for mentorship program";
+
+                    // Get old video using same logic as getMentorshipReport
+                    $getVideoPath = function ($submissionVersion) {
+                        if (!$submissionVersion) {
+                            return null;
+                        }
+
+                        // If submission version has report_id, follow the chain
+                        if ($submissionVersion->report_id) {
+                            $linkedEvaluation = Evaluation::with('submission.currentVersion')->find($submissionVersion->report_id);
+                            if ($linkedEvaluation && $linkedEvaluation->submission && $linkedEvaluation->submission->currentVersion) {
+                                return $linkedEvaluation->submission->currentVersion->file_path;
+                            }
+                        }
+
+                        // Otherwise, return the file_path directly
+                        return $submissionVersion->file_path;
+                    };
+
+                    // Get old video (oldest submission version with mentorship_upload_type = 'submitted_video')
+                    $oldestSubmissionVersion = EvaluationSubmissionVersion::where('submission_id', $submission->id)
+                        ->where('mentorship_upload_type', EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO)
+                        ->orderBy('created_at', 'asc')
+                        ->first();
+                    $oldVideo = $getVideoPath($oldestSubmissionVersion);
+
+                    $notificationData = [
+                        'type' => 'mentorship_video_uploaded',
+                        'action_required' => true,
+                        'player' => $player->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                        'submission_id' => $submission->id,
+                        'submission_version_id' => $newVersion->id,
+                        'new_video' => $videoUrl,
+                        'old_video' => $oldVideo,
+                    ];
+
+                    $this->notificationService->sendToUserWithUrlIcon(
+                        $evaluator,
+                        $title,
+                        $message,
+                        $player->profile_photo,
+                        '#2196F3',
+                        $notificationData,
+                        'mentorship_video_uploaded',
+                        "evaluation/submissions/{$submission->id}",
+                        'mentorship_video_uploaded_action',
+                        $submission
+                    );
+                }
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Requested video uploaded successfully',
@@ -5336,6 +5347,344 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload requested video',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get requested video status for mentorship program
+     *
+     * @param String $assignment_id
+     * @return JsonResponse
+     */
+    public function getRequestedVideoStatus(string $assignment_id): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can check video status.',
+                ], 403);
+            }
+
+            // Get assignment with relationships
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.currentVersion',
+                'evaluator'
+            ])->find((int) $assignment_id);
+
+            if (!$assignment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Assignment not found',
+                ], 404);
+            }
+
+            // Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship program
+            if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship program assignments',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
+            }
+
+            $submission = $assignment->submission;
+            $submissionStatus = $submission->status;
+
+            // Check if status is STATUS_REQUEST_VIDEO_REJECTED or STATUS_REQUEST_VIDEO
+            if (in_array($submissionStatus, [EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED, EvaluationSubmission::STATUS_REQUEST_VIDEO])) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Video request is in progress',
+                    'data' => [
+                        'status' => 'in_progress',
+                    ],
+                ], 200);
+            }
+
+            // Check if status is IN_PROGRESS
+            if ($submissionStatus === EvaluationSubmission::STATUS_IN_PROGRESS) {
+                $currentVersion = $submission->currentVersion;
+
+                if (!$currentVersion) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No current version found for this submission',
+                    ], 404);
+                }
+
+                $mentorshipUploadType = $currentVersion->mentorship_upload_type;
+
+                // If mentorship_upload_type is SUBMITTED_VIDEO
+                if ($mentorshipUploadType === EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Video upload is pending review',
+                        'data' => [
+                            'status' => 'pending',
+                        ],
+                    ], 200);
+                }
+
+                // If mentorship_upload_type is REQUESTED_VIDEO
+                if ($mentorshipUploadType === EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_REQUESTED_VIDEO) {
+                    $getVideoPath = function ($submissionVersion) {
+                        if (!$submissionVersion) {
+                            return null;
+                        }
+
+                        if ($submissionVersion->report_id) {
+                            $linkedEvaluation = Evaluation::with('submission.currentVersion')->find($submissionVersion->report_id);
+                            if ($linkedEvaluation && $linkedEvaluation->submission && $linkedEvaluation->submission->currentVersion) {
+                                return $linkedEvaluation->submission->currentVersion->file_path;
+                            }
+                        }
+
+                        return $submissionVersion->file_path;
+                    };
+
+                    $newVideo = $currentVersion->file_path;
+
+                    $oldestSubmissionVersion = EvaluationSubmissionVersion::where('submission_id', $submission->id)
+                        ->where('mentorship_upload_type', EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO)
+                        ->orderBy('created_at', 'asc')
+                        ->first();
+                    $oldVideo = $getVideoPath($oldestSubmissionVersion);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Requested video has been uploaded',
+                        'data' => [
+                            'status' => 'uploaded',
+                            'new_video' => $newVideo,
+                            'old_video' => $oldVideo,
+                        ],
+                    ], 200);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid mentorship upload type',
+                    'current_upload_type' => $mentorshipUploadType,
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid submission status for video request check',
+                'submission_status' => $submissionStatus,
+            ], 400);
+
+        } catch (Exception $e) {
+            Log::error('Error getting requested video status: ' . $e->getMessage(), [
+                'assignment_id' => $assignment_id,
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get requested video status',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject uploaded request video for mentorship program
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function rejectUploadedRequestVideo(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can reject videos.',
+                ], 403);
+            }
+
+            // Validate request
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+                'reason_id' => 'required|integer|exists:evaluation_rejection_reasons,id',
+                'note' => 'nullable|string|max:1000',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+            $reasonId = $validated['reason_id'];
+            $note = $validated['note'] ?? null;
+
+            // Get assignment with relationships
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.currentVersion',
+                'submission.player',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Assignment not found',
+                ], 404);
+            }
+
+            // Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship program
+            if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship program assignments',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
+            }
+
+            // Get submission
+            $submission = $assignment->submission;
+            $currentVersion = $submission->currentVersion;
+
+            if (!$currentVersion) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No current version found for this submission',
+                ], 404);
+            }
+
+            // Get rejection reason
+            $rejectionReason = EvaluationRejectionReason::find($reasonId);
+            if (!$rejectionReason) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid rejection reason',
+                ], 400);
+            }
+
+            // Wrap in transaction
+            DB::beginTransaction();
+            try {
+                // Update current version with rejection reason and note
+                $versionNotes = [
+                    'rejection_reason_id' => $reasonId,
+                    'rejection_reason' => $rejectionReason->reason,
+                    'evaluator_note' => $note,
+                    'rejected_at' => now()->toISOString(),
+                    'rejected_by' => $user->id,
+                ];
+
+                $currentVersion->update([
+                    'notes' => json_encode($versionNotes),
+                ]);
+
+                // Update submission status to request_video_rejected
+                $submission->update([
+                    'status' => EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED,
+                ]);
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Mentorship Video Rejected';
+                $message = 'Your uploaded video for mentorship program has been rejected';
+
+                $notificationData = [
+                    'type' => 'mentorship_video_rejected',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'submission_id' => $submission->id,
+                    'rejection_reason' => [
+                        'id' => $rejectionReason->id,
+                        'reason' => $rejectionReason->reason,
+                        'note' => $note,
+                    ],
+                ];
+
+                $this->notificationService->sendToUserWithUrlIcon(
+                    $player,
+                    $title,
+                    $message,
+                    'mentorship_video_rejected', // Evaluator's profile photo as icon
+                    '#F44336', // Red color for rejection
+                    $notificationData,
+                    'mentorship_video_rejected',
+                    "evaluation/submissions/{$submission->id}",
+                    'mentorship_video_rejected_action',
+                    $submission
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Video rejected successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'submission_id' => $submission->id,
+                        'submission_status' => $submission->status,
+                        'current_version_id' => $currentVersion->id,
+                        'rejection_reason' => [
+                            'id' => $rejectionReason->id,
+                            'reason' => $rejectionReason->reason,
+                            'note' => $note,
+                        ],
+                        'player_id' => $player->id,
+                        'player_name' => $player->first_name . ' ' . $player->last_name,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error rejecting uploaded request video: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'reason_id' => $request->input('reason_id'),
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject uploaded request video',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -5506,6 +5855,157 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reject mentorship assignment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Request video for mentorship program
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function requestVideoForMentorship(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Validate user must be an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can request videos.',
+                ], 403);
+            }
+
+            // Validate request
+            $validated = $request->validate([
+                'assignment_id' => 'required|integer|exists:evaluator_assignments,id',
+            ]);
+
+            $assignmentId = $validated['assignment_id'];
+
+            // Get assignment with relationships
+            $assignment = EvaluatorAssignment::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'submission.player',
+                'evaluator'
+            ])->find($assignmentId);
+
+            if (!$assignment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Assignment not found',
+                ], 404);
+            }
+
+            // Authorization: ensure evaluator owns the assignment
+            if ($assignment->evaluator_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized: This assignment does not belong to you.',
+                ], 403);
+            }
+
+            // Get marketplace type
+            $marketplaceType = optional($assignment->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
+
+            // Verify this is a mentorship program
+            if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This endpoint is only for mentorship program assignments',
+                    'marketplace_type' => $marketplaceType,
+                ], 400);
+            }
+
+            // Check assignment status must be in_progress
+            if ($assignment->status !== EvaluatorAssignment::STATUS_IN_PROGRESS) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Assignment status must be 'in_progress'. Current status: {$assignment->status}",
+                    'current_status' => $assignment->status,
+                ], 400);
+            }
+
+            // Check submission status must be in_progress
+            $submission = $assignment->submission;
+            if ($submission->status !== EvaluationSubmission::STATUS_IN_PROGRESS) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Submission status must be 'in_progress'. Current status: {$submission->status}",
+                    'current_status' => $submission->status,
+                ], 400);
+            }
+
+            // Wrap in transaction
+            DB::beginTransaction();
+            try {
+                // Update submission status to request_video
+                $submission->update([
+                    'status' => EvaluationSubmission::STATUS_REQUEST_VIDEO,
+                ]);
+
+                DB::commit();
+
+                // Send notification to player
+                $player = $submission->player;
+                $title = '12-Week Mentorship Program';
+                $message = 'Your 12 week mentorship program requested your last video upload';
+
+                $notificationData = [
+                    'type' => 'mentorship_video_requested',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'submission_id' => $submission->id,
+                ];
+
+                $this->notificationService->sendToUserWithUrlIcon(
+                    $player,
+                    $title,
+                    $message,
+                    "mentorship_video_requested",
+                    '#FF9800',
+                    $notificationData,
+                    'mentorship_video_requested',
+                    "evaluation/submissions/{$submission->id}",
+                    'mentorship_video_requested_action',
+                    $submission
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Video request sent successfully',
+                    'data' => [
+                        'assignment_id' => $assignment->id,
+                        'submission_id' => $submission->id,
+                        'submission_status' => $submission->status,
+                        'player_id' => $player->id,
+                        'player_name' => $player->first_name . ' ' . $player->last_name,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error requesting video for mentorship: ' . $e->getMessage(), [
+                'assignment_id' => $request->input('assignment_id'),
+                'user_id' => Auth::guard('v4api')->id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to request video for mentorship',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }

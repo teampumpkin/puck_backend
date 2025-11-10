@@ -406,6 +406,12 @@ Route::prefix('v4')->group(function () {
 
             Route::get('{userId}/followers', [V4FollowController::class, 'followers']);
             Route::get('{userId}/following', [V4FollowController::class, 'following']);
+
+            // Achievement routes
+            Route::get('/get-achievements', [ProfileController::class, 'getAchievements']);
+            Route::post('/create-achievement', [ProfileController::class, 'createAchievement']);
+            Route::post('/update-achievement', [ProfileController::class, 'updateAchievement']);
+            Route::delete('/delete-achievement/{achievementId}', [ProfileController::class, 'deleteAchievement']);
         });
 
 
@@ -472,7 +478,10 @@ Route::prefix('v4')->group(function () {
                 ->where('action', 'accept|reject');
             Route::post('/submit-mentorship-assignment', [V4EvaluationController::class, 'submitMentorshipAssignment']);
             Route::post('/reject-mentorship-assignment', [V4EvaluationController::class, 'rejectMentorshipAssignment']);
+            Route::post('/request-video-for-mentorship', [V4EvaluationController::class, 'requestVideoForMentorship']);
             Route::post('/upload-mentorship-assignment-request-video', [V4EvaluationController::class, 'uploadMentorshipAssignmentRequestVideo']);
+            Route::get('/get-requested-video-status/{assignment_id}', [V4EvaluationController::class, 'getRequestedVideoStatus']);
+            Route::post('/reject-uploaded-request-video', [V4EvaluationController::class, 'rejectUploadedRequestVideo']);
             Route::get('/get-mentorship-report/{evaluation_id}', [V4EvaluationController::class, 'getMentorshipReport']);
 
             // My Report
