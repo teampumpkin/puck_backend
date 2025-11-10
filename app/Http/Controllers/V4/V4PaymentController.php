@@ -584,14 +584,19 @@ class V4PaymentController extends Controller
             // 2️⃣ Determine who receives the success notification
             $payer = $player->parent ?? $player;
 
+            $title = "✅ Payment Successful";
+            $message =   'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.';
+
+
             // 3️⃣ Send success notification
             $this->notificationService->sendToUserWithImage(
                 $payer,
-                '✅ Payment Successful',
-                'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.',
+                $title,
+                $message,
                 $player->profile_photo ?? '',
                 [
                     'sku' => $inAppPurchase->sku,
+                    'child' => $player,
                     'payment_request_id' => $paymentRequest->id,
                     'amount' => $inAppPurchase->amount_cents,
                     'currency' => $inAppPurchase->currency,
