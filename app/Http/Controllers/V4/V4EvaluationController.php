@@ -18,6 +18,7 @@ use App\Models\V4ConsultationFeedback;
 use App\Models\V4ConsultationRequest;
 use App\Models\V4Marketplace;
 use App\Models\V4PaymentRequest;
+use Carbon\Carbon;
 use App\Models\V4User;
 use App\Models\V4InAppPurchase;
 use App\Services\NotificationService;
@@ -3133,12 +3134,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    (string) $authUser->id,
-                                    (string) $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            (string) $authUser->id,
+                            (string) $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3859,12 +3860,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $consultationRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $consultationRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -3938,6 +3939,89 @@ class V4EvaluationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to process consultation request action',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    public function getConsultationRequestById(Request $request, ?int $consultationRequestId): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            // Ensure the user is an evaluator
+            if (!$user || $user->role !== 'evaluator') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only evaluators can perform this action.',
+                ], 403);
+            }
+
+            $request->validate([
+                'consultationRequestId' => 'nullable|integer|exists:v4_consultation_requests,id',
+            ]);
+
+            $consultationRequest = V4ConsultationRequest::with([
+                'submissionVersion',
+                'submission.player',
+                'submission.paymentRequest.inAppPurchase.marketplaceItems',
+                'evaluator'
+            ])
+                ->where('evaluator_id', $user->id)
+                ->findOrFail($consultationRequestId);
+
+
+            if ($consultationRequest->status !== V4ConsultationRequest::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Consultation already {$consultationRequest->status}",
+                    'current_status' => $consultationRequest->status,
+                ], 400);
+            }
+
+            $consultationDate = $consultationRequest->submissionVersion->consultation_date;
+            $consultationTime = $consultationRequest->submissionVersion->consultation_time;
+
+            // Combine date and time into a Carbon instance
+            $consultationDateTime = null;
+            if ($consultationDate && $consultationTime) {
+                $consultationDateTime = Carbon::parse($consultationDate . ' ' . $consultationTime)->format('Y-m-d H:i:s');
+            }
+
+            $data = [
+                'id' => $consultationRequest->id,
+                'player_name' => $consultationRequest->submission->player->name ?? 'N/A',
+                'marketplaceItem' => $consultationRequest->submission->paymentRequest->inAppPurchase->marketplaceItem,
+                'date_requested' => optional($consultationRequest->created_at)->format('Y-m-d H:i:s'),
+                'selected_time_for_consultation' => $consultationDateTime ?? 'Not selected',
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consultation request retrieved successfully.',
+                'data' => $data,
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Consultation request not found or not assigned to you.',
+            ], 404);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Error retrieving consultation request', [
+                'user_id' => Auth::guard('v4api')->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An unexpected error occurred while processing your request.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -4057,12 +4141,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        (string) $mentorshipRequest->submission->player_id,
-                                        (string) $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                (string) $mentorshipRequest->submission->player_id,
+                                (string) $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -5491,7 +5575,6 @@ class V4EvaluationController extends Controller
                 'message' => 'Invalid submission status for video request check',
                 'submission_status' => $submissionStatus,
             ], 400);
-
         } catch (Exception $e) {
             Log::error('Error getting requested video status: ' . $e->getMessage(), [
                 'assignment_id' => $assignment_id,

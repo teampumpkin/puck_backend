@@ -468,6 +468,7 @@ Route::prefix('v4')->group(function () {
             Route::post('/make-evaluation-in-progress', [V4EvaluationController::class, 'makeEvaluationInProgress']);
 
             // Consultation Request
+            Route::get('/consultation-request/{consultationRequestId}', [V4EvaluationController::class, 'getConsultationRequestById']);
             Route::post('/consultation-request/{action}', [V4EvaluationController::class, 'handleConsultationRequestAction'])->where('action', 'accept|reject');
             Route::post('/submit-consultation-assignment', [V4EvaluationController::class, 'submitConsultationAssignment']);
             Route::post('/reject-consultation-assignment', [V4EvaluationController::class, 'rejectConsultationAssignment']);
