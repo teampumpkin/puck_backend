@@ -468,6 +468,7 @@ class V4PaymentController extends Controller
 
                 $paymentRequestData = [
                     'payer_id' => $payerId,
+                    'parent_id' => $payerId,
                     'player_id' => $playerId,
                     'in_app_purchase_id' => $inAppPurchase->id,
                     'amount_cents' => $inAppPurchase->amount_cents,
