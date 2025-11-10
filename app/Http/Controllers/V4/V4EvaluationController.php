@@ -5497,9 +5497,7 @@ class V4EvaluationController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Video request is in progress',
-                    'data' => [
-                        'status' => 'in_progress',
-                    ],
+                    'redirect' => 'already-requested-video',
                 ], 200);
             }
 
@@ -5521,9 +5519,7 @@ class V4EvaluationController extends Controller
                     return response()->json([
                         'success' => true,
                         'message' => 'Video upload is pending review',
-                        'data' => [
-                            'status' => 'pending',
-                        ],
+                        'redirect' => 'request_video'
                     ], 200);
                 }
 
@@ -5555,8 +5551,8 @@ class V4EvaluationController extends Controller
                     return response()->json([
                         'success' => true,
                         'message' => 'Requested video has been uploaded',
+                        'redirect' => 'requested_video_review',
                         'data' => [
-                            'status' => 'uploaded',
                             'new_video' => $newVideo,
                             'old_video' => $oldVideo,
                         ],
