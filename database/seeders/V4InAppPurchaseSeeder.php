@@ -43,6 +43,15 @@ class V4InAppPurchaseSeeder extends Seeder
                 'active' => true,
                 'currency' => 'CAD'
             ],
+            [
+                'sku' => 'professional_hockey_portfolio',
+                'title' => "Professional Hockey Portfolio",
+                'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
+                'amount_cents' => 25900,
+                'meta' => null,
+                'active' => true,
+                'currency' => 'CAD'
+            ],
         ];
 
         foreach ($inAppPurchases as $purchase) {
