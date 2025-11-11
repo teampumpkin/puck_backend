@@ -13,6 +13,7 @@ class V4PlayerPortfolio extends Model
 
     protected $fillable = [
         'player_id',
+        'submission_id',
         'title',
         'description',
         'thumbnail_path',
@@ -29,5 +30,10 @@ class V4PlayerPortfolio extends Model
     public function player()
     {
         return $this->belongsTo(V4User::class, 'player_id');
+    }
+
+    public function submission()
+    {
+        return $this->belongsTo(EvaluationSubmission::class, 'submission_id');
     }
 }
