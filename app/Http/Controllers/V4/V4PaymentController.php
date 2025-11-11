@@ -9,6 +9,7 @@ use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\NotificationService;
+use App\Services\Payments\PaymentValidator;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,10 +38,22 @@ class V4PaymentController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
-            $validated = $request->validate([
-                'sku' => 'required|string|exists:v4_in_app_purchases,sku',
-                'player_id' => 'nullable|integer|exists:v4_users,id',
-            ]);
+            $validated = (new PaymentValidator)->validate($request);
+
+            // Duplicate prevention (purchase_id + source)
+            if (!empty($validated['purchase_id']) && !empty($validated['source'])) {
+                $existing = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
+                    ->where('source', $validated['source'])
+                    ->first();
+
+                if ($existing) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This purchase has already been processed.',
+                        'payment_transaction_id' => $existing->id,
+                    ], 400);
+                }
+            }
 
             $inAppPurchase = V4InAppPurchase::where('sku', $validated['sku'])->where('active', true)->first();
             if (!$inAppPurchase) {
@@ -116,6 +129,14 @@ class V4PaymentController extends Controller
                         'gateway' => 'internal',
                         'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
                         'status' => V4PaymentTransaction::STATUS_SUCCESS,
+
+                        // new IAP fields
+                        'purchase_id' => $validated['purchase_id'] ?? null,
+                        'source' => $validated['source'] ?? null,
+                        'verification_data' => $validated['verification_data'] ?? null,
+                        'store_status' => $validated['store_status'] ?? null,
+                        'transaction_date' => $validated['transaction_date'] ?? null,
+                        'payload' => $validated['payload'] ?? null,
                     ]);
 
                     $latestPayment->markPaid();
@@ -176,7 +197,7 @@ class V4PaymentController extends Controller
                 }
 
                 if ($latestPayment->notification) {
-                    $this->handlePaymentSuccessNotifications($latestPayment, $inAppPurchase, $user);
+                    $this->handlePaymentSuccessNotifications($latestPayment, $inAppPurchase, $player);
                 }
 
                 // Transaction for payment approval
@@ -190,6 +211,13 @@ class V4PaymentController extends Controller
                         'gateway' => 'internal',
                         'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
                         'status' => V4PaymentTransaction::STATUS_SUCCESS,
+
+                        'purchase_id' => $validated['purchase_id'] ?? null,
+                        'source' => $validated['source'] ?? null,
+                        'verification_data' => $validated['verification_data'] ?? null,
+                        'store_status' => $validated['store_status'] ?? null,
+                        'transaction_date' => $validated['transaction_date'] ?? null,
+                        'payload' => $validated['payload'] ?? null,
                     ]);
 
                     $latestPayment->markPaid();
@@ -265,6 +293,13 @@ class V4PaymentController extends Controller
                         'gateway' => 'internal',
                         'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
                         'status' => V4PaymentTransaction::STATUS_SUCCESS,
+
+                        'purchase_id' => $validated['purchase_id'] ?? null,
+                        'source' => $validated['source'] ?? null,
+                        'verification_data' => $validated['verification_data'] ?? null,
+                        'store_status' => $validated['store_status'] ?? null,
+                        'transaction_date' => $validated['transaction_date'] ?? null,
+                        'payload' => $validated['payload'] ?? null,
                     ]);
 
                     $paymentRequest->markPaid();
@@ -433,6 +468,7 @@ class V4PaymentController extends Controller
 
                 $paymentRequestData = [
                     'payer_id' => $payerId,
+                    'parent_id' => $payerId,
                     'player_id' => $playerId,
                     'in_app_purchase_id' => $inAppPurchase->id,
                     'amount_cents' => $inAppPurchase->amount_cents,
@@ -548,14 +584,19 @@ class V4PaymentController extends Controller
             // 2️⃣ Determine who receives the success notification
             $payer = $player->parent ?? $player;
 
+            $title = "✅ Payment Successful";
+            $message =   'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.';
+
+
             // 3️⃣ Send success notification
             $this->notificationService->sendToUserWithImage(
                 $payer,
-                '✅ Payment Successful',
-                'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.',
+                $title,
+                $message,
                 $player->profile_photo ?? '',
                 [
                     'sku' => $inAppPurchase->sku,
+                    'child' => $player,
                     'payment_request_id' => $paymentRequest->id,
                     'amount' => $inAppPurchase->amount_cents,
                     'currency' => $inAppPurchase->currency,
