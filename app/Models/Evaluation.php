@@ -262,4 +262,10 @@ class Evaluation extends Model
     {
         return $this->morphMany(Notification::class, 'reference');
     }
+
+    public function portfolioSubs()
+    {
+        return $this->morphMany(V4PlayerPortfolioSub::class, 'subable');
+    }
+
 }

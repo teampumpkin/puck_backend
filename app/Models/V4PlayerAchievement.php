@@ -32,4 +32,10 @@ class V4PlayerAchievement extends Model
     {
         return $this->belongsTo(V4User::class, 'player_id');
     }
+
+    public function portfolioSubs()
+    {
+        return $this->morphMany(V4PlayerPortfolioSub::class, 'subable');
+    }
+
 }
