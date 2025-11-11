@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class V4UploadedVideos extends Model
+class V4UploadedMedia extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'v4_uploaded_videos';
+    protected $table = 'v4_uploaded_media';
 
     protected $fillable = [
         'user_id',
@@ -26,9 +26,9 @@ class V4UploadedVideos extends Model
         return $this->belongsTo(V4User::class, 'user_id');
     }
 
-    public function portfolioSubs()
+    public function portfolioSub()
     {
-        return $this->morphMany(V4PlayerPortfolioSub::class, 'subable');
+        return $this->morphOne(V4PlayerPortfolioSub::class, 'subable');
     }
 
 }

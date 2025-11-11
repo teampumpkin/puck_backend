@@ -4,11 +4,11 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateV4UploadedVideosTable extends Migration
+class CreateV4UploadedMediaTable extends Migration
 {
     public function up(): void
     {
-        Schema::create('v4_uploaded_videos', function (Blueprint $table) {
+        Schema::create('v4_uploaded_media', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')
                 ->constrained('v4_users')
@@ -24,7 +24,7 @@ class CreateV4UploadedVideosTable extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('v4_uploaded_videos');
+        Schema::dropIfExists('v4_uploaded_media');
     }
 }
 ;

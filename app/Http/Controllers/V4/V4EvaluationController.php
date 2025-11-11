@@ -5718,7 +5718,6 @@ class V4EvaluationController extends Controller
             // Get assignment with submission
             $assignment = EvaluatorAssignment::with([
                 'submission.paymentRequest.inAppPurchase.marketplaceItems',
-                'submission.currentVersion',
                 'evaluator'
             ])->find($assignmentId);
 
@@ -5758,190 +5757,85 @@ class V4EvaluationController extends Controller
                 ->where('evaluator_id', $user->id)
                 ->first();
 
-            $submission = $assignment->submission;
-            $currentVersion = $submission->currentVersion;
-            if (!$currentVersion) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No current version found for this submission',
-                ], 404);
-            }
+            // Wrap all operations in a transaction
+            DB::beginTransaction();
+            try {
+                // Create evaluation with rejected status
+                $evaluation = Evaluation::create([
+                    'submission_id' => $assignment->submission_id,
+                    'assignment_id' => $assignment->id,
+                    'evaluator_id' => $user->id,
+                    'status' => Evaluation::STATUS_REJECTED,
+                    'meta' => [
+                        'by_evaluator' => $user->id,
+                        'reason_id' => $validated['reason_id'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'at' => now()->format('Y-m-d H:i:s'),
+                    ],
+                ]);
 
-            // Get rejection reason
-            $rejectionReason = EvaluationRejectionReason::find($validated['reason_id']);
-            if (!$rejectionReason) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid rejection reason',
-                ], 400);
-            }
+                // Update assignment status to rejected
+                $assignment->update([
+                    'status' => EvaluatorAssignment::STATUS_REJECTED,
+                ]);
 
-            $mentorshipUploadType = $currentVersion->mentorship_upload_type;
-            if ($mentorshipUploadType == EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_REQUESTED_VIDEO) {
-                // Wrap in transaction
-                DB::beginTransaction();
-                try {
-                    // Update current version with rejection reason and note
-                    $versionNotes = [
-                        'rejection_reason_id' => $validated['reason_id'] ?? null,
-                        'rejection_reason' => $rejectionReason->reason,
-                        'evaluator_note' => $validated['notes'] ?? null,
-                        'rejected_at' => now()->toISOString(),
-                        'rejected_by' => $user->id,
-                    ];
+                // Update submission status to rejected
+                $assignment->submission->update([
+                    'status' => EvaluationSubmission::STATUS_REJECTED,
+                ]);
 
-                    $currentVersion->update([
-                        'notes' => json_encode($versionNotes),
+                // Update mentorship request status to rejected if exists
+                if ($mentorshipRequest) {
+                    $mentorshipRequest->update([
+                        'status' => V4ConsultationRequest::STATUS_REJECTED,
                     ]);
-
-                    // Update submission status to request_video_rejected
-                    $submission->update([
-                        'status' => EvaluationSubmission::STATUS_REQUEST_VIDEO_REJECTED,
-                    ]);
-
-                    DB::commit();
-
-                    // Send notification to player
-                    $player = $submission->player;
-                    $evaluatorName = $user->first_name . ' ' . $user->last_name;
-                    $title = 'Mentorship Video Rejected';
-                    $message = 'Your uploaded video for mentorship program has been rejected';
-
-                    $notificationData = [
-                        'type' => 'mentorship_video_rejected',
-                        'action_required' => false,
-                        'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
-                        'assignment_id' => $assignment->id,
-                        'submission_id' => $submission->id,
-                        'rejection_reason' => [
-                            'id' => $rejectionReason->id,
-                            'reason' => $rejectionReason->reason,
-                            'note' => $validated['notes'] ?? null,
-                        ],
-                    ];
-
-                    $this->notificationService->sendToUserWithUrlIcon(
-                        $player,
-                        $title,
-                        $message,
-                        'mentorship_video_rejected', // Evaluator's profile photo as icon
-                        '#F44336', // Red color for rejection
-                        $notificationData,
-                        'mentorship_video_rejected',
-                        "evaluation/submissions/{$submission->id}",
-                        'mentorship_video_rejected_action',
-                        $submission
-                    );
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Video rejected successfully',
-                        'data' => [
-                            'assignment_id' => $assignment->id,
-                            'submission_id' => $submission->id,
-                            'submission_status' => $submission->status,
-                            'current_version_id' => $currentVersion->id,
-                            'rejection_reason' => [
-                                'id' => $rejectionReason->id,
-                                'reason' => $rejectionReason->reason,
-                                'note' => $validated['notes'] ?? null,
-                            ],
-                            'player_id' => $player->id,
-                            'player_name' => $player->first_name . ' ' . $player->last_name,
-                        ],
-                    ], 200);
-                } catch (Exception $e) {
-                    DB::rollBack();
-                    throw $e;
                 }
-            } else if ($mentorshipUploadType == EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO) {
 
-                // Wrap all operations in a transaction
-                DB::beginTransaction();
-                try {
-                    // Create evaluation with rejected status
-                    $evaluation = Evaluation::create([
-                        'submission_id' => $assignment->submission_id,
-                        'assignment_id' => $assignment->id,
-                        'evaluator_id' => $user->id,
-                        'status' => Evaluation::STATUS_REJECTED,
-                        'meta' => [
-                            'by_evaluator' => $user->id,
-                            'reason_id' => $validated['reason_id'] ?? null,
-                            'notes' => $validated['notes'] ?? null,
-                            'at' => now()->format('Y-m-d H:i:s'),
-                        ],
-                    ]);
+                DB::commit();
 
-                    // Update assignment status to rejected
-                    $assignment->update([
-                        'status' => EvaluatorAssignment::STATUS_REJECTED,
-                    ]);
+                // Send notification to player
+                $player = $assignment->submission->player;
+                $evaluatorName = $user->first_name . ' ' . $user->last_name;
+                $title = 'Mentorship Program Rejected';
+                $message = "Your 12-Week Mentorship Program submission has been rejected by the evaluator";
 
-                    // Update submission status to rejected
-                    $assignment->submission->update([
-                        'status' => EvaluationSubmission::STATUS_REJECTED,
-                    ]);
+                $notificationData = [
+                    'type' => 'mentorship_rejected',
+                    'action_required' => false,
+                    'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                    'assignment_id' => $assignment->id,
+                    'evaluation_id' => $evaluation->id,
+                    'reason' => $validated['notes'] ?? 'No reason provided',
+                ];
 
-                    // Update mentorship request status to rejected if exists
-                    if ($mentorshipRequest) {
-                        $mentorshipRequest->update([
-                            'status' => V4ConsultationRequest::STATUS_REJECTED,
-                        ]);
-                    }
+                $this->notificationService->sendToUserWithMaterialIcon(
+                    $player,
+                    $title,
+                    $message,
+                    'mentorship_rejected',
+                    '#F44336',
+                    $notificationData,
+                    'mentorship_rejected',
+                    "evaluation/submissions/{$assignment->submission_id}",
+                    'mentorship_rejected_action',
+                    $assignment
+                );
 
-                    DB::commit();
-
-                    // Send notification to player
-                    $player = $assignment->submission->player;
-                    $evaluatorName = $user->first_name . ' ' . $user->last_name;
-                    $title = 'Mentorship Program Rejected';
-                    $message = "Your 12-Week Mentorship Program submission has been rejected by the evaluator";
-
-                    $notificationData = [
-                        'type' => 'mentorship_rejected',
-                        'action_required' => false,
-                        'evaluator' => $user->only(['id', 'first_name', 'last_name', 'profile_photo', 'role']),
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Mentorship assignment rejected successfully',
+                    'data' => [
                         'assignment_id' => $assignment->id,
                         'evaluation_id' => $evaluation->id,
-                        'reason' => $validated['notes'] ?? null,
-                    ];
-
-                    $this->notificationService->sendToUserWithMaterialIcon(
-                        $player,
-                        $title,
-                        $message,
-                        'mentorship_rejected',
-                        '#F44336',
-                        $notificationData,
-                        'mentorship_rejected',
-                        "evaluation/submissions/{$assignment->submission_id}",
-                        'mentorship_rejected_action',
-                        $assignment
-                    );
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Mentorship assignment rejected successfully',
-                        'data' => [
-                            'assignment_id' => $assignment->id,
-                            'evaluation_id' => $evaluation->id,
-                            'assignment_status' => $assignment->status,
-                            'submission_status' => $assignment->submission->status,
-                            'mentorship_request_status' => $mentorshipRequest->status ?? null,
-                            'marketplace_type' => $marketplaceType,
-                        ],
-                    ], 200);
-                } catch (Exception $e) {
-                    DB::rollBack();
-                    throw $e;
-                }
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid mentorship upload type',
-                    'current_upload_type' => $mentorshipUploadType,
-                ], 400);
+                        'assignment_status' => $assignment->status,
+                        'submission_status' => $assignment->submission->status,
+                        'mentorship_request_status' => $mentorshipRequest->status ?? null,
+                        'marketplace_type' => $marketplaceType,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
             }
         } catch (ValidationException $e) {
             return response()->json([
