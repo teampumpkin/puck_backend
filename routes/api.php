@@ -487,6 +487,8 @@ Route::prefix('v4')->group(function () {
 
             // Professional Hockey Porfolio
             Route::delete('/delete-player-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'deletePlayerHockeyPortfolio']);
+            Route::get('/get-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'getPlayerHockeyPortfolio']);
+            Route::get('/get-all-hockey-portfolios', [V4EvaluationController::class, 'getPlayerAllHockeyPortfolios']);
 
             // My Report
             Route::get('/get-my-reports/{status}', [V4EvaluationController::class, 'getStatusFilteredMyReports'])->where('status', 'pending|on_going|completed');

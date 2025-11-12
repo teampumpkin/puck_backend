@@ -6952,6 +6952,201 @@ class V4EvaluationController extends Controller
         }
     }
 
+    /**
+     * Get a player's hockey portfolio with its sub entries (evaluations, achievements, media).
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $portfolioId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getPlayerHockeyPortfolio(Request $request, int $portfolioId): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            $portfolio = V4PlayerPortfolio::find($portfolioId);
+            if (!$portfolio) {
+                return response()->json(['success' => false, 'message' => 'Portfolio not found'], 404);
+            }
+
+            // Access control: owner or public
+            if ($portfolio->player_id !== $user->id && !(bool) $portfolio->is_public) {
+                return response()->json(['success' => false, 'message' => 'Access denied'], 403);
+            }
+
+            // Load subs with their polymorphic models
+            $subs = V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)
+                ->with(['subable'])
+                ->get();
+
+            $evaluations = [];
+            $achievements = [];
+            $media = [];
+
+            foreach ($subs as $sub) {
+                if (!$sub->subable) {
+                    continue;
+                }
+
+                switch ($sub->subable_type) {
+                    case Evaluation::class:
+                        $evaluations[] = $sub->subable->toArray();
+                        break;
+                    case V4PlayerAchievement::class:
+                        $achievements[] = $sub->subable->toArray();
+                        break;
+                    case V4UploadedMedia::class:
+                        $media[] = $sub->subable->toArray();
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'portfolio' => [
+                        'id' => $portfolio->id,
+                        'submission_id' => $portfolio->submission_id,
+                        'player_id' => $portfolio->player_id,
+                        'title' => $portfolio->title,
+                        'description' => $portfolio->description,
+                        'meta' => $portfolio->meta,
+                        'thumbnail_path' => $portfolio->thumbnail_path ?? $portfolio->thumbnail ?? null,
+                        'is_public' => (bool) $portfolio->is_public,
+                        'created_at' => $portfolio->created_at ? $portfolio->created_at->toISOString() : null,
+                        'updated_at' => $portfolio->updated_at ? $portfolio->updated_at->toISOString() : null,
+                    ],
+                    'evaluations' => $evaluations,
+                    'achievements' => $achievements,
+                    'media' => $media,
+                ],
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching player hockey portfolio: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'portfolio_id' => $portfolioId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'Failed to fetch portfolio'], 500);
+        }
+    }
+
+    /**
+     * Get all hockey portfolios (no pagination).
+     * Returns portfolios that are public or owned by the authenticated user.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getPlayerAllHockeyPortfolios(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            // Fetch portfolios that are public or belong to the authenticated user
+            $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
+                ->where(function ($q) use ($user) {
+                    $q->where('is_public', true)
+                        ->orWhere('player_id', $user->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $result = $portfolios->map(function ($portfolio) {
+                $evaluations = [];
+                $achievements = [];
+                $media = [];
+
+                foreach ($portfolio->subs as $sub) {
+                    if (!$sub->subable) {
+                        continue;
+                    }
+
+                    switch ($sub->subable_type) {
+                        case Evaluation::class:
+                            $eval = $sub->subable;
+                            $eval->loadMissing(['submission.paymentRequest.inAppPurchase.marketplaceItem']);
+
+                            $inApp = $eval->submission->paymentRequest->inAppPurchase ?? null;
+                            $marketplaceItem = $inApp->marketplaceItem ?? null;
+
+                            $evaluations[] = [
+                                'id' => $eval->id,
+                                'submission_id' => $eval->submission_id,
+                                'assignment_id' => $eval->assignment_id,
+                                'evaluator_id' => $eval->evaluator_id,
+                                'notes' => $eval->notes ?? null,
+                                'status' => $eval->status,
+                                'created_at' => optional($eval->created_at)->toISOString(),
+                                'updated_at' => optional($eval->updated_at)->toISOString(),
+                                'marketplace_title' => $inApp->title ?? null,
+                                'marketplace_type' => $marketplaceItem->type ?? null,
+                                'in_app_purchase_sku' => $inApp->sku ?? null,
+                            ];
+                            break;
+
+                        case V4PlayerAchievement::class:
+                            $achievements[] = [
+                                'id' => $sub->subable->id,
+                                'title' => $sub->subable->title ?? null,
+                                'file_path' => $sub->subable->file_path ?? null,
+                                'details' => $sub->subable->details ?? null,
+                                'description' => $sub->subable->description ?? null,
+                            ];
+                            break;
+
+                        case V4UploadedMedia::class:
+                            $media[] = [
+                                'id' => $sub->subable->id,
+                                'file_path' => $sub->subable->file_path ?? null,
+                            ];
+                            break;
+
+                        default:
+                            // ignore unknown types
+                            break;
+                    }
+                }
+
+                return [
+                    'id' => $portfolio->id,
+                    'player_id' => $portfolio->player_id,
+                    'player_name' => optional($portfolio->player)->name,
+                    'title' => $portfolio->title,
+                    'description' => $portfolio->description,
+                    'meta' => $portfolio->meta,
+                    'thumbnail_path' => $portfolio->thumbnail_path ?? $portfolio->thumbnail ?? null,
+                    'is_public' => (bool) $portfolio->is_public,
+                    'created_at' => optional($portfolio->created_at)->toISOString(),
+                    'updated_at' => optional($portfolio->updated_at)->toISOString(),
+                    'evaluations' => $evaluations,
+                    'achievements' => $achievements,
+                    'videos' => $media,
+                ];
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'portfolios' => $result,
+                    'total' => $result->count(),
+                ],
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error fetching all hockey portfolios: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'Failed to fetch portfolios', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+        }
+    }
 
     /**
      * Get submission result with evaluation details
