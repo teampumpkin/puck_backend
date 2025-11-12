@@ -7149,6 +7149,338 @@ class V4EvaluationController extends Controller
     }
 
     /**
+     * Update a player's hockey portfolio.
+     *
+     * Accepts optional fields: title, description, meta (key=>value strings), thumbnail (image),
+     * is_public (boolean), evaluation_ids (array), achievement_ids (array), media_ids (array).
+     *
+     * For provided id arrays the controller will "sync" portfolio subs for that type:
+     *  - remove sub entries not in the new list
+     *  - insert missing entries
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function updatePlayerHockeyPortfolio(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            $validated = $request->validate([
+                'portfolio_id' => 'required|integer|exists:v4_player_portfolios,id',
+                'title' => 'nullable|string|max:255',
+                'description' => 'nullable|string',
+                'meta' => 'nullable|array',
+                'meta.*' => 'string',
+                'thumbnail' => 'nullable|image|max:3072',
+                'is_public' => 'nullable|boolean',
+                'evaluation_ids' => 'nullable|array',
+                'evaluation_ids.*' => 'integer|exists:evaluations,id',
+                'achievement_ids' => 'nullable|array',
+                'achievement_ids.*' => 'integer|exists:v4_player_achievements,id',
+                'videos' => 'sometimes|array|min:1|max:3',
+                'videos.*' => 'file',
+            ]);
+
+            $portfolio = V4PlayerPortfolio::find($validated['portfolio_id']);
+            if (!$portfolio) {
+                return response()->json(['success' => false, 'message' => 'Portfolio not found'], 404);
+            }
+
+            if ($portfolio->player_id !== $user->id) {
+                return response()->json(['success' => false, 'message' => 'Portfolio does not belong to the user'], 403);
+            }
+
+            // Pre-validate uploaded videos (if any) before DB operations
+            $videoFiles = [];
+            if ($request->hasFile('videos')) {
+                $videos = $request->file('videos');
+                foreach ($videos as $index => $file) {
+                    if (!$file->isValid()) {
+                        return response()->json(['success' => false, 'message' => "Video at index {$index} upload failed: " . $file->getError()], 422);
+                    }
+                    $mimeType = $file->getClientMimeType();
+                    $fileSize = $file->getSize();
+                    if (!str_starts_with($mimeType, 'video/')) {
+                        return response()->json(['success' => false, 'message' => "File order: " . ($index + 1) . " must be a video"], 422);
+                    }
+                    $maxSizeInBytes = 100 * 1024 * 1024;
+                    if ($fileSize > $maxSizeInBytes) {
+                        return response()->json(['success' => false, 'message' => "Video order: " . ($index + 1) . " exceeds 100MB limit"], 422);
+                    }
+
+                    $videoFiles[$index] = [
+                        'file' => $file,
+                        'mime_type' => $mimeType,
+                        'file_size' => $fileSize,
+                        'original_name' => $file->getClientOriginalName(),
+                    ];
+                }
+            }
+
+            DB::beginTransaction();
+            try {
+                // Thumbnail
+                if ($request->hasFile('thumbnail')) {
+                    $thumbnailFile = $request->file('thumbnail');
+                    if ($thumbnailFile->isValid() && str_starts_with($thumbnailFile->getClientMimeType(), 'image/')) {
+                        $filename = 'portfolio_thumbnail_' . time() . '_' . uniqid() . '.' . $thumbnailFile->getClientOriginalExtension();
+                        $path = $thumbnailFile->storeAs('portfolio-thumbnails/' . $user->id, $filename, 's3');
+                        $thumbnailUrl = Storage::disk('s3')->url($path);
+                        $portfolio->thumbnail_path = $thumbnailUrl;
+                    }
+                }
+
+                // Update simple fields
+                if (array_key_exists('title', $validated)) {
+                    $portfolio->title = $validated['title'];
+                }
+                if (array_key_exists('description', $validated)) {
+                    $portfolio->description = $validated['description'];
+                }
+                if (array_key_exists('meta', $validated)) {
+                    $portfolio->meta = $validated['meta'];
+                }
+                if (array_key_exists('is_public', $validated)) {
+                    $portfolio->is_public = (bool) $validated['is_public'];
+                }
+                $portfolio->save();
+
+                $now = now();
+
+                // Sync evaluations
+                if ($request->filled('evaluation_ids')) {
+                    $evaluationIds = array_values(array_unique($validated['evaluation_ids'] ?? []));
+                    if (!empty($evaluationIds)) {
+                        $evaluations = Evaluation::whereIn('id', $evaluationIds)
+                            ->where('status', Evaluation::STATUS_SUBMITTED)
+                            ->get();
+                        if ($evaluations->count() !== count($evaluationIds)) {
+                            return response()->json(['success' => false, 'message' => 'One or more evaluations are invalid or not submitted'], 400);
+                        }
+                        foreach ($evaluations as $evaluation) {
+                            if ($evaluation->submission->player_id !== $user->id) {
+                                return response()->json(['success' => false, 'message' => 'One or more evaluations do not belong to you'], 403);
+                            }
+                        }
+                    }
+
+                    $existing = V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)
+                        ->where('subable_type', Evaluation::class)
+                        ->pluck('subable_id')
+                        ->toArray();
+
+                    V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)
+                        ->where('subable_type', Evaluation::class)
+                        ->whereNotIn('subable_id', $evaluationIds ?: [0])
+                        ->delete();
+
+                    $toInsert = array_diff($evaluationIds, $existing);
+                    $rows = [];
+                    foreach ($toInsert as $id) {
+                        $rows[] = [
+                            'portfolio_id' => $portfolio->id,
+                            'subable_id' => $id,
+                            'subable_type' => Evaluation::class,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+                    if (!empty($rows)) {
+                        V4PlayerPortfolioSub::insert($rows);
+                    }
+                }
+
+                // Sync achievements
+                if ($request->filled('achievement_ids')) {
+                    $achievementIds = array_values(array_unique($validated['achievement_ids'] ?? []));
+                    if (!empty($achievementIds)) {
+                        $achievements = V4PlayerAchievement::whereIn('id', $achievementIds)->get();
+                        if ($achievements->count() !== count($achievementIds)) {
+                            return response()->json(['success' => false, 'message' => 'One or more achievements are invalid'], 400);
+                        }
+                        foreach ($achievements as $achievement) {
+                            if ($achievement->player_id !== $user->id) {
+                                return response()->json(['success' => false, 'message' => 'One or more achievements do not belong to you'], 403);
+                            }
+                        }
+                    }
+
+                    $existing = V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)
+                        ->where('subable_type', V4PlayerAchievement::class)
+                        ->pluck('subable_id')
+                        ->toArray();
+
+                    V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)
+                        ->where('subable_type', V4PlayerAchievement::class)
+                        ->whereNotIn('subable_id', $achievementIds ?: [0])
+                        ->delete();
+
+                    $toInsert = array_diff($achievementIds, $existing);
+                    $rows = [];
+                    foreach ($toInsert as $id) {
+                        $rows[] = [
+                            'portfolio_id' => $portfolio->id,
+                            'subable_id' => $id,
+                            'subable_type' => V4PlayerAchievement::class,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+                    if (!empty($rows)) {
+                        V4PlayerPortfolioSub::insert($rows);
+                    }
+                }
+
+                if (!empty($videoFiles)) {
+                    // soft-delete existing media subs
+                    V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)
+                        ->where('subable_type', V4UploadedMedia::class)
+                        ->delete();
+
+                    $uploadedMediaIds = [];
+                    $uploadedPaths = [];
+
+                    foreach ($videoFiles as $index => $videoData) {
+                        $file = $videoData['file'];
+                        $filename = 'portfolio_video_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                        // Upload to S3
+                        $path = $file->storeAs('portfolio-videos/' . $user->id, $filename, 's3');
+                        $videoUrl = Storage::disk('s3')->url($path);
+                        $uploadedPaths[] = $path;
+
+                        // File metadata
+                        $fileMeta = [
+                            'original_name' => $videoData['original_name'],
+                            'file_size' => $videoData['file_size'],
+                            'mime_type' => $videoData['mime_type'],
+                            'video_url' => $videoUrl,
+                            'uploaded_at' => now()->toISOString(),
+                        ];
+
+                        // Create uploaded media record
+                        $uploadMedia = V4UploadedMedia::create([
+                            'file_path' => $videoUrl,
+                            'meta' => $fileMeta,
+                            'user_id' => $user->id,
+                        ]);
+
+                        $uploadedMediaIds[] = $uploadMedia->id;
+                    }
+
+                    // insert subs for uploaded media
+                    $rows = [];
+                    foreach ($uploadedMediaIds as $id) {
+                        $rows[] = [
+                            'portfolio_id' => $portfolio->id,
+                            'subable_id' => $id,
+                            'subable_type' => V4UploadedMedia::class,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+                    if (!empty($rows)) {
+                        V4PlayerPortfolioSub::insert($rows);
+                    }
+                }
+
+                DB::commit();
+
+                // Build response grouped subs
+                $portfolio->loadMissing(['subs.subable']);
+                $subs = ['evaluations' => [], 'achievements' => [], 'media' => []];
+                foreach ($portfolio->subs as $sub) {
+                    if (!$sub->subable) {
+                        continue;
+                    }
+                    switch ($sub->subable_type) {
+                        case Evaluation::class:
+                            $eval = $sub->subable;
+                            $subs['evaluations'][] = [
+                                'id' => $eval->id,
+                                'submission_id' => $eval->submission_id,
+                                'assignment_id' => $eval->assignment_id,
+                                'evaluator_id' => $eval->evaluator_id,
+                                'overall_rating' => $eval->overall_rating ?? null,
+                                'notes' => $eval->notes ?? null,
+                                'status' => $eval->status,
+                                'meta' => $eval->meta ?? null,
+                                'created_at' => optional($eval->created_at)->toISOString(),
+                                'updated_at' => optional($eval->updated_at)->toISOString(),
+                            ];
+                            break;
+                        case V4PlayerAchievement::class:
+                            $ach = $sub->subable;
+                            $subs['achievements'][] = [
+                                'id' => $ach->id,
+                                'title' => $ach->title ?? null,
+                                'file_path' => $ach->file_path ?? null,
+                                'details' => $ach->details ?? null,
+                                'description' => $ach->description ?? null,
+                                'created_at' => optional($ach->created_at)->toISOString(),
+                            ];
+                            break;
+                        case V4UploadedMedia::class:
+                            $m = $sub->subable;
+                            $subs['media'][] = [
+                                'id' => $m->id,
+                                'file_path' => $m->file_path ?? null,
+                                'meta' => $m->meta ?? null,
+                                'created_at' => optional($m->created_at)->toISOString(),
+                            ];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Portfolio updated',
+                    'data' => [
+                        'portfolio' => [
+                            'id' => $portfolio->id,
+                            'title' => $portfolio->title,
+                            'description' => $portfolio->description,
+                            'meta' => $portfolio->meta,
+                            'thumbnail_path' => $portfolio->thumbnail_path ?? null,
+                            'is_public' => (bool) $portfolio->is_public,
+                            'created_at' => optional($portfolio->created_at)->toISOString(),
+                            'updated_at' => optional($portfolio->updated_at)->toISOString(),
+                        ],
+                        'sub' => $subs,
+                    ],
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                // cleanup newly uploaded files if any
+                if (isset($uploadedPaths) && is_array($uploadedPaths)) {
+                    foreach ($uploadedPaths as $p) {
+                        Storage::disk('s3')->delete($p);
+                    }
+                }
+                Log::error('Error updating hockey portfolio: ' . $e->getMessage(), [
+                    'user_id' => $user->id,
+                    'portfolio_id' => $validated['portfolio_id'] ?? null,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                return response()->json(['success' => false, 'message' => 'Failed to update portfolio'], 500);
+            }
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (Exception $e) {
+            Log::error('Error updating hockey portfolio: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json(['success' => false, 'message' => 'Failed to update portfolio'], 500);
+        }
+    }
+
+    /**
      * Get submission result with evaluation details
      *
      * @param Request $request
