@@ -485,6 +485,9 @@ Route::prefix('v4')->group(function () {
             // Route::post('/reject-uploaded-request-video', [V4EvaluationController::class, 'rejectUploadedRequestVideo']);
             Route::get('/get-mentorship-report/{evaluation_id}', [V4EvaluationController::class, 'getMentorshipReport']);
 
+            // Professional Hockey Porfolio
+            Route::delete('/delete-player-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'deletePlayerHockeyPortfolio']);
+
             // My Report
             Route::get('/get-my-reports/{status}', [V4EvaluationController::class, 'getStatusFilteredMyReports'])->where('status', 'pending|on_going|completed');
         });

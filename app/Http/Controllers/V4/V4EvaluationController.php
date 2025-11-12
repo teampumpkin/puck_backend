@@ -6900,6 +6900,60 @@ class V4EvaluationController extends Controller
     }
 
     /**
+     * delete a player's hockey portfolio and its sub-entries.
+     *
+     * @param Request $request
+     * @param int $portfolioId
+     * @return JsonResponse
+     */
+    public function deletePlayerHockeyPortfolio(Request $request, int $portfolioId): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            // Load portfolio
+            $portfolio = V4PlayerPortfolio::find($portfolioId);
+            if (!$portfolio) {
+                return response()->json(['success' => false, 'message' => 'Portfolio not found'], 404);
+            }
+
+            if ($portfolio->player_id !== $user->id) {
+                return response()->json(['success' => false, 'message' => 'Porfolio does not belong to the user'], 403);
+            }
+
+            DB::beginTransaction();
+            try {
+                // Soft delete all portfolio sub entries for this portfolio
+                V4PlayerPortfolioSub::where('portfolio_id', $portfolio->id)->delete();
+
+                // Soft delete portfolio
+                $portfolio->delete();
+
+                DB::commit();
+
+                return response()->json(['success' => true, 'message' => 'Portfolio deleted successfully'], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (Exception $e) {
+            Log::error('Error deleting portfolio: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'portfolio_id' => $portfolioId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'Failed to delete portfolio'], 500);
+        }
+    }
+
+
+    /**
      * Get submission result with evaluation details
      *
      * @param Request $request
