@@ -2790,19 +2790,6 @@ class V4EvaluationController extends Controller
         }
     }
 
-
-    /**
-     * Handle file upload and return the uploaded media object
-     *
-     * @param UploadedFile $file
-     * @return V4UploadedMedia
-     */
-    protected function portfolioUploadVideo($file)
-    {
-        // Implement the file upload logic here
-        // Return the uploaded media object
-    }
-
     /**
      * Get evaluation videos for a user from S3
      *
@@ -4108,7 +4095,7 @@ class V4EvaluationController extends Controller
                         ->delete();
 
                     // 🔹 Send new rejection notification (to evaluator)
-                    $this->sendConsultationStatusNotification($user, $consultationRequest, 'rejected');
+                    $this->sendConsultationStatusNotification(V4User::find($user->id), $consultationRequest, 'rejected');
 
 
                     // If consultation was rejected, delete the old request
@@ -5662,12 +5649,11 @@ class V4EvaluationController extends Controller
                         'old_video' => $oldVideo,
                     ];
 
-                    $this->notificationService->sendToUserWithUrlIcon(
+                    $this->notificationService->sendToUserWithImage(
                         $evaluator,
                         $title,
                         $message,
-                        $player->profile_photo,
-                        '#2196F3',
+                        $player->profile_photo ?? '',
                         $notificationData,
                         'mentorship_video_uploaded',
                         "evaluation/submissions/{$submission->id}",
