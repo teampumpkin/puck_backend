@@ -77,7 +77,7 @@ class V4FollowController extends Controller
                             'Content-Type'  => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
                             'type'         => 'single',
-                            'participants' => [(string)$authUser->id, (string)$user->id],
+                            'participants' => [$authUser->id, $user->id],
                         ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
@@ -115,7 +115,7 @@ class V4FollowController extends Controller
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
                         'type' => 'single',
-                        'participants' => [(string) $authUser->id, (string) $user->id],
+                        'participants' => [$authUser->id,  $user->id],
                     ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {

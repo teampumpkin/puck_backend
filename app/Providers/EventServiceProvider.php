@@ -6,6 +6,7 @@ use App\Events\InvalidFcmToken;
 use App\Listeners\HandleInvalidFcmToken;
 use App\Listeners\MessageSendingListener;
 use App\Models\User;
+use App\Models\V4User;
 use App\Models\V4Follow;
 use App\Models\V4PostComment;
 use App\Models\V4PostLike;
@@ -15,6 +16,7 @@ use App\Observers\V4FollowObserver;
 use App\Observers\V4PostCommentObserver;
 use App\Observers\V4PostLikeObserver;
 use App\Observers\V4PostShareObserver;
+use App\Observers\V4UserObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -45,6 +47,7 @@ class EventServiceProvider extends ServiceProvider
     public function boot()
     {
         User::observe(UserObserver::class);
+        V4User::observe(V4UserObserver::class);
         V4Follow::observe(V4FollowObserver::class);
         V4PostComment::observe(V4PostCommentObserver::class);
         V4PostLike::observe(V4PostLikeObserver::class);

@@ -11,6 +11,84 @@ use Illuminate\Validation\ValidationException;
 
 class V4ChatMediaController extends Controller
 {
+
+    /**
+     * Upload group profile media (image)
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadGroupProfileMedia(Request $request)
+    {
+        try {
+            /** @var V4User $user */
+            $user = Auth::guard('v4api')->user();
+
+            // Basic validation
+            $request->validate([
+                'groupImage' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            ]);
+
+            $file = $request->file('groupImage');
+
+            if (!$file) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No image file provided.'
+                ], 400);
+            }
+
+            // Handle file upload
+            $mimeType = $file->getClientMimeType();
+            $fileSize = $file->getSize(); // Size in bytes
+            $extension = $file->getClientOriginalExtension();
+            $originalName = $file->getClientOriginalName();
+            $mediaFormat = $this->determineMediaFormat($mimeType);
+
+            // Determine media format and validate size
+            $this->validateFileSize($file, $mediaFormat, $mimeType);
+
+            // Generate unique filename to prevent conflicts
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            // Store file in S3 under chat-media directory
+            $directory = "group-profile/{$user->id}";
+            $path = $file->storeAs(
+                $directory,
+                $filename,
+                's3'
+            );
+
+            $mediaUrl = Storage::disk('s3')->url($path);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Group profile image uploaded successfully',
+                'data' => [
+                    'media_url' => $mediaUrl,
+                    'original_name' => $originalName,
+                    'media_type' => $mimeType,
+                    'media_format' => $mediaFormat,
+                    'file_size' => $fileSize,
+                    'uploaded_at' => now()->toISOString(),
+                    'path' => $path
+                ]
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload image',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
     /**
      * Upload media file for chat (documents, images, videos)
      *
@@ -72,7 +150,6 @@ class V4ChatMediaController extends Controller
                 'success' => false,
                 'message' => 'No media file provided'
             ], 400);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -224,7 +301,6 @@ class V4ChatMediaController extends Controller
                     'current_date' => $mediaInfo['current_date']
                 ]
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
