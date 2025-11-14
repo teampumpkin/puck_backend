@@ -381,10 +381,11 @@ Route::prefix('v4')->group(function () {
 
             Route::prefix('faqs')->group(function () {
                 Route::get('/', [V4FaqController::class, 'getFaqs']);
-                Route::get('{id}', [V4FaqController::class, 'getFaqById']);
+                Route::get('/{id}', [V4FaqController::class, 'getFaqById']);
                 Route::post('/', [V4FaqController::class, 'createFaq']);
-                Route::put('{id}', [V4FaqController::class, 'updateFaq']);
-                Route::delete('{id}', [V4FaqController::class, 'softDeleteFaq']);
+                Route::put('/{id}', [V4FaqController::class, 'updateFaq']);
+                Route::delete('/{id}', [V4FaqController::class, 'softDeleteFaq']);
+                Route::post('/reorder', [V4FaqController::class, 'reorderFaq']);
             });
         });
     });

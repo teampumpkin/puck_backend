@@ -23,13 +23,15 @@ class V4FaqController extends Controller
                 'q'        => 'nullable|string|max:255',
                 'page'     => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:500',
+                'include_inactive' => 'nullable|boolean',
             ]);
 
             $perPage = (int) $request->get('per_page', 500);
             $search  = $request->get('q');
+            $includeInactive = $request->get('include_inactive', false);  // Default to false
+
 
             $query = V4Faq::query()
-                ->where('is_active', true)
                 ->orderBy('order', 'asc')  // ⭐ sort by your custom field
                 ->orderBy('id', 'desc');   // optional secondary sort
 
@@ -39,6 +41,10 @@ class V4FaqController extends Controller
                     $q->where('question', 'like', "%{$search}%")
                         ->orWhere('answer', 'like', "%{$search}%");
                 });
+            }
+
+            if (!$includeInactive) {
+                $query->where('is_active', true);  // Default to is_active = true
             }
 
             $faqs = $query->paginate($perPage);
@@ -126,6 +132,46 @@ class V4FaqController extends Controller
             return $this->serverErrorResponse($e, 'Failed to update FAQ.');
         }
     }
+
+    /**
+     * PATCH /faqs/reorder
+     */
+    public function reorderFaq(Request $request): JsonResponse
+    {
+        try {
+            // Validate the input
+            $validated = $request->validate([
+                'faqs' => 'required|array',
+                'faqs.*.id' => 'required|integer|exists:v4_faqs,id', // Ensuring the FAQ IDs exist
+                'faqs.*.sortOrder' => 'required|integer|min:0', // Ensuring the order is valid
+            ]);
+
+            // Loop through each FAQ and update the order
+            foreach ($validated['faqs'] as $faqData) {
+                V4Faq::where('id', $faqData['id'])
+                    ->update(['order' => $faqData['sortOrder']]);
+            }
+
+            // Return success response
+            return response()->json([
+                'success' => true,
+                'message' => 'FAQs reordered successfully.',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
 
     /**
      * DELETE /faqs/{id}
