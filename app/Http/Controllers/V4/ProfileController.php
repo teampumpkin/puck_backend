@@ -4,6 +4,8 @@ namespace App\Http\Controllers\V4;
 
 use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
+use App\Models\Evaluation;
+use App\Models\EvaluationSubmission;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4User;
 use Exception;
@@ -532,7 +534,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1450,6 +1452,113 @@ class ProfileController extends Controller
         }
     }
 
+    public function setEvaluationVisibility(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            if (!$user || $user->role !== 'player') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only players can update evaluations.',
+                ], 403);
+            }
+
+            $validated = $request->validate([
+                'evaluation_id' => 'required|integer|exists:evaluations,id',
+                'is_public' => 'nullable|boolean',
+            ]);
+
+            $evaluationId = $validated['evaluation_id'];
+            $isPublic = $validated['is_public'] ?? false;
+            $playerId = $user->id;
+
+            $evaluation = Evaluation::with([
+                'submission.paymentRequest.inAppPurchase.marketplaceItems'
+            ])->find($evaluationId);
+
+            if (!$evaluation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Evaluation not found.',
+                ], 404);
+            }
+
+            if ($evaluation->submission->player_id !== $playerId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You cannot modify evaluations of other players.',
+                ], 403);
+            }
+
+            $marketplaceItem = $evaluation->submission->paymentRequest
+                ->inAppPurchase->marketplaceItems->first();
+
+            if (
+                !$marketplaceItem ||
+                $marketplaceItem->type !== MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION
+            ) {
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only personalized video evaluations can be selected.',
+                ], 400);
+            }
+
+            if ($evaluation->status !== Evaluation::STATUS_SUBMITTED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only completed evaluations can be selected.',
+                ], 400);
+            }
+
+            DB::beginTransaction();
+
+            try {
+                Evaluation::whereHas('submission', function ($q) use ($playerId) {
+                    $q->where('player_id', $playerId);
+                })
+                    ->where('id', '!=', $evaluation->id)
+                    ->update([
+                        'is_selected' => false,
+                        'is_public' => false,
+                    ]);
+
+
+                // Update selected evaluation
+                $evaluation->is_selected = true;
+                $evaluation->is_public = $isPublic ? true : false;
+                $evaluation->save();
+
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluation visibility updated successfully.',
+                'data' => [
+                    'evaluation_id' => $evaluation->id,
+                    'is_selected' => $evaluation->is_selected,
+                    'is_public' => $evaluation->is_public,
+                ],
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Error updating evaluation visibility: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update evaluation visibility.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+
+
     // Player Achievements
     /**
      * Get all achievements for authenticated player
@@ -1470,33 +1579,106 @@ class ProfileController extends Controller
                 ], 403);
             }
 
-            // Get all achievements for this player (excluding soft deleted)
-            $achievements = V4PlayerAchievement::where('player_id', $user->id)
+            $playerId = $user->id;
+
+            // 1️⃣ Fetch Achievements
+            $achievements = V4PlayerAchievement::where('player_id', $playerId)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            // 2️⃣ Fetch Completed Evaluations (same logic from getStatusFilteredMyReports)
+            $completedSubmissions = EvaluationSubmission::with([
+                'paymentRequest.inAppPurchase.marketplaceItems',
+            ])
+                ->where('player_id', $playerId)
+                ->whereIn('status', [
+                    EvaluationSubmission::STATUS_COMPLETED
+                ])
+                ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
+                    $q->where('type', MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION);
+                })
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            $evaluations = $completedSubmissions->map(function ($submission) {
+
+                $marketplaceItem = $submission->paymentRequest->inAppPurchase->marketplaceItems->first();
+
+                // Latest evaluation
+                $latestEvaluation = Evaluation::with(['answers.question.category'])
+                    ->where('submission_id', $submission->id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                $ratings = [];
+                if ($latestEvaluation && $latestEvaluation->is_selected) {
+                    $categoryRatings = [];
+
+                    foreach ($latestEvaluation->answers as $answer) {
+                        $category = $answer->question->category;
+                        $slug = $category->slug;
+
+                        if (!isset($categoryRatings[$slug])) {
+                            $categoryRatings[$slug] = [
+                                'total' => 0,
+                                'count' => 0,
+                            ];
+                        }
+
+                        $categoryRatings[$slug]['total'] += $answer->rating;
+                        $categoryRatings[$slug]['count']++;
+                    }
+
+                    foreach ($categoryRatings as $slug => $data) {
+                        $ratings[] = [
+                            'title' => $slug,
+                            'value' => round($data['total'] / max(1, $data['count']), 1),
+                        ];
+                    }
+                }
+
+                return [
+                    'evaluation_id' => $latestEvaluation ? $latestEvaluation->id : null,
+                    'submission_id' => $submission->id,
+                    'status' => $submission->status,
+                    'created_at' => $submission->created_at->toISOString(),
+                    'marketplace_title' => $marketplaceItem->title ?? null,
+                    'marketplace_type' => $marketplaceItem->type ?? null,
+                    'in_app_purchase_sku' => $submission->paymentRequest->inAppPurchase->sku ?? null,
+                    'date_time' => $latestEvaluation ? $latestEvaluation->created_at->toISOString() : null,
+                    'is_selected' => $latestEvaluation ? $latestEvaluation->is_selected : null,
+                    'is_public' => $latestEvaluation ? $latestEvaluation->is_public : null,
+                    'ratings' => $ratings,
+                ];
+            });
+
             return response()->json([
                 'success' => true,
-                'message' => 'Achievements retrieved successfully',
+                'message' => 'Achievements and evaluations retrieved successfully',
                 'data' => [
                     'achievements' => $achievements,
-                    'total_count' => $achievements->count(),
-                    'player_id' => $user->id,
+                    'evaluations' => $evaluations,
+                    'total_achievements' => $achievements->count(),
+                    'total_evaluations' => $evaluations->count(),
+                    'player_id' => $playerId,
                 ],
             ], 200);
+
         } catch (Exception $e) {
-            Log::error('Error getting achievements: ' . $e->getMessage(), [
+            Log::error('Error getting achievements/evaluations: ' . $e->getMessage(), [
                 'user_id' => Auth::guard('v4api')->id(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve achievements',
+                'message' => 'Failed to retrieve achievements and evaluations',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
+
+
 
     /**
      * Create a new achievement for authenticated player with image upload
