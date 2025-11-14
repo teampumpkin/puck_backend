@@ -412,6 +412,7 @@ Route::prefix('v4')->group(function () {
             Route::post('/create-achievement', [ProfileController::class, 'createAchievement']);
             Route::post('/update-achievement', [ProfileController::class, 'updateAchievement']);
             Route::delete('/delete-achievement/{achievementId}', [ProfileController::class, 'deleteAchievement']);
+            Route::post('/set-evaluation-visibility', [ProfileController::class, 'setEvaluationVisibility']);
         });
 
 
