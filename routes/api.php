@@ -518,6 +518,7 @@ Route::prefix('v4')->group(function () {
         Route::prefix('/chat')->group(function () {
             // Chat media routes
             Route::post('/upload-media', [V4ChatMediaController::class, 'uploadMedia']);
+            Route::post('/group-profile', [V4ChatMediaController::class, 'uploadGroupProfileMedia']);
             Route::get('/get-media', [V4ChatMediaController::class, 'getMedia']);
 
             // Direct chat routes (keeping commented for now)

@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -20,7 +21,7 @@ use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
-    public function getProfileData()
+    public function getProfileData(Request $request)
     {
         try {
             /** @var V4User $user */
@@ -87,6 +88,47 @@ class ProfileController extends Controller
                 $userData['parent_profile'],
                 $userData['fan_profile']
             );
+
+            try {
+                $token = $request->bearerToken();
+
+                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                $payload = [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'name' => $user->name,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'date_of_birth' => $user->date_of_birth,
+                    'country' => $user->country,
+                    'state' => $user->state,
+                    'city' => $user->city,
+                    'zip' => $user->zip,
+                    'is_child' => $user->is_child,
+                    'parent_id' => $user->parent_id,
+                    'username' => $user->username,
+                    'role' => $user->role,
+                    'age' => $user->age,
+                    'profile_photo' => $user->profile_photo,
+
+                ];
+
+                $response = Http::withToken($token)
+                    ->put($baseUrl . '/user/update', $payload);
+
+                if ($response->successful() && isset($response->json()['_id'])) {
+                    Log::info('User updated successfully', $response->json());
+                } else {
+                    Log::warning('Update User API failed', [
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Update User Profile API error', ['error' => $e->getMessage()]);
+            }
 
             // Add the profile data under a standardized field name
             $userData['profile'] = $profileData;
@@ -490,7 +532,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -821,7 +863,7 @@ class ProfileController extends Controller
 
         // Build the query
         $query = V4User::query()
-            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo as profile_picture'])
+            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
 
@@ -859,12 +901,13 @@ class ProfileController extends Controller
                 'convoIds' => 'required|array',
                 'convoIds.*' => 'required|array',
                 'convoIds.*.*' => 'required|array',
-                'convoIds.*.*.*' => 'required|string',
+                'convoIds.*.*.*' => 'string',
             ]);
 
             $result = [];
 
             foreach ($validated['convoIds'] as $convoMap) {
+
                 $entryResult = [];
 
                 foreach ($convoMap as $conversationKey => $userIds) {
@@ -875,8 +918,21 @@ class ProfileController extends Controller
                     $userResult = [];
 
                     if (!empty($userIds)) {
+                        $filteredUserIds = array_filter($userIds, fn($id) => is_numeric($id));
+
+                        if (empty($filteredUserIds)) {
+                            Log::warning('Skipped conversation because no valid numeric user IDs found', [
+                                'conversationKey' => $conversationKey,
+                                'userIds' => $userIds,
+                            ]);
+                            continue;
+                        }
+
+                        Log::info('Fetching valid user IDs', ['filteredUserIds' => $filteredUserIds]);
+
+
                         // all users
-                        $users = V4User::whereIn('id', $userIds)
+                        $users = V4User::whereIn('id', $filteredUserIds)
                             ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
                             ->get();
 
@@ -887,6 +943,7 @@ class ProfileController extends Controller
                                 'last_name' => $user->last_name,
                                 'role' => $user->role,
                                 'profile_photo' => $user->profile_photo,
+                                'name' => $user->name,
                             ];
                         }
                     }
@@ -901,12 +958,18 @@ class ProfileController extends Controller
                 'users' => $result,
             ]);
         } catch (ValidationException $e) {
+            Log::warning('Validation failed', ['errors' => $e->errors()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
+            Log::error('Unhandled exception in getProfileBatchData', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve batch profile data',
