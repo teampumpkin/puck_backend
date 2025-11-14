@@ -5649,12 +5649,11 @@ class V4EvaluationController extends Controller
                         'old_video' => $oldVideo,
                     ];
 
-                    $this->notificationService->sendToUserWithUrlIcon(
+                    $this->notificationService->sendToUserWithImage(
                         $evaluator,
                         $title,
                         $message,
-                        $player->profile_photo,
-                        '#2196F3',
+                        $player->profile_photo ?? '',
                         $notificationData,
                         'mentorship_video_uploaded',
                         "evaluation/submissions/{$submission->id}",
