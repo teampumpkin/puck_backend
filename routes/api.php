@@ -30,6 +30,7 @@ use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\UserBlockController;
 use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\V4\V4EvaluationController;
+use App\Http\Controllers\V4\V4FaqController;
 use App\Http\Controllers\V4\V4FeedController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\V4PaymentController;
@@ -377,6 +378,14 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{id}', [V4InAppPurchaseController::class, 'destroyInAppPurchaseById']); // DELETE by ID
                 Route::post('{id}/restore', [V4InAppPurchaseController::class, 'restoreInAppPurchaseById']);
             });
+
+            Route::prefix('faqs')->group(function () {
+                Route::get('/', [V4FaqController::class, 'getFaqs']);
+                Route::get('{id}', [V4FaqController::class, 'getFaqById']);
+                Route::post('/', [V4FaqController::class, 'createFaq']);
+                Route::put('{id}', [V4FaqController::class, 'updateFaq']);
+                Route::delete('{id}', [V4FaqController::class, 'softDeleteFaq']);
+            });
         });
     });
 
@@ -643,6 +652,10 @@ Route::prefix('v4')->group(function () {
             Route::get('/', [V4MarketplaceController::class, 'getMarketPlaces']);
             Route::get('/sku/{sku}', [V4MarketplaceController::class, 'getMarketPlaceBySku']);
             Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
+        });
+
+        Route::prefix('faqs')->group(function () {
+            Route::get('/', [V4FaqController::class, 'getFaqs']);
         });
     });
 });
