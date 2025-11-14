@@ -27,11 +27,15 @@ class Evaluation extends Model
         'notes',
         'status',
         'meta',
+        'is_public',
+        'is_selected'
     ];
 
     protected $casts = [
         'overall_rating' => 'float',
         'meta' => 'array',
+        'is_public' => 'boolean',
+        'is_selected' => 'boolean',
     ];
 
     /* --------------------
