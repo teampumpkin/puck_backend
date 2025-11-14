@@ -2470,6 +2470,7 @@ class V4EvaluationController extends Controller
                                 'report_id' => null,
                                 'mentorship_weekday' => $validated['weekday'],
                                 'consultation_time' => $validated['time'],
+                                'mentorship_upload_type' => EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO,
                                 'file_path' => $videoUrl,
                                 'uploaded_by' => $user->id,
                                 'file_meta' => $fileMeta,
@@ -2787,19 +2788,6 @@ class V4EvaluationController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
-    }
-
-
-    /**
-     * Handle file upload and return the uploaded media object
-     *
-     * @param UploadedFile $file
-     * @return V4UploadedMedia
-     */
-    protected function portfolioUploadVideo($file)
-    {
-        // Implement the file upload logic here
-        // Return the uploaded media object
     }
 
     /**
@@ -3416,12 +3404,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            $authUser->id,
-                            $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    $authUser->id,
+                                    $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -4107,7 +4095,7 @@ class V4EvaluationController extends Controller
                         ->delete();
 
                     // 🔹 Send new rejection notification (to evaluator)
-                    $this->sendConsultationStatusNotification($user, $consultationRequest, 'rejected');
+                    $this->sendConsultationStatusNotification(V4User::find($user->id), $consultationRequest, 'rejected');
 
 
                     // If consultation was rejected, delete the old request
@@ -4142,12 +4130,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                $consultationRequest->submission->player_id,
-                                $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        $consultationRequest->submission->player_id,
+                                        $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4423,12 +4411,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                $mentorshipRequest->submission->player_id,
-                                $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        $mentorshipRequest->submission->player_id,
+                                        $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -5661,12 +5649,11 @@ class V4EvaluationController extends Controller
                         'old_video' => $oldVideo,
                     ];
 
-                    $this->notificationService->sendToUserWithUrlIcon(
+                    $this->notificationService->sendToUserWithImage(
                         $evaluator,
                         $title,
                         $message,
-                        $player->profile_photo,
-                        '#2196F3',
+                        $player->profile_photo ?? '',
                         $notificationData,
                         'mentorship_video_uploaded',
                         "evaluation/submissions/{$submission->id}",
