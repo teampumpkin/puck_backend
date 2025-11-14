@@ -10,6 +10,7 @@ return new class extends Migration {
         Schema::create('v4_player_portfolios', function (Blueprint $table) {
             $table->id();
             $table->foreignId('player_id')->constrained('v4_users')->onDelete('cascade');
+            $table->foreignId('submission_id')->constrained('evaluation_submissions')->onDelete('cascade');
             $table->string('title');
             $table->text('description')->nullable();
             $table->string('thumbnail_path')->nullable();
