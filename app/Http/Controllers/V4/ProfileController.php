@@ -534,7 +534,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1630,7 +1630,10 @@ class ProfileController extends Controller
                     }
 
                     foreach ($categoryRatings as $slug => $data) {
-                        $ratings[$slug] = round($data['total'] / max(1, $data['count']), 1);
+                        $ratings[] = [
+                            'title' => $slug,
+                            'value' => round($data['total'] / max(1, $data['count']), 1),
+                        ];
                     }
                 }
 
