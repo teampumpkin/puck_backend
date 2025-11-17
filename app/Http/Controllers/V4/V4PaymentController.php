@@ -133,10 +133,14 @@ class V4PaymentController extends Controller
                         // new IAP fields
                         'purchase_id' => $validated['purchase_id'] ?? null,
                         'source' => $validated['source'] ?? null,
-                        'verification_data' => $validated['verification_data'] ?? null,
+                        'verification_data' => !empty($validated['verification_data'])
+                            ? json_encode($validated['verification_data'])
+                            : null,
                         'store_status' => $validated['store_status'] ?? null,
                         'transaction_date' => $validated['transaction_date'] ?? null,
-                        'payload' => $validated['payload'] ?? null,
+                        'payload' => !empty($validated['payload'])
+                            ? json_encode($validated['payload'])
+                            : null,
                     ]);
 
                     $latestPayment->markPaid();
@@ -214,10 +218,14 @@ class V4PaymentController extends Controller
 
                         'purchase_id' => $validated['purchase_id'] ?? null,
                         'source' => $validated['source'] ?? null,
-                        'verification_data' => $validated['verification_data'] ?? null,
+                        'verification_data' => !empty($validated['verification_data'])
+                            ? json_encode($validated['verification_data'])
+                            : null,
                         'store_status' => $validated['store_status'] ?? null,
                         'transaction_date' => $validated['transaction_date'] ?? null,
-                        'payload' => $validated['payload'] ?? null,
+                        'payload' => !empty($validated['payload'])
+                            ? json_encode($validated['payload'])
+                            : null,
                     ]);
 
                     $latestPayment->markPaid();
@@ -296,10 +304,14 @@ class V4PaymentController extends Controller
 
                         'purchase_id' => $validated['purchase_id'] ?? null,
                         'source' => $validated['source'] ?? null,
-                        'verification_data' => $validated['verification_data'] ?? null,
+                        'verification_data' => !empty($validated['verification_data'])
+                            ? json_encode($validated['verification_data'])
+                            : null,
                         'store_status' => $validated['store_status'] ?? null,
                         'transaction_date' => $validated['transaction_date'] ?? null,
-                        'payload' => $validated['payload'] ?? null,
+                        'payload' => !empty($validated['payload'])
+                            ? json_encode($validated['payload'])
+                            : null,
                     ]);
 
                     $paymentRequest->markPaid();
@@ -351,7 +363,11 @@ class V4PaymentController extends Controller
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
-            Log::error('Error processing payment: ' . $e->getMessage(), ['user_id' => Auth::id(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Error processing payment: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+                'error'   =>  $e->getMessage(),
+            ]);
             return response()->json(['success' => false, 'message' => 'Failed to process payment', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
         }
     }

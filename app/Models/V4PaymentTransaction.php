@@ -30,11 +30,20 @@ class V4PaymentTransaction extends Model
         'gateway',
         'gateway_reference',
         'status',
+        'purchase_id',
+        'source',
+        'verification_data',
+        'store_status',
+        'transaction_date',
+        'payload',
         'meta',
     ];
 
     protected $casts = [
         'meta' => 'array',
+        'verification_data' => 'array',
+        'payload' => 'array',
+        'transaction_date' => 'datetime',
         'amount_cents' => 'integer',
     ];
 
