@@ -2768,7 +2768,6 @@ class V4EvaluationController extends Controller
                         throw $e;
                     }
                 }
-
             }
 
             return response()->json(['success' => false, 'message' => 'Marketplace type not supported'], 400);
@@ -3404,12 +3403,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    $authUser->id,
-                                    $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            $authUser->id,
+                            $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -4132,12 +4131,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        $consultationRequest->submission->player_id,
-                                        $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                $consultationRequest->submission->player_id,
+                                $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4413,12 +4412,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        $mentorshipRequest->submission->player_id,
-                                        $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                $mentorshipRequest->submission->player_id,
+                                $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -5649,6 +5648,7 @@ class V4EvaluationController extends Controller
                         'submission_version_id' => $newVersion->id,
                         'new_video' => $videoUrl,
                         'old_video' => $oldVideo,
+                        'assignment_id' => $submission->evaluatorAssignment->id,
                     ];
 
                     $this->notificationService->sendToUserWithImage(
