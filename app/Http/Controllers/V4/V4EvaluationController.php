@@ -7662,8 +7662,13 @@ class V4EvaluationController extends Controller
 
             // Build base query
             $query = EvaluationSubmission::with([
-                'paymentRequest.inAppPurchase.marketplaceItems',
-            ])->where('player_id', $playerId);
+                'paymentRequest.inAppPurchase.marketplaceItems'
+            ])
+                ->where('player_id', $playerId)
+                ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
+                    $q->where('type', '!=', \App\Constants\MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO);
+                });
+
 
             // Apply status filter
             if ($status === 'on_going') {
