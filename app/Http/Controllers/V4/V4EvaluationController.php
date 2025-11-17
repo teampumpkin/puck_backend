@@ -3902,6 +3902,8 @@ class V4EvaluationController extends Controller
                             return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'book_consultation'], 200);
                         case MarketplaceTypes::MENTORSHIP_PROGRAM:
                             return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'book_mentorship'], 200);
+                        case MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO:
+                            return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit_portfolio'], 200);
 
                         default:
                             return response()->json(['success' => true, 'status' => 'pending', 'redirect' => 'submit'], 200);
@@ -7660,8 +7662,13 @@ class V4EvaluationController extends Controller
 
             // Build base query
             $query = EvaluationSubmission::with([
-                'paymentRequest.inAppPurchase.marketplaceItems',
-            ])->where('player_id', $playerId);
+                'paymentRequest.inAppPurchase.marketplaceItems'
+            ])
+                ->where('player_id', $playerId)
+                ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
+                    $q->where('type', '!=', \App\Constants\MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO);
+                });
+
 
             // Apply status filter
             if ($status === 'on_going') {
