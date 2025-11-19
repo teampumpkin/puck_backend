@@ -11,8 +11,11 @@ use App\Models\V4User;
 use App\Services\NotificationService;
 use App\Services\Payments\PaymentValidator;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -366,7 +369,7 @@ class V4PaymentController extends Controller
             Log::error('Error processing payment: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString(),
-                'error'   =>  $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
             return response()->json(['success' => false, 'message' => 'Failed to process payment', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
         }
@@ -498,7 +501,6 @@ class V4PaymentController extends Controller
                     'parent'
                 ]);
 
-
                 $notification = $this->sendPaymentRequestNotification($paymentRequest, $sku);
                 DB::commit();
 
@@ -524,6 +526,117 @@ class V4PaymentController extends Controller
         }
     }
 
+    public function getOrdersByUserId(Request $request, ?int $userId): JsonResponse
+    {
+        try {
+            if (!$userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User ID is required.',
+                ], 400);
+            }
+            $request->merge(['user_id' => $userId]);
+
+            $validated = $request->validate([
+                'user_id' => 'required|exists:v4_users,id',
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:1|max:100',
+            ]);
+
+            $perPage = max(1, min((int) ($validated['per_page'] ?? 20), 100));
+
+            $query = EvaluationSubmission::with([
+                'paymentRequest.inAppPurchase.marketplaceItem',
+                'paymentRequest.paymentTransaction',
+            ])
+                ->where('player_id', $userId)
+                ->orderByDesc('created_at');
+
+            $orders = $query->paginate($perPage);
+
+            // Handle case where no orders exist
+            if ($orders->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No orders found',
+                    'data' => [],
+                    'pagination' => [
+                        'current_page' => $orders->currentPage(),
+                        'per_page' => $orders->perPage(),
+                        'total' => 0,
+                        'last_page' => 0,
+                    ],
+                ]);
+            }
+
+            // Transform data if needed
+            $ordersData = $orders->map(function ($order) {
+                $payload = $order->paymentRequest->paymentTransaction->payload;
+
+                $payloadData = json_decode($payload, true);
+
+                $payloadData = Arr::only($payloadData ?? [], [
+                    'order_id',
+                    'products',
+                    'price',
+                    'purchase_state',
+                    'currency_code',
+                    'raw_price',
+                ]);
+
+                return [
+                    'id' => $order->id,
+                    'type' => $order->paymentRequest->inAppPurchase->marketplaceItem->type,
+                    'status' => $order->status,
+                    'created_at' => $order->created_at,
+                    'payload' => !empty($payloadData) ? $payloadData : null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Orders retrieved successfully.',
+                'data' => $ordersData,
+                'pagination' => [
+                    'current_page' => $orders->currentPage(),
+                    'per_page' => $orders->perPage(),
+                    'total' => $orders->total(),
+                    'last_page' => $orders->lastPage(),
+                    'from' => $orders->firstItem() ?? 0,
+                    'to' => $orders->lastItem() ?? 0,
+                    'has_more_pages' => $orders->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        } catch (QueryException $e) {
+            Log::error('Database query error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Database error occurred.',
+            ], 500);
+        } catch (Exception $e) {
+            Log::error('Unexpected error: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     protected function sendPaymentRequestNotification(V4PaymentRequest $paymentRequest, string $sku)
     {
         try {
@@ -539,14 +652,14 @@ class V4PaymentController extends Controller
 
             $data = [
                 'payment_request' => $paymentRequest,
-                'sku'                => $sku,
-                'child'              => $child,
-                'amount'             => $amount,
-                'currency'           => $currency,
-                'purpose'            => $purpose,
-                'status'             => 'pending',
-                'action_required'    => true,
-                'quick_actions'      => ['pay', 'decline'],
+                'sku' => $sku,
+                'child' => $child,
+                'amount' => $amount,
+                'currency' => $currency,
+                'purpose' => $purpose,
+                'status' => 'pending',
+                'action_required' => true,
+                'quick_actions' => ['pay', 'decline'],
                 // 'parent' => $parent,
             ];
             $icon = 'payments';
@@ -601,8 +714,7 @@ class V4PaymentController extends Controller
             $payer = $player->parent ?? $player;
 
             $title = "✅ Payment Successful";
-            $message =   'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.';
-
+            $message = 'Your payment for ' . $inAppPurchase->title . ' has been successfully processed.';
 
             // 3️⃣ Send success notification
             $this->notificationService->sendToUserWithImage(

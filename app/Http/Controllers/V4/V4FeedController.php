@@ -125,9 +125,6 @@ class V4FeedController extends Controller
                 'per_page' => 'sometimes|integer|min:1|max:100'
             ]);
 
-            // Pagination settings
-            $perPage = (int) ($validated['per_page'] ?? 10);
-
             // Fetch posts
             $perPage = (int) ($validated['per_page'] ?? 10);
 
