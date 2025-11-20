@@ -659,6 +659,10 @@ Route::prefix('v4')->group(function () {
         Route::prefix('faqs')->group(function () {
             Route::get('/', [V4FaqController::class, 'getFaqs']);
         });
+
+        Route::prefix('orders')->group(function () {
+            Route::get('/{userId}', [V4PaymentController::class, 'getOrdersByUserId']);
+        });
     });
 });
 
