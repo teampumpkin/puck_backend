@@ -440,6 +440,51 @@ class ProfileController extends Controller
         }
     }
 
+    public function deleteUserAccount(Request $request, $id)
+    {
+        try {
+            $authUser = Auth::guard('v4api')->user();
+            if (!$authUser) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            $user = V4User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            // Authorization logic
+            $isSelf = ($authUser->id == $id);
+            $isParentDeletingChild = (
+                $authUser->role === 'parent' &&
+                $user->parent_id == $authUser->id
+            );
+
+            if (!$isSelf && !$isParentDeletingChild) {
+                return response()->json([
+                    'message' => 'You are not authorized to delete this user account'
+                ], 403);
+            }
+
+            $user->delete();
+
+            return response()->json([
+                'message' => 'User account deleted successfully'
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'User account deletion failed.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+
     public function addChild(Request $request)
     {
         try {
@@ -465,7 +510,9 @@ class ProfileController extends Controller
                 'permissions.can_accept_invites' => 'boolean',
                 'permissions.can_send_friend_requests' => 'boolean',
                 'permissions.can_use_marketplace' => 'boolean',
-            ]);
+            ], [
+    'username.unique' => 'Username already taken',
+]);
 
             // Use database transaction to ensure data consistency
             $result = DB::transaction(function () use ($parent, $validatedData) {
@@ -572,7 +619,7 @@ class ProfileController extends Controller
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
+                'message' => $e->errors()['username'][0] ?? 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {

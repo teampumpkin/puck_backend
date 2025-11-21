@@ -400,6 +400,7 @@ Route::prefix('v4')->group(function () {
         Route::post('/update-child-credentials/{childId}', [ProfileController::class, 'updateChildCredentials']);
         Route::post('/update-child-profile/{childId}', [ProfileController::class, 'updateChildProfile']);
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
+        Route::delete('/user/{id}/delete-account', [ProfileController::class, 'deleteUserAccount']);
 
 
         Route::prefix('users')->group(function () {
