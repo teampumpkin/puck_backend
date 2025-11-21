@@ -7,6 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
 use App\Models\V4PlayerAchievement;
+use App\Models\V4PlayerPortfolio;
+use App\Models\V4PlayerPortfolioSub;
+use App\Models\V4UploadedMedia;
 use App\Models\V4Post;
 use App\Models\V4User;
 use Exception;
@@ -1254,9 +1257,6 @@ class ProfileController extends Controller
     public function getUserDetailsById($id): JsonResponse
     {
         try {
-
-            $authUser = Auth::guard('v4api')->user();
-
             $user = V4User::findOrFail($id);
 
             $profileData = null;
@@ -1456,6 +1456,103 @@ class ProfileController extends Controller
             return response()->json(
                 $result
             );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserAchievementsDetailsById($id): JsonResponse
+    {
+        try {
+
+            $achievements = V4PlayerAchievement::where('player_id', $id)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            return response()->json(
+                $achievements
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+
+    public function getUserPortfolioDetailsById($id): JsonResponse
+    {
+        try {
+            $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
+                ->where(function ($q) use ($id) {
+                    $q->where('is_public', true)
+                        ->orWhere('player_id', $id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $achievementsMap = [];
+            $videosMap = [];
+
+            foreach ($portfolios as $portfolio) {
+                foreach ($portfolio->subs as $sub) {
+                    if (!$sub->subable) {
+                        continue;
+                    }
+
+                    switch ($sub->subable_type) {
+
+                        case V4PlayerAchievement::class:
+                            $achievementsMap[$sub->subable->id] = [
+                                'id' => $sub->subable->id,
+                                'title' => $sub->subable->title ?? null,
+                                'file_path' => $sub->subable->file_path ?? null,
+                                'details' => $sub->subable->details ?? null,
+                                'description' => $sub->subable->description ?? null,
+                            ];
+                            break;
+
+                        case V4UploadedMedia::class:
+                            $videosMap[$sub->subable->id] = [
+                                'id' => $sub->subable->id,
+                                'title' => $sub->subable->meta['original_name'] ?? null,
+                                'file_path' => $sub->subable->file_path ?? null,
+                            ];
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            // Convert maps to indexed arrays
+            $allAchievements = array_values($achievementsMap);
+            $allVideos = array_values($videosMap);
+
+            return response()->json([
+                'success' => true,
+                'achievements' => $allAchievements,
+                'videos' => $allVideos,
+            ], 200);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
