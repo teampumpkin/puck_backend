@@ -1387,6 +1387,90 @@ class ProfileController extends Controller
         }
     }
 
+    public function getUserEvaluationDetailsById($id): JsonResponse
+    {
+        try {
+
+            $submission = EvaluationSubmission::with([
+                'paymentRequest.inAppPurchase.marketplaceItems',
+            ])
+                ->where('player_id', $id)
+                ->whereIn('status', [
+                    EvaluationSubmission::STATUS_COMPLETED
+                ])
+                ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
+                    $q->where('type', MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION);
+                })
+                ->latest()
+                ->first();
+
+            if (!$submission) {
+                return response()->json([
+                    'skating' => null,
+                    'compete' => null,
+                    'hockeyIQ' => null,
+                    'skills' => null,
+                ], 404);
+            }
+
+
+            $submission->load([
+                'evaluation.answers:id,evaluation_id,question_id,rating',
+                'evaluation.answers.question:id,category_id',
+                'evaluation.answers.question.category:id,slug,name',
+            ]);
+
+            $result = [
+                'skating'  => null,
+                'compete'  => null,
+                'hockeyIQ' => null,
+                'skills'   => null,
+            ];
+
+            foreach ($submission->evaluation->answers as $answer) {
+                $category = $answer->question->category ?? null;
+
+                if (!$category) {
+                    continue;
+                }
+
+                switch ($category->slug) {
+                    case 'skating':
+                        $result['skating'] = $answer->rating;
+                        break;
+
+                    case 'compete':
+                        $result['compete'] = $answer->rating;
+                        break;
+
+                    case 'hockey-iq':
+                        $result['hockeyIQ'] = $answer->rating; // convert slug → camelCase
+                        break;
+
+                    case 'skills':
+                        $result['skills'] = $answer->rating;
+                        break;
+                }
+            }
+
+            return response()->json(
+                $result
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function getAllAvailableEvaluators(Request $request): JsonResponse
     {
         try {
