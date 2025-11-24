@@ -282,6 +282,7 @@ Route::prefix('v4')->group(function () {
             Route::prefix('evaluators')->group(function () {
                 Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
             });
+            Route::delete('/users/{id}/delete-account', [ProfileController::class, 'deleteUserAccountFromAdmin']);
 
             Route::get('/users/{id}', [ProfileController::class, 'getUserAdminDetailsById']);
             Route::get('/users/{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
@@ -294,7 +295,6 @@ Route::prefix('v4')->group(function () {
             Route::get('/users/{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
 
 
-            Route::delete('/user/{id}/delete', [ProfileController::class, 'deleteUserAccountFromAdmin']);
             // Route::get('/users/{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
 
             Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
