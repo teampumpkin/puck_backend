@@ -4,7 +4,9 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\TeamMember;
+use App\Models\V4Team;
 use App\Models\V4User;
+use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,15 +17,15 @@ class V4TeamController extends Controller
      */
     public function addRemoveTeamMembers(Request $request, $teamId)
     {
+        $user = Auth::guard('v4api')->user();
+
          // --- Validate: Team must exist and role must be 'team'
-        $team = V4User::where('id', $teamId)
-            ->where('role', 'team')
-            ->first();
+        $team = V4Team::where('id', $teamId);
 
         if (!$team) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid team ID',
+                'message' => 'Invalid team Id',
             ], 400);
         }
 
@@ -109,6 +111,7 @@ class V4TeamController extends Controller
                     $insertData[] = [
                         'team_id' => $teamId,
                         'player_id' => $pid,
+                        'added_by' => $user->id,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];

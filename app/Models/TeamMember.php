@@ -13,6 +13,22 @@ class TeamMember extends Model
 
     protected $fillable = [
         'team_id',
-        'player_id'
+        'player_id',
+        'added_by'
     ];
+
+    public function team()
+    {
+        return $this->belongsTo(V4Team::class, 'team_id');
+    }
+
+    public function player()
+    {
+        return $this->belongsTo(V4User::class, 'player_id');
+    }
+
+    public function addedBy()
+    {
+        return $this->belongsTo(V4User::class, 'added_by');
+    }
 }
