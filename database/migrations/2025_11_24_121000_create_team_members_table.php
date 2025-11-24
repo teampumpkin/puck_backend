@@ -21,7 +21,7 @@ return new class extends Migration {
 
             // Foreign key constraints
             $table->foreign('team_id')
-                ->references('id')->on('v4_users')
+                ->references('id')->on('v4_teams')
                 ->onDelete('cascade');
 
             $table->foreign('player_id')

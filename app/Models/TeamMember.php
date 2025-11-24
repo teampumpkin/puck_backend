@@ -9,6 +9,8 @@ class TeamMember extends Model
 {
     use SoftDeletes;
 
+    protected $table = 'team_members';
+
     protected $fillable = [
         'team_id',
         'player_id'
