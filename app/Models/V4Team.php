@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class TeamProfile extends Model
+class V4Team extends Model
 {
-    protected $table = 'team_profiles';
+    use HasFactory, SoftDeletes;
+
+    protected $table = 'v4_teams';
 
     protected $fillable = [
-        'v4_user_id',
-        'team_id',
         'team_name',
         'administrator_first_name',
         'administrator_last_name',
@@ -24,14 +26,4 @@ class TeamProfile extends Model
     protected $casts = [
         'leagues' => 'array',
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(V4User::class, 'v4_user_id');
-    }
-
-    public function team()
-    {
-        return $this->belongsTo(V4Team::class, 'team_id');
-    }
 }
