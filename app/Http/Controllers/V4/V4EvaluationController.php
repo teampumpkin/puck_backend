@@ -7058,8 +7058,7 @@ class V4EvaluationController extends Controller
             // Fetch portfolios that are public or belong to the authenticated user
             $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
                 ->where(function ($q) use ($user) {
-                    $q->where('is_public', true)
-                        ->orWhere('player_id', $user->id);
+                    $q->Where('player_id', $user->id);
                 })
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -7429,7 +7428,7 @@ class V4EvaluationController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             return response()->json(['success' => false, 'message' => 'Failed to update portfolio'], 500);
         }
     }
