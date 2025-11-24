@@ -41,6 +41,7 @@ use App\Http\Controllers\V4\V4PostShareController;
 use App\Http\Controllers\V4\V4MarketplaceController;
 use App\Http\Controllers\V4\V4InAppPurchaseController;
 use App\Http\Controllers\V4\V4FollowController;
+use App\Http\Controllers\V4\V4TeamController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -438,6 +439,9 @@ Route::prefix('v4')->group(function () {
             Route::post('/set-evaluation-visibility', [ProfileController::class, 'setEvaluationVisibility']);
         });
 
+        Route::prefix('team')->group(function () {
+            Route::post('/members/{teamId}', [V4TeamController::class, 'addRemoveTeamMembers']);
+        });
 
 
         // Evaluation

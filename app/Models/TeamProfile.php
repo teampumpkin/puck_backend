@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TeamProfile extends Model
 {
-    use HasFactory;
+    protected $table = 'team_profiles';
 
     protected $fillable = [
         'v4_user_id',
+        'team_id',
         'team_name',
         'administrator_first_name',
         'administrator_last_name',
@@ -18,11 +18,11 @@ class TeamProfile extends Model
         'leagues',
         'website',
         'address',
-        'team_years_running'
+        'team_years_running',
     ];
 
     protected $casts = [
-        'leagues' => 'array'
+        'leagues' => 'array',
     ];
 
     protected $appends = [
@@ -43,5 +43,10 @@ class TeamProfile extends Model
         $fullName = trim("$first $last");
 
         return $fullName !== '' ? $fullName : null;
+    }
+
+    public function team()
+    {
+        return $this->belongsTo(V4Team::class, 'team_id');
     }
 }
