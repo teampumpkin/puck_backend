@@ -489,6 +489,33 @@ class ProfileController extends Controller
         }
     }
 
+    public function deleteUserAccountFromAdmin(Request $request, $id)
+    {
+        try {
+
+            $user = V4User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            $user->delete();
+
+            return response()->json([
+                'message' => 'User account deleted successfully'
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'User account deletion failed.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
 
     public function addChild(Request $request)
     {
@@ -1361,6 +1388,7 @@ class ProfileController extends Controller
                 'basicInfo' => [
                     'firstName' => $user->first_name,
                     'lastName' => $user->last_name,
+                    'fullName' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone,
                     'country' => $user->country,

@@ -292,6 +292,9 @@ Route::prefix('v4')->group(function () {
             // Route::get('/users/{id}/reports', [ProfileController::class, 'getUserReportsDetailsById']);
             Route::get('/users/{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
             Route::get('/users/{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
+
+
+            Route::delete('/user/{id}/delete', [ProfileController::class, 'deleteUserAccountFromAdmin']);
             // Route::get('/users/{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
 
             Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
