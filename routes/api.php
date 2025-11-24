@@ -285,11 +285,13 @@ Route::prefix('v4')->group(function () {
 
             Route::get('/users/{id}', [ProfileController::class, 'getUserAdminDetailsById']);
             Route::get('/users/{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
+            Route::get('/users/{id}/children', [ProfileController::class, 'getUserChildrenDetailsById']);
             // Route::get('/users/{id}/statistics', [ProfileController::class, 'getUserStatisticsDetailsById']);
             Route::get('/users/{id}/evaluation', [ProfileController::class, 'getUserEvaluationDetailsById']);
             Route::get('/users/{id}/achievements', [ProfileController::class, 'getUserAchievementsDetailsById']);
             // Route::get('/users/{id}/reports', [ProfileController::class, 'getUserReportsDetailsById']);
             Route::get('/users/{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
+            Route::get('/users/{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
             // Route::get('/users/{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
 
             Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
