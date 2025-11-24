@@ -515,8 +515,8 @@ class ProfileController extends Controller
                 'permissions.can_send_friend_requests' => 'boolean',
                 'permissions.can_use_marketplace' => 'boolean',
             ], [
-    'username.unique' => 'Username already taken',
-]);
+                'username.unique' => 'Username already taken',
+            ]);
 
             // Use database transaction to ensure data consistency
             $result = DB::transaction(function () use ($parent, $validatedData) {
@@ -813,6 +813,7 @@ class ProfileController extends Controller
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
                 'phone' => 'nullable|string|max:20',
+                'enable_private_account' => 'nullable|boolean'
             ];
 
             $profileRules = [
