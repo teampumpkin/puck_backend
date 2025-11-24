@@ -1302,6 +1302,95 @@ class ProfileController extends Controller
         }
     }
 
+    public function getUserAdminDetailsById($id): JsonResponse
+    {
+        try {
+            $user = V4User::findOrFail($id);
+
+            $profileData = null;
+            switch ($user->role) {
+                case 'player':
+                    $user->load('playerProfile');
+                    $profileData = $user->playerProfile;
+                    break;
+                case 'coach':
+                    $user->load('coachProfile');
+                    $profileData = $user->coachProfile;
+                    break;
+                case 'team':
+                    $user->load('teamProfile');
+                    $profileData = $user->teamProfile;
+                    break;
+                case 'scout':
+                    $user->load('scoutProfile');
+                    $profileData = $user->scoutProfile;
+                    break;
+                case 'academy':
+                    $user->load('academyProfile');
+                    $profileData = $user->academyProfile;
+                    break;
+                case 'organizer':
+                    $user->load('organizerProfile');
+                    $profileData = $user->organizerProfile;
+                    break;
+                case 'adviser':
+                    $user->load('adviserProfile');
+                    $profileData = $user->adviserProfile;
+                    break;
+                case 'parent':
+                    $user->load('parentProfile');
+                    $profileData = $user->parentProfile;
+                    $user->load('children.playerProfile');
+                    break;
+                case 'fan':
+                    $user->load('fanProfile');
+                    $profileData = $user->fanProfile;
+                    break;
+                case 'evaluator':
+                    $user->load('evaluatorProfile');
+                    $profileData = $user->evaluatorProfile;
+                    break;
+            }
+
+            return response()->json([
+                'id' => $user->id,
+                'profilePicture' => $user->profile_photo,
+                'fullName' => $user->name,
+                'status' => 'active',
+                'basicInfo' => [
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'country' => $user->country,
+                    'dateOfBirth' => $user->date_of_birth,
+                    'province' => $user->province,
+                    'city' => $user->city,
+                    'league' => $profileData->leagues,
+                    'team' => $profileData->teams,
+                    'weight' => $profileData->weight,
+                    'height' => $profileData->height,
+                    'position' => $profileData->position,
+                    'handedness' => $profileData->handedness,
+                ],
+                'socialStats' => [
+                    'followers' => $user->followers_count,
+                    'following' => $user->followings_count
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function getUserDetailsById($id): JsonResponse
     {
         try {

@@ -283,7 +283,7 @@ Route::prefix('v4')->group(function () {
                 Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
             });
 
-            Route::get('/users/{id}', [ProfileController::class, 'getUserDetailsById']);
+            Route::get('/users/{id}', [ProfileController::class, 'getUserAdminDetailsById']);
             Route::get('/users/{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
             // Route::get('/users/{id}/statistics', [ProfileController::class, 'getUserStatisticsDetailsById']);
             Route::get('/users/{id}/evaluation', [ProfileController::class, 'getUserEvaluationDetailsById']);
