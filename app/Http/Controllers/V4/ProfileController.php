@@ -7,6 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
 use App\Models\V4PlayerAchievement;
+use App\Models\V4PlayerPortfolio;
+use App\Models\V4PlayerPortfolioSub;
+use App\Models\V4UploadedMedia;
+use App\Models\V4Post;
 use App\Models\V4User;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -511,8 +515,8 @@ class ProfileController extends Controller
                 'permissions.can_send_friend_requests' => 'boolean',
                 'permissions.can_use_marketplace' => 'boolean',
             ], [
-    'username.unique' => 'Username already taken',
-]);
+                'username.unique' => 'Username already taken',
+            ]);
 
             // Use database transaction to ensure data consistency
             $result = DB::transaction(function () use ($parent, $validatedData) {
@@ -581,7 +585,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -809,6 +813,7 @@ class ProfileController extends Controller
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
                 'phone' => 'nullable|string|max:20',
+                'enable_private_account' => 'nullable|boolean'
             ];
 
             $profileRules = [
@@ -1297,6 +1302,95 @@ class ProfileController extends Controller
         }
     }
 
+    public function getUserAdminDetailsById($id): JsonResponse
+    {
+        try {
+            $user = V4User::findOrFail($id);
+
+            $profileData = null;
+            switch ($user->role) {
+                case 'player':
+                    $user->load('playerProfile');
+                    $profileData = $user->playerProfile;
+                    break;
+                case 'coach':
+                    $user->load('coachProfile');
+                    $profileData = $user->coachProfile;
+                    break;
+                case 'team':
+                    $user->load('teamProfile');
+                    $profileData = $user->teamProfile;
+                    break;
+                case 'scout':
+                    $user->load('scoutProfile');
+                    $profileData = $user->scoutProfile;
+                    break;
+                case 'academy':
+                    $user->load('academyProfile');
+                    $profileData = $user->academyProfile;
+                    break;
+                case 'organizer':
+                    $user->load('organizerProfile');
+                    $profileData = $user->organizerProfile;
+                    break;
+                case 'adviser':
+                    $user->load('adviserProfile');
+                    $profileData = $user->adviserProfile;
+                    break;
+                case 'parent':
+                    $user->load('parentProfile');
+                    $profileData = $user->parentProfile;
+                    $user->load('children.playerProfile');
+                    break;
+                case 'fan':
+                    $user->load('fanProfile');
+                    $profileData = $user->fanProfile;
+                    break;
+                case 'evaluator':
+                    $user->load('evaluatorProfile');
+                    $profileData = $user->evaluatorProfile;
+                    break;
+            }
+
+            return response()->json([
+                'id' => $user->id,
+                'profilePicture' => $user->profile_photo,
+                'fullName' => $user->name,
+                'status' => 'active',
+                'basicInfo' => [
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'country' => $user->country,
+                    'dateOfBirth' => $user->date_of_birth,
+                    'province' => $user->province,
+                    'city' => $user->city,
+                    'league' => $profileData->leagues,
+                    'team' => $profileData->teams,
+                    'weight' => $profileData->weight,
+                    'height' => $profileData->height,
+                    'position' => $profileData->position,
+                    'handedness' => $profileData->handedness,
+                ],
+                'socialStats' => [
+                    'followers' => $user->followers_count,
+                    'following' => $user->followings_count
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function getUserDetailsById($id): JsonResponse
     {
         try {
@@ -1379,6 +1473,231 @@ class ProfileController extends Controller
                 'message' => 'Profile data retrieved successfully',
                 'user' => $userData,
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserMediaDetailsById($id): JsonResponse
+    {
+        try {
+            $user = V4User::findOrFail($id);
+
+            $posts = V4Post::with(['media'])->where('user_id', $id)->get();
+            $images = [];
+            $videos = [];
+
+            foreach ($posts as $post) {
+                foreach ($post->media as $media) {
+
+                    $mediaItem = [
+                        'id' => $media->id,
+                        'url' => $media->url, // change if your column name differs
+                        'uploadedAt' => $media->created_at,
+                    ];
+
+                    if ($media->type === 'image') {
+                        $images[] = $mediaItem;
+                    } elseif ($media->type === 'video') {
+                        $videos[] = $mediaItem;
+                    }
+                }
+            }
+            return response()->json([
+                'images' => $images,
+                'videos' => $videos,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserEvaluationDetailsById($id): JsonResponse
+    {
+        try {
+
+            $submission = EvaluationSubmission::with([
+                'paymentRequest.inAppPurchase.marketplaceItems',
+            ])
+                ->where('player_id', $id)
+                ->whereIn('status', [
+                    EvaluationSubmission::STATUS_COMPLETED
+                ])
+                ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
+                    $q->where('type', MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION);
+                })
+                ->latest()
+                ->first();
+
+            if (!$submission) {
+                return response()->json([
+                    'skating' => null,
+                    'compete' => null,
+                    'hockeyIQ' => null,
+                    'skills' => null,
+                ], 404);
+            }
+
+
+            $submission->load([
+                'evaluation.answers:id,evaluation_id,question_id,rating',
+                'evaluation.answers.question:id,category_id',
+                'evaluation.answers.question.category:id,slug,name',
+            ]);
+
+            $result = [
+                'skating'  => null,
+                'compete'  => null,
+                'hockeyIQ' => null,
+                'skills'   => null,
+            ];
+
+            foreach ($submission->evaluation->answers as $answer) {
+                $category = $answer->question->category ?? null;
+
+                if (!$category) {
+                    continue;
+                }
+
+                switch ($category->slug) {
+                    case 'skating':
+                        $result['skating'] = $answer->rating;
+                        break;
+
+                    case 'compete':
+                        $result['compete'] = $answer->rating;
+                        break;
+
+                    case 'hockey-iq':
+                        $result['hockeyIQ'] = $answer->rating; // convert slug → camelCase
+                        break;
+
+                    case 'skills':
+                        $result['skills'] = $answer->rating;
+                        break;
+                }
+            }
+
+            return response()->json(
+                $result
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserAchievementsDetailsById($id): JsonResponse
+    {
+        try {
+
+            $achievements = V4PlayerAchievement::where('player_id', $id)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            return response()->json(
+                $achievements
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+
+    public function getUserPortfolioDetailsById($id): JsonResponse
+    {
+        try {
+            $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
+                ->where(function ($q) use ($id) {
+                    $q->where('is_public', true)
+                        ->orWhere('player_id', $id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $achievementsMap = [];
+            $videosMap = [];
+
+            foreach ($portfolios as $portfolio) {
+                foreach ($portfolio->subs as $sub) {
+                    if (!$sub->subable) {
+                        continue;
+                    }
+
+                    switch ($sub->subable_type) {
+
+                        case V4PlayerAchievement::class:
+                            $achievementsMap[$sub->subable->id] = [
+                                'id' => $sub->subable->id,
+                                'title' => $sub->subable->title ?? null,
+                                'file_path' => $sub->subable->file_path ?? null,
+                                'details' => $sub->subable->details ?? null,
+                                'description' => $sub->subable->description ?? null,
+                            ];
+                            break;
+
+                        case V4UploadedMedia::class:
+                            $videosMap[$sub->subable->id] = [
+                                'id' => $sub->subable->id,
+                                'title' => $sub->subable->meta['original_name'] ?? null,
+                                'file_path' => $sub->subable->file_path ?? null,
+                            ];
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            // Convert maps to indexed arrays
+            $allAchievements = array_values($achievementsMap);
+            $allVideos = array_values($videosMap);
+
+            return response()->json([
+                'success' => true,
+                'achievements' => $allAchievements,
+                'videos' => $allVideos,
+            ], 200);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1592,7 +1911,6 @@ class ProfileController extends Controller
                     'is_public' => $evaluation->is_public,
                 ],
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error updating evaluation visibility: ' . $e->getMessage());
 
@@ -1710,7 +2028,6 @@ class ProfileController extends Controller
                     'player_id' => $playerId,
                 ],
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error getting achievements/evaluations: ' . $e->getMessage(), [
                 'user_id' => Auth::guard('v4api')->id(),
