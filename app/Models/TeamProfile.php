@@ -25,9 +25,24 @@ class TeamProfile extends Model
         'leagues' => 'array',
     ];
 
+    protected $appends = [
+        'administrator_name',
+        // 'age'
+    ];
+
     public function user()
     {
         return $this->belongsTo(V4User::class, 'v4_user_id');
+    }
+
+    public function getAdministratorNameAttribute(): ?string
+    {
+        $first = trim($this->administrator_first_name ?? '');
+        $last  = trim($this->administrator_last_name ?? '');
+
+        $fullName = trim("$first $last");
+
+        return $fullName !== '' ? $fullName : null;
     }
 
     public function team()
