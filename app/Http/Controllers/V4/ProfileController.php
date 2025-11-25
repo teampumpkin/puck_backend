@@ -973,7 +973,7 @@ class ProfileController extends Controller
 
         // Build the query
         $query = V4User::query()
-            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo', 'state', 'province', 'country'])
+            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
 
@@ -989,17 +989,17 @@ class ProfileController extends Controller
         //     $query->where('league', 'ilike', "%{$league}%");
         // }
 
-        if (!empty($state)) {
-            $query->where('state', 'ilike', "%{$state}%");
-        }
+        // if (!empty($state)) {
+        //     $query->where('state', 'ilike', "%{$state}%");
+        // }
 
-        if (!empty($province)) {
-            $query->where('province', 'ilike', "%{$province}%");
-        }
+        // if (!empty($province)) {
+        //     $query->where('province', 'ilike', "%{$province}%");
+        // }
 
-        if (!empty($country)) {
-            $query->where('country', 'ilike', "%{$country}%");
-        }
+        // if (!empty($country)) {
+        //     $query->where('country', 'ilike', "%{$country}%");
+        // }
 
         // Execute the query with pagination
         $users = $query->paginate($perPage, ['*'], 'page', $page);
