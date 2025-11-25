@@ -29,6 +29,8 @@ class V4Team extends Model
         'country',
     ];
 
+    protected $appends = ['members_count'];
+
     protected $casts = [
         'leagues' => 'array',
     ];
@@ -43,5 +45,10 @@ class V4Team extends Model
         return $this->members()
             ->where('player_id', $userId)
             ->exists();
+    }
+
+    public function getMembersCountAttribute()
+    {
+        return $this->members()->count();
     }
 }
