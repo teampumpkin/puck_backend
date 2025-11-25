@@ -9,6 +9,7 @@ use App\Models\EvaluationSubmission;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4PlayerPortfolioSub;
+use App\Models\V4Team;
 use App\Models\V4UploadedMedia;
 use App\Models\V4Post;
 use App\Models\V4User;
@@ -236,7 +237,7 @@ class ProfileController extends Controller
                     break;
 
                 case 'team':
-                    $teamValidated = $request->validate([
+                    $teamProfileValidated = $request->validate([
                         'team_name' => 'nullable|string|max:255',
                         'administrator_first_name' => 'nullable|string|max:255',
                         'administrator_last_name' => 'nullable|string|max:255',
@@ -246,7 +247,12 @@ class ProfileController extends Controller
                         'team_years_running' => 'nullable|integer',
                     ]);
 
-                    $user->teamProfile()->updateOrCreate([], $teamValidated);
+                    $teamValidated = $teamProfileValidated;
+                    $teamValidated['profile_photo'] = $validated['profile_photo'];
+
+                    $v4team = V4Team::create($teamValidated);
+                    $teamProfileValidated['team_id'] = $v4team->id;
+                    $user->teamProfile()->updateOrCreate([], $teamProfileValidated);
                     $user->load('teamProfile');
                     break;
 
