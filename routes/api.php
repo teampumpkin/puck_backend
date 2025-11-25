@@ -444,6 +444,9 @@ Route::prefix('v4')->group(function () {
             Route::post('/{teamId}/members', [V4TeamController::class, 'addRemoveTeamMembers']);
             Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
             Route::get('/{teamId}/members', [V4TeamController::class, 'getTeamMembers']);
+            Route::post('/create', [V4TeamController::class, 'createTeam']);
+            Route::post('/{teamId}/update', [V4TeamController::class, 'updateTeam']);
+            Route::delete('/{teamId}', [V4TeamController::class, 'deleteTeam']);
         });
 
 

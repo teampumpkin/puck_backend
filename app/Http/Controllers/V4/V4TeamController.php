@@ -17,6 +17,196 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 
 class V4TeamController extends Controller
 {
+
+    /**
+     * CREATE TEAM
+     */
+    public function createTeam(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'team_name' => 'required|string|max:255',
+                'administrator_first_name' => 'required|string|max:255',
+                'administrator_last_name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'leagues' => 'required|array',
+                'phone' => 'required|string|max:255',
+                'website' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'team_years_running' => 'nullable|integer',
+                'city' => 'nullable|string|max:255',
+                'state' => 'nullable|string|max:255',
+                'zipcode' => 'nullable|string|max:255',
+                'country' => 'nullable|string|max:255',
+                'profile_photo' => 'nullable|file|image|max:5120',
+            ]);
+
+            $profilePhotoUrl = null;
+
+            if ($request->hasFile('profile_photo')) {
+                $file = $request->file('profile_photo');
+
+                if ($file->isValid()) {
+
+                    $mimeType = $file->getClientMimeType();
+
+                    // Only allow images
+                    if (str_starts_with($mimeType, 'image/')) {
+
+                        $filename = 'team_profile_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                        // Store in S3 -> folder teams/{teamId}/
+                        $path = $file->storeAs(
+                            'teams/' . ($teamId ?? 'temp'),
+                            $filename,
+                            's3'
+                        );
+
+                        // URL to save in DB
+                        $profilePhotoUrl = Storage::disk('s3')->url($path);
+                    }
+                }
+            }
+
+
+            // Create team
+            $validated['profile_photo'] = $profilePhotoUrl;
+            $team = V4Team::create($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team created successfully',
+                'team' => $team
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team creation failed',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+     /**
+     * UPDATE TEAM
+     */
+    public function updateTeam(Request $request, $teamId)
+    {
+        $team = V4Team::find($teamId);
+
+        if (!$team) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team not found'
+            ], 404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'team_name'                 => 'sometimes|string|max:255',
+                'administrator_first_name'  => 'sometimes|string|max:255',
+                'administrator_last_name'   => 'sometimes|string|max:255',
+                'email'                     => 'sometimes|email|max:255',
+                'leagues'                   => 'sometimes|array',
+                'phone'                     => 'sometimes|string|max:255',
+                'website'           => 'nullable|string|max:255',
+                'address'           => 'nullable|string|max:255',
+                'team_years_running'=> 'nullable|integer',
+                'city'              => 'nullable|string|max:255',
+                'state'             => 'nullable|string|max:255',
+                'zipcode'           => 'nullable|string|max:255',
+                'country'           => 'nullable|string|max:255',
+                'profile_photo'     => 'nullable|file|image|max:5120',
+            ]);
+
+            return DB::transaction(function () use ($validated, $request, $team) {
+
+                // Handle profile photo update
+                if ($request->hasFile('profile_photo')) {
+
+                    // delete old
+                    if ($team->profile_photo && Storage::disk('public')->exists($team->profile_photo)) {
+                        Storage::disk('public')->delete($team->profile_photo);
+                    }
+
+                    // store new
+                    $validated['profile_photo'] = $request->file('profile_photo')
+                        ->store('teams', 'public');
+                }
+
+                // Update team
+                $team->update($validated);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Team updated successfully',
+                    'team' => $team
+                ]);
+            });
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team update failed',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+
+    /**
+     * DELETE TEAM
+     */
+    public function deleteTeam($teamId)
+    {
+        $team = V4Team::find($teamId);
+
+        if (!$team) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team not found'
+            ], 404);
+        }
+
+        try {
+            DB::transaction(function () use ($team) {
+
+                // delete photo
+                if ($team->profile_photo && Storage::disk('public')->exists($team->profile_photo)) {
+                    Storage::disk('public')->delete($team->profile_photo);
+                }
+
+                $team->delete();
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team deleted successfully'
+            ]);
+
+        } catch (Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Team delete failed',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
     /**
      * Add / Remove Team Members
      */
@@ -234,7 +424,7 @@ class V4TeamController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Fetched Teams',
-                'data' =>  $teams
+                'data' => $teams
             ]);
         } catch (Exception $e) {
             return response()->json([
