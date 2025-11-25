@@ -43,7 +43,29 @@ class V4TeamController extends Controller
                 'zipcode' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
                 'profile_photo' => 'nullable|file|image|max:5120',
+                'academy_id' => 'nullable|integer|exists:v4_users,id',
             ]);
+
+            $academyId = $validated['academy_id'] ?? null;
+
+            $academy = null;
+
+            if ($academyId) {
+                $academy = V4User::where('id', $academyId)
+                    ->where('role', 'academy')
+                    ->first();
+
+                if (!$academy) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Academy not found',
+                    ], 400);
+                }
+            }
+
+            if ($academy) {
+                $validated['academy_id'] = $academy->id;
+            }
 
             $profilePhotoUrl = null;
 
@@ -71,7 +93,6 @@ class V4TeamController extends Controller
                     }
                 }
             }
-
 
             // Create team
             $validated['profile_photo'] = $profilePhotoUrl;
@@ -128,7 +149,30 @@ class V4TeamController extends Controller
                 'zipcode' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
                 'profile_photo' => 'nullable|file|image|max:5120',
+                'academy_id' => 'nullable|integer|exists:v4_users,id',
             ]);
+
+            $academyId = $validated['academy_id'] ?? null;
+
+            $academy = null;
+
+            if ($academyId) {
+                $academy = V4User::where('id', $academyId)
+                    ->where('role', 'academy')
+                    ->first();
+
+                if (!$academy) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Academy not found',
+                    ], 400);
+                }
+            }
+
+
+            if ($academy) {
+                $validated['academy_id'] = $academy->id;
+            }
 
             if ($request->hasFile('profile_photo')) {
                 $file = $request->file('profile_photo');

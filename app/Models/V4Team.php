@@ -27,11 +27,17 @@ class V4Team extends Model
         'state',
         'zipcode',
         'country',
+        'academy_id',
     ];
 
     protected $casts = [
         'leagues' => 'array',
     ];
+
+    public function academy()
+    {
+        return $this->belongsTo(V4User::class, 'academy_id');
+    }
 
     public function members()
     {
