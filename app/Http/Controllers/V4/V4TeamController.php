@@ -106,6 +106,10 @@ class V4TeamController extends Controller
             if (!empty($removeIds)) {
                 TeamMember::where('team_id', $teamId)
                     ->whereIn('player_id', $removeIds)
+                    ->update(['removed_by' => $user->id]);
+
+                TeamMember::where('team_id', $teamId)
+                    ->whereIn('player_id', $removeIds)
                     ->delete();
             }
 
