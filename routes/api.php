@@ -28,6 +28,8 @@ use App\Http\Controllers\V4\EvaluationRejectionReasonController;
 use App\Http\Controllers\V4\NotificationController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\UserBlockController;
+use App\Http\Controllers\V4\V4UserReportReasonController;
+use App\Http\Controllers\V4\V4UserReportController;
 use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\V4\V4EvaluationController;
 use App\Http\Controllers\V4\V4FaqController;
@@ -400,6 +402,15 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{id}', [V4FaqController::class, 'softDeleteFaq']);
                 Route::post('/reorder', [V4FaqController::class, 'reorderFaq']);
             });
+
+            Route::prefix('report-reasons')->group(function () {
+                Route::get('/active', [V4UserReportReasonController::class, 'getActiveReasons']);
+                Route::get('/', [V4UserReportReasonController::class, 'getAllReasons']);
+                Route::post('/', [V4UserReportReasonController::class, 'create']);
+                Route::put('/{id}', [V4UserReportReasonController::class, 'update']);
+                Route::delete('/{id}', [V4UserReportReasonController::class, 'delete']);
+                Route::get('/{id}', [V4UserReportReasonController::class, 'getRejectionReason']);
+            });
         });
     });
 
@@ -686,6 +697,11 @@ Route::prefix('v4')->group(function () {
         Route::prefix('orders')->group(function () {
             Route::get('/{userId}', [V4PaymentController::class, 'getOrdersByUserId']);
         });
+
+        Route::prefix('report-reasons')->group(function () {
+            Route::get('/', [V4UserReportReasonController::class, 'getAllReasons']);
+        });
+        Route::post('/report-user', [V4UserReportController::class, 'reportUser']);
     });
 });
 
