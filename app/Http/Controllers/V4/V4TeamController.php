@@ -82,7 +82,6 @@ class V4TeamController extends Controller
                 'message' => 'Team created successfully',
                 'team' => $team
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -164,8 +163,6 @@ class V4TeamController extends Controller
                 'message' => 'Team updated successfully',
                 'team' => $team
             ]);
-
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -203,7 +200,6 @@ class V4TeamController extends Controller
                 'success' => true,
                 'message' => 'Team deleted successfully'
             ]);
-
         } catch (Exception $e) {
 
             return response()->json([
@@ -426,13 +422,22 @@ class V4TeamController extends Controller
 
             $user = Auth::guard('v4api')->user();
 
-            $teams = V4Team::with('members')->get();
+            if ($user->role == 'player') {
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Fetched Teams',
-                'data' => $teams
-            ]);
+                $teams = V4Team::with('members')
+                    ->get();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Fetched Teams',
+                    'data' => $teams
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Coming soon',
+                ], 500);
+            }
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
