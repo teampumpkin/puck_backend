@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
         // $this->call(StateSeeder::class);
         // $this->call(CitySeeder::class);
         $this->call(EvaluationRejectionReasonSeeder::class);
+        $this->call(V4UserReportReasonSeeder::class);
         $this->call(EvaluationCategorySeeder::class);
         $this->call(EvaluationQuestionSeeder::class);
         $this->call(EvaluationQuestionOptionSeeder::class);
