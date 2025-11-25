@@ -145,8 +145,8 @@ class V4TeamController extends Controller
     public function getTeamDetails(Request $request, $teamId): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'teamId' => 'required|integer|exists:v4_teams,id'
+            $validator = Validator::make(['teamId' => $teamId], [
+                'teamId' => 'required|integer|exists:v4_teams,id',
             ]);
 
             if ($validator->fails()) {
@@ -183,8 +183,8 @@ class V4TeamController extends Controller
     public function getTeamMembers(Request $request, $teamId): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'teamId' => 'required|integer|exists:v4_teams,id'
+            $validator = Validator::make(['teamId' => $teamId], [
+                'teamId' => 'required|integer|exists:v4_teams,id',
             ]);
 
             if ($validator->fails()) {
@@ -192,7 +192,7 @@ class V4TeamController extends Controller
             }
 
             $team = V4Team::findOrFail($teamId);
-            $teamMembers = TeamMember::where('team_id', $team->id)->get();
+            $teamMembers = TeamMember::with(['player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'])->where('team_id', $team->id)->get();
 
             return response()->json([
                 'success' => true,
