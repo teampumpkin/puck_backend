@@ -250,6 +250,11 @@ class ProfileController extends Controller
 
                     $teamValidated = $teamProfileValidated;
                     $teamValidated['profile_photo'] = $validated['profile_photo'];
+                    $teamValidated['phone'] = $validated['phone'];
+                    $teamValidated['city'] = $validated['city'];
+                    $teamValidated['state'] = $validated['state'];
+                    $teamValidated['zipcode'] = $validated['zipcode'];
+                    $teamValidated['country'] = $validated['country'];
 
                     $v4team = null;
                     if ($user->is_onboarded && $validated['team_id']) {
