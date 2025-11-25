@@ -164,6 +164,7 @@ class ProfileController extends Controller
             $isFirstTimeOnboarding = !$user->is_onboarded;
 
             $rules = [
+                'team_id'=>'nullable|exists:v4_teams,id',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
@@ -250,7 +251,22 @@ class ProfileController extends Controller
                     $teamValidated = $teamProfileValidated;
                     $teamValidated['profile_photo'] = $validated['profile_photo'];
 
-                    $v4team = V4Team::create($teamValidated);
+                    $v4team=null;
+                    if ($user->is_onboarded && $validated['team_id']) {
+
+                        $v4team = V4Team::find($validated['team_id']);
+
+                        if ($v4team) {
+                            $v4team->update($teamValidated);
+                        } else {
+                            // Fallback
+                            $v4team = V4Team::create($teamValidated);
+                        }
+
+                    } else {
+                        $v4team = V4Team::create($teamValidated);
+                    }
+
                     $teamProfileValidated['team_id'] = $v4team->id;
                     $user->teamProfile()->updateOrCreate([], $teamProfileValidated);
                     $user->load('teamProfile');
