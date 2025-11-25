@@ -1511,6 +1511,15 @@ class ProfileController extends Controller
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
+
+            if ($authUser->role == 'team') {
+                $authUser->load('teamProfile.team');
+                $userData['is_team_members'] = false;
+                if ($authUser->teamProfile && $authUser->teamProfile->team) {
+                    $userData['is_team_members'] = $authUser->teamProfile->team->isMember($user->id);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profile data retrieved successfully',
