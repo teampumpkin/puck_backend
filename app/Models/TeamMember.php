@@ -14,7 +14,8 @@ class TeamMember extends Model
     protected $fillable = [
         'team_id',
         'player_id',
-        'added_by'
+        'added_by',
+        'removed_by'
     ];
 
     public function team()
@@ -30,5 +31,10 @@ class TeamMember extends Model
     public function addedBy()
     {
         return $this->belongsTo(V4User::class, 'added_by');
+    }
+
+    public function removedBy()
+    {
+        return $this->belongsTo(V4User::class, 'removed_by');
     }
 }
