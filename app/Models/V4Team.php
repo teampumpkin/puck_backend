@@ -22,6 +22,11 @@ class V4Team extends Model
         'website',
         'address',
         'team_years_running',
+        'phone',
+        'city',
+        'state',
+        'zipcode',
+        'country',
     ];
 
     protected $casts = [
