@@ -9,7 +9,11 @@ use App\Models\V4User;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -94,7 +98,7 @@ class V4TeamController extends Controller
         }
     }
 
-     /**
+    /**
      * UPDATE TEAM
      */
     public function updateTeam(Request $request, $teamId)
@@ -110,46 +114,57 @@ class V4TeamController extends Controller
 
         try {
             $validated = $request->validate([
-                'team_name'                 => 'sometimes|string|max:255',
-                'administrator_first_name'  => 'sometimes|string|max:255',
-                'administrator_last_name'   => 'sometimes|string|max:255',
-                'email'                     => 'sometimes|email|max:255',
-                'leagues'                   => 'sometimes|array',
-                'phone'                     => 'sometimes|string|max:255',
-                'website'           => 'nullable|string|max:255',
-                'address'           => 'nullable|string|max:255',
-                'team_years_running'=> 'nullable|integer',
-                'city'              => 'nullable|string|max:255',
-                'state'             => 'nullable|string|max:255',
-                'zipcode'           => 'nullable|string|max:255',
-                'country'           => 'nullable|string|max:255',
-                'profile_photo'     => 'nullable|file|image|max:5120',
+                'team_name' => 'sometimes|string|max:255',
+                'administrator_first_name' => 'sometimes|string|max:255',
+                'administrator_last_name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|max:255',
+                'leagues' => 'sometimes|array',
+                'phone' => 'sometimes|string|max:255',
+                'website' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'team_years_running' => 'nullable|integer',
+                'city' => 'nullable|string|max:255',
+                'state' => 'nullable|string|max:255',
+                'zipcode' => 'nullable|string|max:255',
+                'country' => 'nullable|string|max:255',
+                'profile_photo' => 'nullable|file|image|max:5120',
             ]);
 
-            return DB::transaction(function () use ($validated, $request, $team) {
+            if ($request->hasFile('profile_photo')) {
+                $file = $request->file('profile_photo');
 
-                // Handle profile photo update
-                if ($request->hasFile('profile_photo')) {
+                if ($file->isValid()) {
 
-                    // delete old
-                    if ($team->profile_photo && Storage::disk('public')->exists($team->profile_photo)) {
-                        Storage::disk('public')->delete($team->profile_photo);
+                    $mimeType = $file->getClientMimeType();
+
+                    // Only allow images
+                    if (str_starts_with($mimeType, 'image/')) {
+
+                        $filename = 'team_profile_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+                        // Store in S3 -> folder teams/{teamId}/
+                        $path = $file->storeAs(
+                            'teams/' . ($teamId ?? 'temp'),
+                            $filename,
+                            's3'
+                        );
+
+                        // URL to save in DB
+                        $profilePhotoUrl = Storage::disk('s3')->url($path);
+                        $validated['profile_photo'] = $profilePhotoUrl;
                     }
-
-                    // store new
-                    $validated['profile_photo'] = $request->file('profile_photo')
-                        ->store('teams', 'public');
                 }
+            }
 
-                // Update team
-                $team->update($validated);
+            // Update team
+            $team->update($validated);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Team updated successfully',
-                    'team' => $team
-                ]);
-            });
+            return response()->json([
+                'success' => true,
+                'message' => 'Team updated successfully',
+                'team' => $team
+            ]);
+
 
         } catch (ValidationException $e) {
             return response()->json([
@@ -182,15 +197,7 @@ class V4TeamController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($team) {
-
-                // delete photo
-                if ($team->profile_photo && Storage::disk('public')->exists($team->profile_photo)) {
-                    Storage::disk('public')->delete($team->profile_photo);
-                }
-
-                $team->delete();
-            });
+            $team->delete();
 
             return response()->json([
                 'success' => true,
