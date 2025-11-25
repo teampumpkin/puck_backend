@@ -249,11 +249,14 @@ class ProfileController extends Controller
                     ]);
 
                     $teamValidated = $teamProfileValidated;
-                    $teamValidated['profile_photo'] = $validated['profile_photo'] ?? null;
+                    if(!empty($validated['profile_photo'])){
+                        $teamValidated['profile_photo'] = $validated['profile_photo'];
+                    }
                     $teamValidated['phone'] = $validated['phone'];
 
                     $v4team = null;
-                    if ($user->is_onboarded && $validated['team_id']) {
+                    $teamId = $validated['team_id'] ?? null;
+                    if ($user->is_onboarded && $teamId) {
 
                         $v4team = V4Team::find($validated['team_id']);
 
