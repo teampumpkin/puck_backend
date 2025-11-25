@@ -249,22 +249,8 @@ class ProfileController extends Controller
                     ]);
 
                     $teamValidated = $teamProfileValidated;
-                    $teamValidated['profile_photo'] = $validated['profile_photo'];
+                    $teamValidated['profile_photo'] = $validated['profile_photo'] ?? null;
                     $teamValidated['phone'] = $validated['phone'];
-                    $teamValidated['city'] = $validated['city'];
-                    $teamValidated['state'] = $validated['state'];
-                    $teamValidated['zipcode'] = $validated['zipcode'];
-                    $teamValidated['country'] = $validated['country'];
-
-                    if ($request->hasFile(key: 'profile_photo')) {
-                        $path = $request->file('profile_photo')->store(
-                            'profile_photo/' . $request->user()->id,
-                            's3'
-                        );
-                        $profileUrl = Storage::disk('s3')->url($path);
-
-                        $teamValidated['profile_photo'] = $profileUrl;
-                    }
 
                     $v4team = null;
                     if ($user->is_onboarded && $validated['team_id']) {
