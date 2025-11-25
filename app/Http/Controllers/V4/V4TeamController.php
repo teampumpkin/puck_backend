@@ -6,9 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\TeamMember;
 use App\Models\V4Team;
 use App\Models\V4User;
-use Auth;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class V4TeamController extends Controller
 {
@@ -19,7 +24,7 @@ class V4TeamController extends Controller
     {
         $user = Auth::guard('v4api')->user();
 
-         // --- Validate: Team must exist and role must be 'team'
+        // --- Validate: Team must exist and role must be 'team'
         $team = V4Team::where('id', $teamId);
 
         if (!$team) {
@@ -129,7 +134,6 @@ class V4TeamController extends Controller
                 'success' => true,
                 'message' => 'Team members updated successfully',
             ]);
-
         } catch (\Exception $e) {
 
             DB::rollBack();
@@ -137,6 +141,83 @@ class V4TeamController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update team members',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getTeamDetails(Request $request, $teamId): JsonResponse
+    {
+        try {
+            $validator = Validator::make(['teamId' => $teamId], [
+                'teamId' => 'required|integer|exists:v4_teams,id',
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $teamDetails = V4Team::findOrFail($teamId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Team Details successfully',
+                'data' => $teamDetails
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch team details',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getTeamMembers(Request $request, $teamId): JsonResponse
+    {
+        try {
+            $validator = Validator::make(['teamId' => $teamId], [
+                'teamId' => 'required|integer|exists:v4_teams,id',
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $team = V4Team::findOrFail($teamId);
+            $teamMembers = TeamMember::with(['player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'])->where('team_id', $team->id)->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Team Members successfully',
+                'data' => $teamMembers
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch team members',
                 'error' => $e->getMessage()
             ], 500);
         }

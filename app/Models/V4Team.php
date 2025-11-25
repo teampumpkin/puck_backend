@@ -27,4 +27,16 @@ class V4Team extends Model
     protected $casts = [
         'leagues' => 'array',
     ];
+
+    public function members()
+    {
+        return $this->hasMany(TeamMember::class, 'team_id');
+    }
+
+    public function isMember($userId): bool
+    {
+        return $this->members()
+            ->where('player_id', $userId)
+            ->exists();
+    }
 }

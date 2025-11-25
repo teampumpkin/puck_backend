@@ -8,6 +8,7 @@ use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
+use App\Models\EvaluatorAssignment;
 use App\Models\V4PlayerPortfolioSub;
 use App\Models\V4Team;
 use App\Models\V4UploadedMedia;
@@ -490,6 +491,33 @@ class ProfileController extends Controller
                 return response()->json([
                     'message' => 'You are not authorized to delete this user account'
                 ], 403);
+            }
+
+            $user->delete();
+
+            return response()->json([
+                'message' => 'User account deleted successfully'
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'User account deletion failed.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function deleteUserAccountFromAdmin(Request $request, $id)
+    {
+        try {
+
+            $user = V4User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
             }
 
             $user->delete();
@@ -1380,6 +1408,9 @@ class ProfileController extends Controller
                 'fullName' => $user->name,
                 'status' => 'active',
                 'basicInfo' => [
+                    'firstName' => $user->first_name,
+                    'lastName' => $user->last_name,
+                    'fullName' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone,
                     'country' => $user->country,
@@ -1392,6 +1423,18 @@ class ProfileController extends Controller
                     'height' => $profileData->height,
                     'position' => $profileData->position,
                     'handedness' => $profileData->handedness,
+                    'teamName' => $profileData->team_name,
+                    'administratorFullName' => $profileData->administrator_name,
+                    'administratorEmail' => $profileData->email,
+                    'teamWebsite' => $profileData->website,
+                    'teamAddress' => $profileData->teamAddress,
+                    'teamCity' => $user->city,
+                    'teamStateProvince' => $user->state . ',' .  $user->province,
+                    'teamZipPostalCode' => $user->zip,
+                    'province' => $user->province,
+                    'stateProvince' => $user->state . ',' .  $user->province,
+                    'teamCountry' => $user->country,
+                    'yearsRunning' => $profileData->team_years_running,
                 ],
                 'socialStats' => [
                     'followers' => $user->followers_count,
@@ -1490,6 +1533,15 @@ class ProfileController extends Controller
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
+
+            if ($authUser->role == 'team') {
+                $authUser->load('teamProfile.team');
+                $userData['is_team_members'] = false;
+                if ($authUser->teamProfile && $authUser->teamProfile->team) {
+                    $userData['is_team_members'] = $authUser->teamProfile->team->isMember($user->id);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profile data retrieved successfully',
@@ -1539,6 +1591,90 @@ class ProfileController extends Controller
                 'images' => $images,
                 'videos' => $videos,
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserChildrenDetailsById($id): JsonResponse
+    {
+        try {
+            $users = V4User::where('parent_id', $id)
+                ->get();
+            $children = collect();
+            foreach ($users as $user) {
+                $baseInfo = [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'dateOfBirth' => $user->date_of_birth,
+                    'gender' => $user->playerProfile->gender,
+                    'position' => $user->playerProfile->position,
+                    'team' => $user->playerProfile->teams,
+                    'username' => $user->username,
+                ];
+                $children->push($baseInfo);
+            }
+            return response()->json([
+                'children' =>   $children
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserEvaluationsDetailsById($id): JsonResponse
+    {
+        try {
+
+            $assignments = EvaluatorAssignment::with([
+                'evaluation',
+                'submission.paymentRequest.inAppPurchase.marketplaceItem',
+            ])->where('evaluator_id', $id)
+                ->whereIn('status', [EvaluatorAssignment::STATUS_COMPLETED])
+                ->orderBy('assigned_at', 'desc')
+                ->get();
+            $formattedEvaluations = collect();
+
+            foreach ($assignments as $assignment) {
+                $baseData = [
+                    'id' => $assignment->id,
+                    'playerName' => $assignment->submission->player->name,
+                    'playerPosition' => $assignment->submission->player->playerProfile->position,
+                    'evaluationDate' => \Carbon\Carbon::parse($assignment->created_at)->format('d-m-Y'),
+                    'overallRating' =>   $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating,
+                    'status' =>  $assignment->status,
+                    'category' => $assignment->submission->paymentRequest->inAppPurchase->marketplaceItem->title
+                ];
+
+                $formattedEvaluations->push($baseData);
+            }
+
+
+            return response()->json(
+                [
+                    'evaluations' => $formattedEvaluations,
+                ]
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,

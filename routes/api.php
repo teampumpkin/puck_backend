@@ -283,14 +283,19 @@ Route::prefix('v4')->group(function () {
             Route::prefix('evaluators')->group(function () {
                 Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
             });
+            Route::delete('/users/{id}/delete-account', [ProfileController::class, 'deleteUserAccountFromAdmin']);
 
             Route::get('/users/{id}', [ProfileController::class, 'getUserAdminDetailsById']);
             Route::get('/users/{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
+            Route::get('/users/{id}/children', [ProfileController::class, 'getUserChildrenDetailsById']);
             // Route::get('/users/{id}/statistics', [ProfileController::class, 'getUserStatisticsDetailsById']);
             Route::get('/users/{id}/evaluation', [ProfileController::class, 'getUserEvaluationDetailsById']);
             Route::get('/users/{id}/achievements', [ProfileController::class, 'getUserAchievementsDetailsById']);
             // Route::get('/users/{id}/reports', [ProfileController::class, 'getUserReportsDetailsById']);
             Route::get('/users/{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
+            Route::get('/users/{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
+
+
             // Route::get('/users/{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
 
             Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
@@ -434,8 +439,10 @@ Route::prefix('v4')->group(function () {
             Route::post('/set-evaluation-visibility', [ProfileController::class, 'setEvaluationVisibility']);
         });
 
-        Route::prefix('team')->group(function () {
-            Route::post('/members/{teamId}', [V4TeamController::class, 'addRemoveTeamMembers']);
+        Route::prefix('teams')->group(function () {
+            Route::post('/{teamId}/members', [V4TeamController::class, 'addRemoveTeamMembers']);
+            Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
+            Route::get('/{teamId}/members', [V4TeamController::class, 'getTeamMembers']);
         });
 
 
