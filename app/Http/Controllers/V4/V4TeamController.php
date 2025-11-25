@@ -134,7 +134,7 @@ class V4TeamController extends Controller
                 'success' => true,
                 'message' => 'Team members updated successfully',
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             DB::rollBack();
 
