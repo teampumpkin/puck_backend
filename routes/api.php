@@ -440,7 +440,7 @@ Route::prefix('v4')->group(function () {
         });
 
         Route::prefix('teams')->group(function () {
-            Route::post('/members/{teamId}', [V4TeamController::class, 'addRemoveTeamMembers']);
+            Route::post('/{teamId}/members', [V4TeamController::class, 'addRemoveTeamMembers']);
             Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
             Route::get('/{teamId}/members', [V4TeamController::class, 'getTeamMembers']);
         });
