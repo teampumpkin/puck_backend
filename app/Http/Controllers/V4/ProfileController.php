@@ -985,21 +985,21 @@ class ProfileController extends Controller
             });
         }
 
-        if (!empty($league)) {
-            $query->where('league', 'ilike', "%{$league}%");
-        }
+        // if (!empty($league)) {
+        //     $query->where('league', 'ilike', "%{$league}%");
+        // }
 
-        if (!empty($state)) {
-            $query->where('state', 'ilike', "%{$state}%");
-        }
+        // if (!empty($state)) {
+        //     $query->where('state', 'ilike', "%{$state}%");
+        // }
 
-        if (!empty($province)) {
-            $query->where('province', 'ilike', "%{$province}%");
-        }
+        // if (!empty($province)) {
+        //     $query->where('province', 'ilike', "%{$province}%");
+        // }
 
-        if (!empty($country)) {
-            $query->where('country', 'ilike', "%{$country}%");
-        }
+        // if (!empty($country)) {
+        //     $query->where('country', 'ilike', "%{$country}%");
+        // }
 
         // Execute the query with pagination
         $users = $query->paginate($perPage, ['*'], 'page', $page);
