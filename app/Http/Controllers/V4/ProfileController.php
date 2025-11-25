@@ -164,7 +164,7 @@ class ProfileController extends Controller
             $isFirstTimeOnboarding = !$user->is_onboarded;
 
             $rules = [
-                'team_id'=>'nullable|exists:v4_teams,id',
+                'team_id' => 'nullable|exists:v4_teams,id',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
@@ -251,7 +251,7 @@ class ProfileController extends Controller
                     $teamValidated = $teamProfileValidated;
                     $teamValidated['profile_photo'] = $validated['profile_photo'];
 
-                    $v4team=null;
+                    $v4team = null;
                     if ($user->is_onboarded && $validated['team_id']) {
 
                         $v4team = V4Team::find($validated['team_id']);
@@ -262,14 +262,13 @@ class ProfileController extends Controller
                             // Fallback
                             $v4team = V4Team::create($teamValidated);
                         }
-
                     } else {
                         $v4team = V4Team::create($teamValidated);
                     }
 
                     $teamProfileValidated['team_id'] = $v4team->id;
                     $user->teamProfile()->updateOrCreate([], $teamProfileValidated);
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     break;
 
                 case 'scout':
@@ -1391,7 +1390,7 @@ class ProfileController extends Controller
                     $profileData = $user->coachProfile;
                     break;
                 case 'team':
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     $profileData = $user->teamProfile;
                     break;
                 case 'scout':
@@ -1498,7 +1497,7 @@ class ProfileController extends Controller
                     $profileData = $user->coachProfile;
                     break;
                 case 'team':
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     $profileData = $user->teamProfile;
                     break;
                 case 'scout':
