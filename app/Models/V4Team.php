@@ -14,6 +14,7 @@ class V4Team extends Model
 
     protected $fillable = [
         'team_name',
+        'profile_photo',
         'administrator_first_name',
         'administrator_last_name',
         'email',
