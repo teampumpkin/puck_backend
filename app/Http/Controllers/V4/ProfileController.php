@@ -249,7 +249,7 @@ class ProfileController extends Controller
                     ]);
 
                     $teamValidated = $teamProfileValidated;
-                    if(!empty($validated['profile_photo'])){
+                    if (!empty($validated['profile_photo'])) {
                         $teamValidated['profile_photo'] = $validated['profile_photo'];
                     }
                     $teamValidated['phone'] = $validated['phone'];
@@ -956,10 +956,9 @@ class ProfileController extends Controller
         $request->validate([
             'q' => 'nullable|string|max:255',
             'page' => 'nullable|integer|min:1',
-            'per_page' => 'nullable|integer|min:1|max:100',
-            'league' => 'nullable|string|max:255',
+            'per_page' => 'nullable|integer|min:1|max:10000',
             'state' => 'nullable|string|max:255',
-            'province' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
         ]);
 
@@ -967,9 +966,8 @@ class ProfileController extends Controller
         $searchTerm = $request->input('q', '');
         $page = $request->input('page', 1);
         $perPage = $request->input('per_page', 15);
-        $league = $request->input('league', null);
         $state = $request->input('state', null);
-        $province = $request->input('province', null);
+        $city = $request->input('city', null);
         $country = $request->input('country', null);
 
         // Get current authenticated user
@@ -989,21 +987,17 @@ class ProfileController extends Controller
             });
         }
 
-        // if (!empty($league)) {
-        //     $query->where('league', 'ilike', "%{$league}%");
-        // }
+        if (!empty($state)) {
+            $query->where('state', 'ilike', "%{$state}%");
+        }
 
-        // if (!empty($state)) {
-        //     $query->where('state', 'ilike', "%{$state}%");
-        // }
+        if (!empty($city)) {
+            $query->where('city', 'ilike', "%{$city}%");
+        }
 
-        // if (!empty($province)) {
-        //     $query->where('province', 'ilike', "%{$province}%");
-        // }
-
-        // if (!empty($country)) {
-        //     $query->where('country', 'ilike', "%{$country}%");
-        // }
+        if (!empty($country)) {
+            $query->where('country', 'ilike', "%{$country}%");
+        }
 
         // Execute the query with pagination
         $users = $query->paginate($perPage, ['*'], 'page', $page);
