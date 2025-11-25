@@ -222,4 +222,26 @@ class V4TeamController extends Controller
             ], 500);
         }
     }
+
+    public function getMyTeamsForProfile(Request $request): JsonResponse
+    {
+        try {
+
+            $user = Auth::guard('v4api')->user();
+
+            $teams = V4Team::with('members')->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Teams',
+                'data' =>  $teams
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update team members',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -47,7 +47,7 @@ class ProfileController extends Controller
                     $profileData = $user->coachProfile;
                     break;
                 case 'team':
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     $profileData = $user->teamProfile;
                     break;
                 case 'scout':
@@ -140,7 +140,6 @@ class ProfileController extends Controller
 
             // Add the profile data under a standardized field name
             $userData['profile'] = $profileData;
-
             return response()->json([
                 'success' => true,
                 'message' => 'Profile data retrieved successfully',
@@ -165,7 +164,7 @@ class ProfileController extends Controller
             $isFirstTimeOnboarding = !$user->is_onboarded;
 
             $rules = [
-                'team_id'=>'nullable|exists:v4_teams,id',
+                'team_id' => 'nullable|exists:v4_teams,id',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
@@ -252,7 +251,7 @@ class ProfileController extends Controller
                     $teamValidated = $teamProfileValidated;
                     $teamValidated['profile_photo'] = $validated['profile_photo'];
 
-                    $v4team=null;
+                    $v4team = null;
                     if ($user->is_onboarded && $validated['team_id']) {
 
                         $v4team = V4Team::find($validated['team_id']);
@@ -263,14 +262,13 @@ class ProfileController extends Controller
                             // Fallback
                             $v4team = V4Team::create($teamValidated);
                         }
-
                     } else {
                         $v4team = V4Team::create($teamValidated);
                     }
 
                     $teamProfileValidated['team_id'] = $v4team->id;
                     $user->teamProfile()->updateOrCreate([], $teamProfileValidated);
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     break;
 
                 case 'scout':
@@ -955,19 +953,27 @@ class ProfileController extends Controller
             'q' => 'nullable|string|max:255',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
+            'league' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'province' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
         ]);
 
         // Get search parameters
         $searchTerm = $request->input('q', '');
         $page = $request->input('page', 1);
         $perPage = $request->input('per_page', 15);
+        $league = $request->input('league', null);
+        $state = $request->input('state', null);
+        $province = $request->input('province', null);
+        $country = $request->input('country', null);
 
         // Get current authenticated user
         $currentUser = Auth::guard('v4api')->user();
 
         // Build the query
         $query = V4User::query()
-            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
+            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo', 'league', 'state', 'province', 'country'])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
 
@@ -977,6 +983,22 @@ class ProfileController extends Controller
                 $q->where('first_name', 'ilike', "%{$searchTerm}%")
                     ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
             });
+        }
+
+        if (!empty($league)) {
+            $query->where('league', 'ilike', "%{$league}%");
+        }
+
+        if (!empty($state)) {
+            $query->where('state', 'ilike', "%{$state}%");
+        }
+
+        if (!empty($province)) {
+            $query->where('province', 'ilike', "%{$province}%");
+        }
+
+        if (!empty($country)) {
+            $query->where('country', 'ilike', "%{$country}%");
         }
 
         // Execute the query with pagination
@@ -1368,7 +1390,7 @@ class ProfileController extends Controller
                     $profileData = $user->coachProfile;
                     break;
                 case 'team':
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     $profileData = $user->teamProfile;
                     break;
                 case 'scout':
@@ -1475,7 +1497,7 @@ class ProfileController extends Controller
                     $profileData = $user->coachProfile;
                     break;
                 case 'team':
-                    $user->load('teamProfile');
+                    $user->load('teamProfile.team');
                     $profileData = $user->teamProfile;
                     break;
                 case 'scout':
