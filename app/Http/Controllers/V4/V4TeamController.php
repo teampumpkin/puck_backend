@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V4;
 use App\Http\Controllers\Controller;
 use App\Models\TeamMember;
 use App\Models\V4Team;
+use App\Models\V4TeamAdmin;
 use App\Models\V4User;
 use Exception;
 use Illuminate\Http\Request;
@@ -28,6 +29,9 @@ class V4TeamController extends Controller
     public function createTeam(Request $request)
     {
         try {
+
+            $user = Auth::guard('v4api')->user();
+
             $validated = $request->validate([
                 'team_name' => 'required|string|max:255',
                 'administrator_first_name' => 'required|string|max:255',
@@ -43,7 +47,29 @@ class V4TeamController extends Controller
                 'zipcode' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
                 'profile_photo' => 'nullable|file|image|max:5120',
+                'academy_id' => 'nullable|integer|exists:v4_users,id',
             ]);
+
+            $academyId = $validated['academy_id'] ?? null;
+
+            $academy = null;
+
+            if ($academyId) {
+                $academy = V4User::where('id', $academyId)
+                    ->where('role', 'academy')
+                    ->first();
+
+                if (!$academy) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Academy not found',
+                    ], 400);
+                }
+            }
+
+            if ($academy) {
+                $validated['academy_id'] = $academy->id;
+            }
 
             $profilePhotoUrl = null;
 
@@ -71,17 +97,32 @@ class V4TeamController extends Controller
                     }
                 }
             }
-
-
-            // Create team
             $validated['profile_photo'] = $profilePhotoUrl;
-            $team = V4Team::create($validated);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Team created successfully',
-                'team' => $team
-            ]);
+            DB::beginTransaction();
+            try {
+                // Create team
+                $team = V4Team::create($validated);
+                V4TeamAdmin::create([
+                    'team_id' => $team->id,
+                    'admin_id' => $user->id,
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Team created successfully',
+                    'team' => $team
+                ]);
+
+            } catch (Exception $e) {
+                DB::rollBack();
+                // Optionally delete uploaded file from S3 if DB transaction fails
+                Storage::disk('s3')->delete($profilePhotoUrl);
+                throw $e;
+            }
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -127,7 +168,30 @@ class V4TeamController extends Controller
                 'zipcode' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
                 'profile_photo' => 'nullable|file|image|max:5120',
+                'academy_id' => 'nullable|integer|exists:v4_users,id',
             ]);
+
+            $academyId = $validated['academy_id'] ?? null;
+
+            $academy = null;
+
+            if ($academyId) {
+                $academy = V4User::where('id', $academyId)
+                    ->where('role', 'academy')
+                    ->first();
+
+                if (!$academy) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Academy not found',
+                    ], 400);
+                }
+            }
+
+
+            if ($academy) {
+                $validated['academy_id'] = $academy->id;
+            }
 
             if ($request->hasFile('profile_photo')) {
                 $file = $request->file('profile_photo');

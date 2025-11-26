@@ -11,6 +11,7 @@ use App\Models\V4PlayerPortfolio;
 use App\Models\EvaluatorAssignment;
 use App\Models\V4PlayerPortfolioSub;
 use App\Models\V4Team;
+use App\Models\V4TeamAdmin;
 use App\Models\V4UploadedMedia;
 use App\Models\V4Post;
 use App\Models\V4User;
@@ -265,9 +266,17 @@ class ProfileController extends Controller
                         } else {
                             // Fallback
                             $v4team = V4Team::create($teamValidated);
+                            V4TeamAdmin::create([
+                                'team_id' => $v4team->id,
+                                'admin_id' => $user->id,
+                            ]);
                         }
                     } else {
                         $v4team = V4Team::create($teamValidated);
+                        V4TeamAdmin::create([
+                            'team_id' => $v4team->id,
+                            'admin_id' => $user->id,
+                        ]);
                     }
 
                     $teamProfileValidated['team_id'] = $v4team->id;
@@ -637,7 +646,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1449,10 +1458,10 @@ class ProfileController extends Controller
                     'teamWebsite' => $profileData->website,
                     'teamAddress' => $profileData->teamAddress,
                     'teamCity' => $user->city,
-                    'teamStateProvince' => $user->state . ',' .  $user->province,
+                    'teamStateProvince' => $user->state . ',' . $user->province,
                     'teamZipPostalCode' => $user->zip,
                     'province' => $user->province,
-                    'stateProvince' => $user->state . ',' .  $user->province,
+                    'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
                     'yearsRunning' => $profileData->team_years_running,
                 ],
@@ -1645,7 +1654,7 @@ class ProfileController extends Controller
                 $children->push($baseInfo);
             }
             return response()->json([
-                'children' =>   $children
+                'children' => $children
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -1681,8 +1690,8 @@ class ProfileController extends Controller
                     'playerName' => $assignment->submission->player->name,
                     'playerPosition' => $assignment->submission->player->playerProfile->position,
                     'evaluationDate' => \Carbon\Carbon::parse($assignment->created_at)->format('d-m-Y'),
-                    'overallRating' =>   $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating,
-                    'status' =>  $assignment->status,
+                    'overallRating' => $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating,
+                    'status' => $assignment->status,
                     'category' => $assignment->submission->paymentRequest->inAppPurchase->marketplaceItem->title
                 ];
 
@@ -1744,10 +1753,10 @@ class ProfileController extends Controller
             ]);
 
             $result = [
-                'skating'  => null,
-                'compete'  => null,
+                'skating' => null,
+                'compete' => null,
                 'hockeyIQ' => null,
-                'skills'   => null,
+                'skills' => null,
             ];
 
             foreach ($submission->evaluation->answers as $answer) {
