@@ -38,7 +38,7 @@ class V4Team extends Model
 
     public function academy()
     {
-        return $this->belongsTo(V4User::class, 'academy_id');
+        return $this->belongsTo(V4Academy::class, 'academy_id');
     }
 
     public function members()

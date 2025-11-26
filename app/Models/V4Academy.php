@@ -40,6 +40,11 @@ class V4Academy extends Model
         return $this->hasMany(AcademyMember::class, 'academy_id');
     }
 
+    public function admins()
+    {
+        return $this->hasMany(V4AcademyAdmin::class, 'academy_id');
+    }
+
     public function isMember($userId): bool
     {
         return $this->members()
@@ -51,5 +56,4 @@ class V4Academy extends Model
     {
         return $this->members()->count();
     }
-
 }
