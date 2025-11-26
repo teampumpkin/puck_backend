@@ -330,7 +330,7 @@ class V4TeamController extends Controller
 
         if (!empty($userIdsToCheck)) {
             $validPlayers = V4User::whereIn('id', $userIdsToCheck)
-                ->where('role', 'player')
+                ->whereIn('role', ['player', 'coach', 'scout'])
                 ->pluck('id')
                 ->toArray();
 
