@@ -276,24 +276,49 @@ class V4TeamController extends Controller
     /**
      * Add / Remove Team Members
      */
-    public function addRemoveTeamMembers(Request $request, $teamId)
+    public function addRemoveTeamMembers(Request $request, $teamId, $academyId = null)
     {
         $user = Auth::guard('v4api')->user();
 
-        // --- Validate: Team must exist and role must be 'team'
-        $team = V4Team::where('id', $teamId);
+        // if academyId is present
+        if ($academyId !== null) {
+            $academy = V4User::where('id', $academyId)->where('role', 'academy')->first();
 
-        if (!$team) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid team Id',
-            ], 400);
+            if (!$academy) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid academy ID',
+                ], 400);
+            }
+
+            // check: team belongs to academy
+            $team = V4Team::where('id', $teamId)
+                ->where('academy_id', $academyId)
+                ->first();
+
+            if (!$team) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team does not belong to this academy',
+                ], 400);
+            }
+        } else {
+            // team validation
+            $team = V4Team::find($teamId);
+            if (!$team) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid team ID',
+                ], 400);
+            }
         }
 
         // Validate request
         $request->validate([
             'add' => 'array',
             'remove' => 'array',
+            'add.*' => 'integer|exists:v4_users,id',
+            'remove.*' => 'integer|exists:v4_users,id',
         ]);
 
 
