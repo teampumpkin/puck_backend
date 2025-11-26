@@ -4,37 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class AcademyProfile extends Model
+class V4Academy extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    protected $table = 'v4_academies';
 
     protected $fillable = [
-        'v4_user_id',
-        'academy_id',
         'academy_name',
-        'teams',
         'administrator_first_name',
         'administrator_last_name',
         'email',
+        'phone',
         'leagues',
         'website',
         'address',
+        'city',
+        'state',
+        'zipcode',
+        'country',
         'academy_years_running',
-        'main_team_name'
     ];
 
     protected $casts = [
+        'teams' => 'array',
         'leagues' => 'array',
     ];
 
-    public function user()
-    {
-        return $this->belongsTo(V4User::class, 'v4_user_id');
-    }
-
-    public function academy()
-    {
-        return $this->belongsTo(V4Academy::class, 'academy_id');
-    }
 }
