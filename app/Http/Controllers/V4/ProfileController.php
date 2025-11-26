@@ -6,6 +6,8 @@ use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
+use App\Models\V4Academy;
+use App\Models\V4AcademyAdmin;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\EvaluatorAssignment;
@@ -166,6 +168,7 @@ class ProfileController extends Controller
 
             $rules = [
                 'team_id' => 'nullable|exists:v4_teams,id',
+                'academy_id' => 'nullable|exists:v4_academies,id',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
@@ -236,6 +239,52 @@ class ProfileController extends Controller
                     ]);
                     $user->coachProfile()->updateOrCreate([], $coachValidated);
                     $user->load('coachProfile');
+                    break;
+
+                case 'academy':
+                    $academyProfileValidated = $request->validate([
+                        "academy_name" => "nullable|string|max:255",
+                        "administrator_first_name" => "nullable|string|max:255",
+                        "administrator_last_name" => "nullable|string|max:255",
+                        "leagues" => "nullable|array",
+                        "website" => "nullable|string|max:255",
+                        "address" => "nullable|string|max:255",
+                        "academy_years_running" => "nullable|integer",
+                    ]);
+
+                    $academyValidated = $academyProfileValidated;
+                    if (!empty($validated['profile_photo'])) {
+                        $academyValidated['profile_photo'] = $validated['profile_photo'];
+                    }
+                    $academyValidated['phone'] = $validated['phone'];
+
+                    $v4Academy = null;
+                    $academyId = $validated['academy_id'] ?? null;
+                    if ($user->is_onboarded && $academyId) {
+
+                        $v4Academy = V4Academy::find($validated['academy_id']);
+
+                        if ($v4Academy) {
+                            $v4Academy->update($academyValidated);
+                        } else {
+                            // Fallback
+                            $v4Academy = V4Academy::create($academyValidated);
+                            V4AcademyAdmin::create([
+                                'academy_id' => $v4Academy->id,
+                                'admin_id' => $user->id,
+                            ]);
+                        }
+                    } else {
+                        $v4Academy = V4Academy::create($academyValidated);
+                        V4AcademyAdmin::create([
+                            'academy_id' => $v4Academy->id,
+                            'admin_id' => $user->id,
+                        ]);
+                    }
+
+                    $academyProfileValidated['academy_id'] = $v4Academy->id;
+                    $user->academyProfile()->updateOrCreate([], $academyProfileValidated);
+                    $user->load('academyProfile');
                     break;
 
                 case 'team':
@@ -330,21 +379,6 @@ class ProfileController extends Controller
                     ]);
                     $user->organizerProfile()->updateOrCreate([], $organizerValidated);
                     $user->load('organizerProfile');
-                    break;
-                case 'academy':
-                    $academyValidated = $request->validate([
-                        "academy_name" => "nullable|string|max:255",
-                        "administrator_first_name" => "nullable|string|max:255",
-                        "administrator_last_name" => "nullable|string|max:255",
-                        "teams" => "nullable|array",
-                        "leagues" => "nullable|array",
-                        "website" => "nullable|string|max:255",
-                        "address" => "nullable|string|max:255",
-                        "academy_years_running" => "nullable|integer",
-                        "main_team_name" => "nullable|string|max:255",
-                    ]);
-                    $user->academyProfile()->updateOrCreate([], $academyValidated);
-                    $user->load('academyProfile');
                     break;
                 case 'adviser':
                     $adviserValidated = $request->validate([
