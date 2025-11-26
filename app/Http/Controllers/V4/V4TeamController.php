@@ -115,14 +115,12 @@ class V4TeamController extends Controller
                     'message' => 'Team created successfully',
                     'team' => $team
                 ]);
-
             } catch (Exception $e) {
                 DB::rollBack();
                 // Optionally delete uploaded file from S3 if DB transaction fails
                 Storage::disk('s3')->delete($profilePhotoUrl);
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
