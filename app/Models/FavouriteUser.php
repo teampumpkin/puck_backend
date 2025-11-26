@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class FavouriteUser extends Model
+{
+    use SoftDeletes;
+
+    protected $table = 'favourite_users';
+
+    protected $fillable = [
+        'user_id',
+        'favourite_id',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(V4User::class, 'user_id');
+    }
+
+    public function favourite()
+    {
+        return $this->belongsTo(V4User::class, 'favourite_id');
+    }
+}

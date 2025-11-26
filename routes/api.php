@@ -450,6 +450,10 @@ Route::prefix('v4')->group(function () {
             Route::post('/update-achievement', [ProfileController::class, 'updateAchievement']);
             Route::delete('/delete-achievement/{achievementId}', [ProfileController::class, 'deleteAchievement']);
             Route::post('/set-evaluation-visibility', [ProfileController::class, 'setEvaluationVisibility']);
+
+            // Favourite routes
+            Route::post('/favourites', [ProfileController::class, 'addRemoveFavouriteUsers']);
+            Route::get('/favourites', [ProfileController::class, 'getFavouriteUsers']);
         });
 
         Route::prefix('teams')->group(function () {
