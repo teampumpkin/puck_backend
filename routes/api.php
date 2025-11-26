@@ -454,8 +454,7 @@ Route::prefix('v4')->group(function () {
 
         Route::prefix('teams')->group(function () {
             Route::get('/my', [V4TeamController::class, 'getMyTeamsForProfile']);
-            Route::post('/{teamId}/members', [V4TeamController::class, 'addRemoveTeamMembers']);
-            Route::post('/{teamId}/members/{academyId}', [V4TeamController::class, 'addRemoveTeamMembers']);
+            Route::post('/{teamId}/members/{academyId?}', [V4TeamController::class, 'addRemoveTeamMembers']);
             Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
             Route::get('/{teamId}/members', [V4TeamController::class, 'getTeamMembers']);
             Route::post('/create', [V4TeamController::class, 'createTeam']);

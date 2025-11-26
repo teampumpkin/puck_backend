@@ -282,7 +282,7 @@ class V4TeamController extends Controller
 
         // if academyId is present
         if ($academyId !== null) {
-            $academy = V4User::where('id', $academyId)->where('role', 'academy')->first();
+            $academy = V4Academy::find($academyId);
 
             if (!$academy) {
                 return response()->json([
