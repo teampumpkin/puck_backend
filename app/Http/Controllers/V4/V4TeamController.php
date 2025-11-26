@@ -510,7 +510,7 @@ class V4TeamController extends Controller
 
             $user = Auth::guard('v4api')->user();
 
-            if ($user->role == 'player') {
+            if ($user->role == 'player' || $user->role == 'scout' || $user->role == 'coach' || $user->role == 'adviser') {
 
                 $teams = V4Team::with(['members', 'academy.members', 'academy.admins'])
                     ->whereHas('members', function ($query) use ($user) {
