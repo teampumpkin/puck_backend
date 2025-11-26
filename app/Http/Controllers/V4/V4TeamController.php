@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\TeamMember;
+use App\Models\V4Academy;
 use App\Models\V4Team;
 use App\Models\V4TeamAdmin;
 use App\Models\V4User;
@@ -496,7 +497,17 @@ class V4TeamController extends Controller
                     'message' => 'Fetched Teams',
                     'data' => $teams
                 ]);
+            } else if ($user->role == 'academy') {
+                $academies = V4Academy::with('members')
+                    ->get();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Fetched Academies',
+                    'data' => $academies
+                ]);
             } else {
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Coming soon',
