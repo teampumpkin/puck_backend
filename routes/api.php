@@ -36,6 +36,7 @@ use App\Http\Controllers\V4\V4FaqController;
 use App\Http\Controllers\V4\V4FeedController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\V4PaymentController;
+use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
@@ -652,6 +653,13 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteChildNotification']);
                 Route::delete('/empty-trash', [NotificationController::class, 'emptyChildTrash']);
             });
+        });
+
+        Route::prefix('notification-preferences')->group(function () {
+            Route::get('/{userId?}', [V4NotificationPreferenceController::class, 'getPreferences']);
+            Route::put('/{userId?}', [V4NotificationPreferenceController::class, 'updatePreferences']);
+            Route::delete('/', [V4NotificationPreferenceController::class, 'deletePreferences']);
+            Route::post('/restore', [V4NotificationPreferenceController::class, 'restorePreferences']);
         });
 
         Route::prefix('posts')->group(function () {

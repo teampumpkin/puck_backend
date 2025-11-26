@@ -141,6 +141,11 @@ class V4User extends Authenticatable implements JWTSubject
         return $this->hasMany(V4Media::class, 'v4_user_id');
     }
 
+    public function notificationPreferences()
+    {
+        return $this->hasOne(V4NotificationPreference::class, 'user_id');
+    }
+
     /**
      * Get users blocked by this user
      */
