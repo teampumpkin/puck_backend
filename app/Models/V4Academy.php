@@ -14,6 +14,7 @@ class V4Academy extends Model
 
     protected $fillable = [
         'academy_name',
+        'profile_photo',
         'administrator_first_name',
         'administrator_last_name',
         'email',
@@ -28,9 +29,27 @@ class V4Academy extends Model
         'academy_years_running',
     ];
 
+    protected $appends = ['members_count'];
+
     protected $casts = [
         'teams' => 'array',
-        'leagues' => 'array',
     ];
+
+    public function members()
+    {
+        return $this->hasMany(AcademyMember::class, 'academy_id');
+    }
+
+    public function isMember($userId): bool
+    {
+        return $this->members()
+            ->where('team_id', $userId)
+            ->exists();
+    }
+
+    public function getMembersCountAttribute()
+    {
+        return $this->members()->count();
+    }
 
 }

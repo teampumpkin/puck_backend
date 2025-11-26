@@ -13,6 +13,7 @@ class CreateV4AcademiesTable extends Migration
 
             // Strings
             $table->string('academy_name')->nullable();
+            $table->string('profile_photo')->nullable();
             $table->string('administrator_first_name')->nullable();
             $table->string('administrator_last_name')->nullable();
             $table->string('email')->nullable();
