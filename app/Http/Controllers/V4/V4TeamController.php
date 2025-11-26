@@ -116,14 +116,12 @@ class V4TeamController extends Controller
                     'message' => 'Team created successfully',
                     'team' => $team
                 ]);
-
             } catch (Exception $e) {
                 DB::rollBack();
                 // Optionally delete uploaded file from S3 if DB transaction fails
                 Storage::disk('s3')->delete($profilePhotoUrl);
                 throw $e;
             }
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -498,13 +496,16 @@ class V4TeamController extends Controller
                     'data' => $teams
                 ]);
             } else if ($user->role == 'academy') {
-                $academies = V4Academy::with('members')
+                $teams = V4Team::with(['members', 'academy.members', 'academy.admins'])
+                    ->whereHas('academy.admins', function ($query) use ($user) {
+                        $query->where('admin_id', $user->id);
+                    })
                     ->get();
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Fetched Academies',
-                    'data' => $academies
+                    'message' => 'Fetched Teams for Academy',
+                    'data' => $teams
                 ]);
             } else {
 

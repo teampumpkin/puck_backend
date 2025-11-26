@@ -35,6 +35,7 @@ use App\Http\Controllers\V4\V4EvaluationController;
 use App\Http\Controllers\V4\V4FaqController;
 use App\Http\Controllers\V4\V4FeedController;
 use App\Http\Controllers\V4\V4MediaController;
+use App\Http\Controllers\V4\V4ParentalControlController;
 use App\Http\Controllers\V4\V4PaymentController;
 use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
@@ -660,6 +661,12 @@ Route::prefix('v4')->group(function () {
             Route::put('/{userId?}', [V4NotificationPreferenceController::class, 'updatePreferences']);
             Route::delete('/', [V4NotificationPreferenceController::class, 'deletePreferences']);
             Route::post('/restore', [V4NotificationPreferenceController::class, 'restorePreferences']);
+        });
+
+        Route::prefix('parental-controls')->group(function () {
+            Route::get('/{userId}', [V4ParentalControlController::class, 'getParentControl']);
+            Route::post('/{userId}/toggle', [V4ParentalControlController::class, 'toggleParentControl']);
+            Route::delete('/{userId}', [V4ParentalControlController::class, 'deleteControl']);
         });
 
         Route::prefix('posts')->group(function () {
