@@ -15,6 +15,7 @@ class AcademyMember extends Model
         'academy_id',
         'team_id',
         'added_by',
+        'player_id',
         'removed_by'
     ];
 
@@ -36,5 +37,10 @@ class AcademyMember extends Model
     public function removedBy()
     {
         return $this->belongsTo(V4User::class, 'removed_by');
+    }
+
+    public function player()
+    {
+        return $this->belongsTo(V4User::class, 'player_id');
     }
 }

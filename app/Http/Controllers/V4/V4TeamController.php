@@ -487,7 +487,13 @@ class V4TeamController extends Controller
 
             if ($user->role == 'player') {
 
-                $teams = V4Team::with('members')
+                $teams = V4Team::with(['members', 'academy.members', 'academy.admins'])
+                    ->whereHas('members', function ($query) use ($user) {
+                        $query->where('player_id', $user->id);
+                    })
+                    ->orWhereHas('academy.members', function ($query) use ($user) {
+                        $query->where('player_id', $user->id);
+                    })
                     ->get();
 
                 return response()->json([
