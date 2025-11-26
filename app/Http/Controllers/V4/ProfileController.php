@@ -59,7 +59,7 @@ class ProfileController extends Controller
                     $profileData = $user->scoutProfile;
                     break;
                 case 'academy':
-                    $user->load('academyProfile');
+                    $user->load('academyProfile.academy');
                     $profileData = $user->academyProfile;
                     break;
                 case 'organizer':
@@ -285,7 +285,7 @@ class ProfileController extends Controller
 
                     $academyProfileValidated['academy_id'] = $v4Academy->id;
                     $user->academyProfile()->updateOrCreate([], $academyProfileValidated);
-                    $user->load('academyProfile');
+                    $user->load('academyProfile.academy');
                     break;
 
                 case 'team':
@@ -681,7 +681,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1440,7 +1440,7 @@ class ProfileController extends Controller
                     $profileData = $user->scoutProfile;
                     break;
                 case 'academy':
-                    $user->load('academyProfile');
+                    $user->load('academyProfile.academy');
                     $profileData = $user->academyProfile;
                     break;
                 case 'organizer':
@@ -1547,7 +1547,7 @@ class ProfileController extends Controller
                     $profileData = $user->scoutProfile;
                     break;
                 case 'academy':
-                    $user->load('academyProfile');
+                    $user->load('academyProfile.academy');
                     $profileData = $user->academyProfile;
                     break;
                 case 'organizer':
