@@ -338,7 +338,7 @@ class V4TeamController extends Controller
             if (!empty($invalidUsers)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Some user IDs are not valid players',
+                    'message' => 'Some user IDs are not valid player, coach, scout',
                     'invalid_user_ids' => array_values($invalidUsers)
                 ], 400);
             }
