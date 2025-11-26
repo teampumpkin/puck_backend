@@ -6,6 +6,7 @@ use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
+use App\Models\FavouriteUser;
 use App\Models\V4Academy;
 use App\Models\V4AcademyAdmin;
 use App\Models\V4PlayerAchievement;
@@ -2530,5 +2531,152 @@ class ProfileController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+
+    public function addRemoveFavouriteUsers(Request $request)
+    {
+        $user = Auth::guard('v4api')->user();
+
+        // 1️⃣ Check role permissions
+        $allowedRoles = ['scout', 'coach', 'adviser'];
+
+        if (!in_array($user->role, $allowedRoles)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to manage favourites.',
+            ], 403);
+        }
+
+        // 2️⃣ Validate request structure
+        $request->validate([
+            'add' => 'array',
+            'remove' => 'array',
+            'add.*' => 'integer|exists:v4_users,id',
+            'remove.*' => 'integer|exists:v4_users,id',
+        ]);
+
+        $addIds = $request->add ?? [];
+        $removeIds = $request->remove ?? [];
+
+        // 3️⃣ Validate: all provided user IDs must exist
+        $allIds = array_unique(array_merge($addIds, $removeIds));
+
+        if (!empty($allIds)) {
+            $validUsers = V4User::whereIn('id', $allIds)
+                ->pluck('id')
+                ->toArray();
+
+            $invalid = array_diff($allIds, $validUsers);
+            if (!empty($invalid)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid user IDs found.',
+                    'invalid_user_ids' => array_values($invalid)
+                ], 400);
+            }
+        }
+
+        // 4️⃣ Validate: Remove IDs must already exist in favourite table
+        if (!empty($removeIds)) {
+            $existingFavs = FavouriteUser::where('user_id', $user->id)
+                ->whereIn('favourite_id', $removeIds)
+                ->pluck('favourite_id')
+                ->toArray();
+
+            $notFavs = array_diff($removeIds, $existingFavs);
+            if (!empty($notFavs)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Some users are not in your favourite list.',
+                    'invalid_user_ids' => array_values($notFavs)
+                ], 400);
+            }
+        }
+
+        // 5️⃣ Validate: Add IDs must NOT exist already
+        if (!empty($addIds)) {
+            $existingFavs = FavouriteUser::where('user_id', $user->id)
+                ->whereIn('favourite_id', $addIds)
+                ->pluck('favourite_id')
+                ->toArray();
+
+            $alreadyFavs = array_intersect($addIds, $existingFavs);
+            if (!empty($alreadyFavs)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Some users are already favourited.',
+                    'already_favourited_user_ids' => array_values($alreadyFavs)
+                ], 400);
+            }
+        }
+
+        // 6️⃣ DB Transaction
+        DB::beginTransaction();
+        try {
+            if (!empty($removeIds)) {
+                FavouriteUser::where('user_id', $user->id)
+                    ->whereIn('favourite_id', $removeIds)
+                    ->delete();
+            }
+
+            if (!empty($addIds)) {
+                $insertData = [];
+                foreach ($addIds as $favId) {
+                    $insertData[] = [
+                        'user_id' => $user->id,
+                        'favourite_id' => $favId,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ];
+                }
+
+                FavouriteUser::insert($insertData);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Favourite users updated successfully.',
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update favourite users.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function getFavouriteUsers(Request $request)
+    {
+        $user = Auth::guard('v4api')->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $favouriteUsersIds = FavouriteUser::where('user_id', $user->id)
+            ->pluck('favourite_id')
+            ->toArray();
+
+        $favouriteUsers = V4User::select([
+            'id',
+            'first_name',
+            'last_name',
+            'profile_photo',
+            'username',
+            'role'
+        ])
+            ->whereIn('id', $favouriteUsersIds)
+            ->get();
+
+        return response()->json($favouriteUsers);
     }
 }
