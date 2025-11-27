@@ -56,9 +56,7 @@ class V4TeamController extends Controller
             $academy = null;
 
             if ($academyId) {
-                $academy = V4User::where('id', $academyId)
-                    ->where('role', 'academy')
-                    ->first();
+                $academy = V4Academy::where('id', $academyId)->first();
 
                 if (!$academy) {
                     return response()->json([
