@@ -13,7 +13,6 @@ class AcademyMember extends Model
 
     protected $fillable = [
         'academy_id',
-        'team_id',
         'added_by',
         'player_id',
         'removed_by'
