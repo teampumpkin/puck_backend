@@ -14,6 +14,7 @@ class FavouriteUser extends Model
     protected $fillable = [
         'user_id',
         'favourite_id',
+        'conversation_id',
     ];
 
     public function user()

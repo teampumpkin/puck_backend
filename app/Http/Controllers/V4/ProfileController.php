@@ -2712,9 +2712,31 @@ class ProfileController extends Controller
             if (!empty($addIds)) {
                 $insertData = [];
                 foreach ($addIds as $favId) {
+
+                    $token = $request->bearerToken();
+
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type' => 'application/json',
+                    ])->post($baseUrl . '/conversation/create', [
+                        'type' => 'single',
+                        'participants' => [$user->id, $favId],
+                    ]);
+
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    } else {
+                        Log::warning('Conversation API failed', [
+                            'status' => $response->status(),
+                            'body' => $response->body(),
+                        ]);
+                    }
                     $insertData[] = [
                         'user_id' => $user->id,
                         'favourite_id' => $favId,
+                        'conversation_id' => $conversationId,
                         'created_at' => now(),
                         'updated_at' => now()
                     ];
@@ -2742,29 +2764,38 @@ class ProfileController extends Controller
 
     public function getFavouriteUsers(Request $request)
     {
-        $user = Auth::guard('v4api')->user();
-        if (!$user) {
+        try {
+            $user = Auth::guard('v4api')->user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized',
+                ], 401);
+            }
+
+            $favouriteUsers = FavouriteUser::with(['favourite:id,first_name,last_name,profile_photo,username,role'])
+                ->where('user_id', $user->id)
+                ->get();
+
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Favourites retrieved successfully.',
+                'data' =>   $favouriteUsers
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to fetch favourite users.', [
+                'error'  => $e->getMessage(),
+                'trace'  => $e->getTraceAsString(),
+                'user_id' => $user->id ?? null,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized',
-            ], 401);
+                'message' => 'Failed to retrieve favourite users.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error.',
+            ], 500);
         }
-
-        $favouriteUsersIds = FavouriteUser::where('user_id', $user->id)
-            ->pluck('favourite_id')
-            ->toArray();
-
-        $favouriteUsers = V4User::select([
-            'id',
-            'first_name',
-            'last_name',
-            'profile_photo',
-            'username',
-            'role'
-        ])
-            ->whereIn('id', $favouriteUsersIds)
-            ->get();
-
-        return response()->json($favouriteUsers);
     }
 }
