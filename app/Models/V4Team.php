@@ -28,6 +28,7 @@ class V4Team extends Model
         'zipcode',
         'country',
         'academy_id',
+        'conversation_id'
     ];
 
     protected $appends = ['members_count'];

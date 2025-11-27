@@ -27,6 +27,7 @@ class V4Academy extends Model
         'zipcode',
         'country',
         'academy_years_running',
+        'conversation_id',
     ];
 
     protected $appends = ['members_count'];

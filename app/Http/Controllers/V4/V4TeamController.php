@@ -392,6 +392,17 @@ class V4TeamController extends Controller
                 TeamMember::where('team_id', $teamId)
                     ->whereIn('player_id', $removeIds)
                     ->delete();
+
+                $token = $request->bearerToken();
+                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type'  => 'application/json',
+                ])->put($baseUrl . '/conversation/update', [
+                    'conversationId' => $team->conversation_id,
+                    'type'         => 'group',
+                    'removeParticipants' => $removeIds,
+                ]);
             }
 
             // Insert addIds
@@ -407,6 +418,17 @@ class V4TeamController extends Controller
                     ];
                 }
                 TeamMember::insert($insertData);
+
+                $token = $request->bearerToken();
+                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type'  => 'application/json',
+                ])->put($baseUrl . '/conversation/update', [
+                    'conversationId' => $team->conversation_id,
+                    'type'         => 'group',
+                    'addParticipants' => $addIds,
+                ]);
             }
 
             DB::commit();
