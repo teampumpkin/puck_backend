@@ -48,7 +48,7 @@ class V4TeamController extends Controller
                 'zipcode' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
                 'profile_photo' => 'nullable|file|image|max:5120',
-                'academy_id' => 'nullable|integer|exists:v4_users,id',
+                'academy_id' => 'nullable|integer|exists:v4_academies,id',
             ]);
 
             $academyId = $validated['academy_id'] ?? null;
@@ -56,9 +56,7 @@ class V4TeamController extends Controller
             $academy = null;
 
             if ($academyId) {
-                $academy = V4User::where('id', $academyId)
-                    ->where('role', 'academy')
-                    ->first();
+                $academy = V4Academy::where('id', $academyId)->first();
 
                 if (!$academy) {
                     return response()->json([
@@ -397,12 +395,12 @@ class V4TeamController extends Controller
                 $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
-                    'Content-Type'  => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type'         => 'group',
-                    'removeParticipants' => $removeIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'removeParticipants' => $removeIds,
+                        ]);
             }
 
             // Insert addIds
@@ -423,12 +421,12 @@ class V4TeamController extends Controller
                 $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
-                    'Content-Type'  => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type'         => 'group',
-                    'addParticipants' => $addIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'addParticipants' => $addIds,
+                        ]);
             }
 
             DB::commit();
