@@ -46,6 +46,7 @@ use App\Http\Controllers\V4\V4MarketplaceController;
 use App\Http\Controllers\V4\V4InAppPurchaseController;
 use App\Http\Controllers\V4\V4FollowController;
 use App\Http\Controllers\V4\V4TeamController;
+use App\Http\Controllers\V4\V4AcademyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -464,6 +465,10 @@ Route::prefix('v4')->group(function () {
             Route::post('/create', [V4TeamController::class, 'createTeam']);
             Route::post('/{teamId}/update', [V4TeamController::class, 'updateTeam']);
             Route::delete('/{teamId}', [V4TeamController::class, 'deleteTeam']);
+        });
+
+        Route::prefix('academies')->group(function () {
+            Route::post('/{academyId}/members', [V4AcademyController::class, 'addRemoveAcademyMembers']);
         });
 
 
