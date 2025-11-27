@@ -257,7 +257,7 @@ class ProfileController extends Controller
                     if (!empty($validated['profile_photo'])) {
                         $academyValidated['profile_photo'] = $validated['profile_photo'];
                     }
-                    $academyValidated['phone'] = $validated['phone'];
+                    $academyValidated['phone'] = $validated['phone'] ?? null;
 
                     $v4Academy = null;
                     $academyId = $validated['academy_id'] ?? null;
@@ -271,12 +271,12 @@ class ProfileController extends Controller
                                 $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                                 $response = Http::withHeaders([
                                     'Authorization' => 'Bearer ' . $token,
-                                    'Content-Type'  => 'application/json',
+                                    'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                    'type'         => 'group',
-                                    'participants' => [$user->id],
-                                    'name' =>  $v4Academy->academy_name
-                                ]);
+                                            'type' => 'group',
+                                            'participants' => [$user->id],
+                                            'name' => $v4Academy->academy_name
+                                        ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -294,12 +294,12 @@ class ProfileController extends Controller
                             $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                             $response = Http::withHeaders([
                                 'Authorization' => 'Bearer ' . $token,
-                                'Content-Type'  => 'application/json',
+                                'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                'type'         => 'group',
-                                'participants' => [$user->id],
-                                'name' =>  $v4Academy->academy_name
-                            ]);
+                                        'type' => 'group',
+                                        'participants' => [$user->id],
+                                        'name' => $v4Academy->academy_name
+                                    ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -315,12 +315,12 @@ class ProfileController extends Controller
                         $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
-                            'Content-Type'  => 'application/json',
+                            'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type'         => 'group',
-                            'participants' => [$user->id],
-                            'name' =>  $v4Academy->academy_name
-                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name
+                                ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -347,7 +347,7 @@ class ProfileController extends Controller
                     if (!empty($validated['profile_photo'])) {
                         $teamValidated['profile_photo'] = $validated['profile_photo'];
                     }
-                    $teamValidated['phone'] = $validated['phone'];
+                    $teamValidated['phone'] = $validated['phone'] ?? null;
 
                     $v4team = null;
                     $teamId = $validated['team_id'] ?? null;
@@ -361,12 +361,12 @@ class ProfileController extends Controller
                                 $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                                 $response = Http::withHeaders([
                                     'Authorization' => 'Bearer ' . $token,
-                                    'Content-Type'  => 'application/json',
+                                    'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                    'type'         => 'group',
-                                    'participants' => [$user->id],
-                                    'name' =>  $v4team->team_name
-                                ]);
+                                            'type' => 'group',
+                                            'participants' => [$user->id],
+                                            'name' => $v4team->team_name
+                                        ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -385,12 +385,12 @@ class ProfileController extends Controller
                             $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                             $response = Http::withHeaders([
                                 'Authorization' => 'Bearer ' . $token,
-                                'Content-Type'  => 'application/json',
+                                'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                'type'         => 'group',
-                                'participants' => [$user->id],
-                                'name' =>  $v4team->team_name
-                            ]);
+                                        'type' => 'group',
+                                        'participants' => [$user->id],
+                                        'name' => $v4team->team_name
+                                    ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
@@ -406,12 +406,12 @@ class ProfileController extends Controller
                         $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
-                            'Content-Type'  => 'application/json',
+                            'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type'         => 'group',
-                            'participants' => [$user->id],
-                            'name' =>  $v4team->team_name
-                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name
+                                ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -770,7 +770,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
