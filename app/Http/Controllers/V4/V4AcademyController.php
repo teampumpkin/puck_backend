@@ -83,7 +83,7 @@ class V4AcademyController extends Controller
 
         // --- Validate: Add IDs must NOT already exist
         if (!empty($addIds)) {
-            $existingMembers = AcademyMember::where('academy_id', $academy)
+            $existingMembers = AcademyMember::where('academy_id', $academyId)
                 ->whereIn('player_id', $addIds)
                 ->pluck('player_id')
                 ->toArray();
