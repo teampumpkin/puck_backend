@@ -376,6 +376,11 @@ class V4User extends Authenticatable implements JWTSubject
         return $this->hasMany(Notification::class, 'v4_user_id');
     }
 
+    public function muteSettings()
+    {
+        return $this->hasMany(V4ChatMuteSetting::class, 'user_id');
+    }
+
 
     public function getConversationWith($otherUserId): ?string
     {
