@@ -50,7 +50,7 @@ class V4AcademyController extends Controller
 
         if (!empty($userIdsToCheck)) {
             $validUsers = V4User::whereIn('id', $userIdsToCheck)
-                ->whereIn('role', ['player', 'coach', 'scout', 'team'])
+                ->whereIn('role', ['player', 'coach', 'scout'])
                 ->pluck('id')
                 ->toArray();
 
@@ -58,7 +58,7 @@ class V4AcademyController extends Controller
             if (!empty($invalidUsers)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Some user IDs are not valid player, coach, scout, team',
+                    'message' => 'Some user IDs are not valid player, coach, scout',
                     'invalid_user_ids' => array_values($invalidUsers)
                 ], 400);
             }
@@ -75,7 +75,7 @@ class V4AcademyController extends Controller
             if (!empty($notMembers)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Some users are not team members',
+                    'message' => 'Some users are not academy members',
                     'invalid_user_ids' => array_values($notMembers)
                 ], 400);
             }
@@ -92,7 +92,7 @@ class V4AcademyController extends Controller
             if (!empty($alreadyMembers)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Some users are already team members',
+                    'message' => 'Some users are already academy members',
                     'already_members' => array_values($alreadyMembers)
                 ], 400);
             }
