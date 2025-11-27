@@ -34,6 +34,7 @@ use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\V4\V4EvaluationController;
 use App\Http\Controllers\V4\V4FaqController;
 use App\Http\Controllers\V4\V4FeedController;
+use App\Http\Controllers\V4\V4ChatMuteSettingController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\V4ParentalControlController;
 use App\Http\Controllers\V4\V4PaymentController;
@@ -576,6 +577,11 @@ Route::prefix('v4')->group(function () {
             Route::post('/upload-media', [V4ChatMediaController::class, 'uploadMedia']);
             Route::post('/group-profile', [V4ChatMediaController::class, 'uploadGroupProfileMedia']);
             Route::get('/get-media', [V4ChatMediaController::class, 'getMedia']);
+
+            Route::post('/mute/{chatId}', [V4ChatMuteSettingController::class, 'mute']);
+            Route::delete('/unmute/{chatId}', [V4ChatMuteSettingController::class, 'unmute']);
+            Route::get('/mute-settings/{chatId?}', [V4ChatMuteSettingController::class, 'getUserMuteSettings']);
+
 
             // Direct chat routes (keeping commented for now)
             // Route::get('/get-chat-id', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getChatId']);
