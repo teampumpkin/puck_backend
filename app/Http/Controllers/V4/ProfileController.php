@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
+use App\Models\TeamMember;
 use App\Models\V4Academy;
 use App\Models\V4AcademyAdmin;
 use App\Models\V4PlayerAchievement;
@@ -1584,7 +1585,6 @@ class ProfileController extends Controller
                     'teamCity' => $user->city,
                     'teamStateProvince' => $user->state . ',' . $user->province,
                     'teamZipPostalCode' => $user->zip,
-                    'province' => $user->province,
                     'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
                     'yearsRunning' => $profileData->team_years_running,
@@ -1686,7 +1686,7 @@ class ProfileController extends Controller
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
-            $userData['is_favourite'] = FavouriteUser::where('user_id', $authUser->id)->where('favourite_id', $user->id)->exists();
+            $userData['is_favourite'] = FavouriteUser::isFavourite($authUser->id, $user->id);
 
 
             if ($authUser->role == 'team') {
@@ -1696,6 +1696,11 @@ class ProfileController extends Controller
                     $userData['is_team_members'] = $authUser->teamProfile->team->isMember($user->id);
                 }
             }
+
+            if ($authUser->role === 'academy') {
+                $userData['academy_teams_member'] = V4Academy::adminAcademiesTeamsWithMember($authUser->id, $user->id);
+            }
+
 
             return response()->json([
                 'success' => true,
