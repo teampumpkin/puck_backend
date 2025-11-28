@@ -1699,6 +1699,7 @@ class ProfileController extends Controller
 
             if ($authUser->role === 'academy') {
                 $userData['academy_teams_member'] = V4Academy::adminAcademiesTeamsWithMember($authUser->id, $user->id);
+                $userData['academy_members'] = V4Academy::adminAcademiesMembers($authUser->id, $user->id);
             }
 
 
