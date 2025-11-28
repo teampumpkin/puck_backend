@@ -26,4 +26,11 @@ class FavouriteUser extends Model
     {
         return $this->belongsTo(V4User::class, 'favourite_id');
     }
+
+    public static function isFavourite($ownerId, $targetUserId): bool
+    {
+        return self::where('user_id', $ownerId)
+            ->where('favourite_id', $targetUserId)
+            ->exists();
+    }
 }
