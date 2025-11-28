@@ -47,6 +47,7 @@ class V4AuthController extends Controller
                     // When phone is the identifier, email may be null
                     'email'     => $validated['email'] ?? null,
                     'phone'     => $validated['phone'] ?? null,
+                    'provider'  => $field,
                 ]
             );
 
