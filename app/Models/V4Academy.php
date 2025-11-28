@@ -72,4 +72,20 @@ class V4Academy extends Model
                     ->exists(),
             ]);
     }
+
+    public static function adminAcademiesMembers($adminId, $playerId)
+    {
+        $academyIds = V4AcademyAdmin::where('admin_id', $adminId)
+            ->pluck('academy_id');
+
+
+        return V4Academy::whereIn('id', $academyIds)
+            ->get()
+            ->map(fn($academy) => [
+                'academy' => $academy,
+                'is_member' => AcademyMember::where('academy_id', $academy->id)
+                    ->where('player_id', $playerId)
+                    ->exists(),
+            ]);
+    }
 }
