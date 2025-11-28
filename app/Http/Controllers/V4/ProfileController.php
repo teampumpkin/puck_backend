@@ -1686,6 +1686,8 @@ class ProfileController extends Controller
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
+            $userData['is_favourite'] = FavouriteUser::where('user_id', $authUser->id)->where('favourite_id', $user->id)->exists();
+
 
             if ($authUser->role == 'team') {
                 $authUser->load('teamProfile.team');
@@ -2721,10 +2723,11 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$user->id, $favId],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$user->id, $favId],
+                            ]);
 
+                    $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
                     } else {
@@ -2782,12 +2785,12 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Favourites retrieved successfully.',
-                'data' =>   $favouriteUsers
+                'data' => $favouriteUsers
             ]);
         } catch (Exception $e) {
             Log::error('Failed to fetch favourite users.', [
-                'error'  => $e->getMessage(),
-                'trace'  => $e->getTraceAsString(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'user_id' => $user->id ?? null,
             ]);
 
