@@ -28,6 +28,7 @@ use App\Http\Controllers\V4\EvaluationRejectionReasonController;
 use App\Http\Controllers\V4\NotificationController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\UserBlockController;
+use App\Http\Controllers\V4\V4SocialAuthController;
 use App\Http\Controllers\V4\V4UserReportReasonController;
 use App\Http\Controllers\V4\V4UserReportController;
 use App\Http\Controllers\V4\V4AuthController;
@@ -273,6 +274,12 @@ Route::prefix('v4')->group(function () {
     Route::post('verify-login-otp', [V4AuthController::class, 'verifyLoginOtp']);
     Route::post('/child-login', [V4AuthController::class, 'childLogin']);
 
+    Route::prefix('login')->group(function () {
+        Route::post('google', [V4SocialAuthController::class, 'handleGoogleCallback']);
+        Route::post('facebook', [V4SocialAuthController::class, 'handleFacebookCallback']);
+        Route::post('apple', [V4SocialAuthController::class, 'handleAppleCallback']);
+    });
+
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
@@ -459,7 +466,7 @@ Route::prefix('v4')->group(function () {
         });
 
         Route::prefix('teams')->group(function () {
-            Route::get('/my', [V4TeamController::class, 'getMyTeamsForProfile']);
+            Route::get('/{userId}', [V4TeamController::class, 'getTeamsForProfileById']);
             Route::post('/{teamId}/members/{academyId?}', [V4TeamController::class, 'addRemoveTeamMembers']);
             Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
             Route::get('/{teamId}/members', [V4TeamController::class, 'getTeamMembers']);

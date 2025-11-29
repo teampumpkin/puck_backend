@@ -397,10 +397,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $team->conversation_id,
-                            'type' => 'group',
-                            'removeParticipants' => $removeIds,
-                        ]);
+                    'conversationId' => $team->conversation_id,
+                    'type' => 'group',
+                    'removeParticipants' => $removeIds,
+                ]);
             }
 
             // Insert addIds
@@ -423,10 +423,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $team->conversation_id,
-                            'type' => 'group',
-                            'addParticipants' => $addIds,
-                        ]);
+                    'conversationId' => $team->conversation_id,
+                    'type' => 'group',
+                    'addParticipants' => $addIds,
+                ]);
             }
 
             DB::commit();
@@ -524,12 +524,14 @@ class V4TeamController extends Controller
         }
     }
 
-    public function getMyTeamsForProfile(Request $request): JsonResponse
+    public function getTeamsForProfileById(Request $request, int $userId): JsonResponse
     {
         try {
+            Validator::make(['id' => (int) $userId], [
+                'user_id' => 'required|integer|exists:v4_users,id',
+            ]);
 
-            $user = Auth::guard('v4api')->user();
-
+            $user = V4User::findOrFail($userId);
             if ($user->role == 'player' || $user->role == 'scout' || $user->role == 'coach' || $user->role == 'adviser') {
 
                 $teams = V4Team::with(['members', 'academy.members', 'academy.admins'])
@@ -565,10 +567,16 @@ class V4TeamController extends Controller
                     'message' => 'Coming soon',
                 ], 500);
             }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update team members',
+                'message' => 'Failed to fetched team members',
                 'error' => $e->getMessage()
             ], 500);
         }

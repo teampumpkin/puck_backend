@@ -11,6 +11,7 @@
         "darkaonline/l5-swagger": "^8.0",
         "doctrine/dbal": "^3.10",
         "fideloper/proxy": "^4.4",
+        "firebase/php-jwt": "^6.11",
         "fruitcake/laravel-cors": "^3.0",
         "guzzlehttp/guzzle": "^7.0.1",
         "laravel/framework": "^8.40",
