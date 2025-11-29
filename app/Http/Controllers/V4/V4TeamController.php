@@ -517,7 +517,7 @@ class V4TeamController extends Controller
         }
     }
 
-    public function getTeamMembers(Request $request, $teamId): JsonResponse
+    public function getTeamMembers(Request $request, $teamId, $role = null): JsonResponse
     {
         try {
             $validator = Validator::make(['teamId' => $teamId], [
@@ -529,7 +529,19 @@ class V4TeamController extends Controller
             }
 
             $team = V4Team::findOrFail($teamId);
-            $teamMembers = TeamMember::with(['player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'])->where('team_id', $team->id)->get();
+
+            // Modify the query to account for null role
+            $teamMembersQuery = TeamMember::with(['player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'])
+                ->where('team_id', $team->id);
+
+            if ($role) {
+                // Apply the role filter only if $role is not null
+                $teamMembersQuery->whereHas('player', function ($query) use ($role) {
+                    $query->where('role', $role);
+                });
+            }
+
+            $teamMembers = $teamMembersQuery->get();
 
             return response()->json([
                 'success' => true,
