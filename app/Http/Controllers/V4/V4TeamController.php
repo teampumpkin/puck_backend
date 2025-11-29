@@ -37,9 +37,9 @@ class V4TeamController extends Controller
                 'team_name' => 'required|string|max:255',
                 'administrator_first_name' => 'required|string|max:255',
                 'administrator_last_name' => 'required|string|max:255',
-                'email' => 'required|email|max:255',
+                'email' => 'required|email|unique:v4_teams,email|max:255',
                 'leagues' => 'required|array',
-                'phone' => 'required|string|max:255',
+                'phone' => 'required|string|unique:v4_teams,phone|max:255',
                 'website' => 'nullable|string|max:255',
                 'address' => 'nullable|string|max:255',
                 'team_years_running' => 'nullable|integer',
@@ -167,6 +167,20 @@ class V4TeamController extends Controller
                 'profile_photo' => 'nullable|file|image|max:5120',
                 'academy_id' => 'nullable|integer|exists:v4_users,id',
             ]);
+
+            if ($validated['email'] && V4Team::where('email', $validated['email'])->where('id', '!=', $teamId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Email already exists',
+                ], 400);
+            }
+
+            if ($validated['phone'] && V4Team::where('phone', $validated['phone'])->where('id', '!=', $teamId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phone already exists',
+                ], 400);
+            }
 
             $academyId = $validated['academy_id'] ?? null;
 
