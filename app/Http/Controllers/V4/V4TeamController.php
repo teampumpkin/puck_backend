@@ -164,18 +164,36 @@ class V4TeamController extends Controller
                 'state' => 'nullable|string|max:255',
                 'zipcode' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
-                'profile_photo' => 'nullable|file|image|max:5120',
                 'academy_id' => 'nullable|integer|exists:v4_users,id',
+                'profile_photo' => [
+                    'nullable',
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->hasFile($attribute)) {
+                            $file = $request->file($attribute);
+                            $ext = strtolower($file->getClientOriginalExtension());
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                                $fail('The ' . $attribute . ' must be a file of type: jpg, jpeg, png.');
+                            }
+                            if ($file->getSize() > 5 * 1024 * 1024) {
+                                $fail('The ' . $attribute . ' may not be greater than 5MB.');
+                            }
+                            return;
+                        }
+                        if ($value && !filter_var($value, FILTER_VALIDATE_URL)) {
+                            $fail('The ' . $attribute . ' must be a valid URL.');
+                        }
+                    },
+                ],
             ]);
 
-            if ($validated['email'] && V4Team::where('email', $validated['email'])->where('id', '!=', $teamId)->exists()) {
+            if (isset($validated['email']) && V4Team::where('email', $validated['email'])->where('id', '!=', $teamId)->exists()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Email already exists',
                 ], 400);
             }
 
-            if ($validated['phone'] && V4Team::where('phone', $validated['phone'])->where('id', '!=', $teamId)->exists()) {
+            if (isset($validated['phone']) && V4Team::where('phone', $validated['phone'])->where('id', '!=', $teamId)->exists()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Phone already exists',
