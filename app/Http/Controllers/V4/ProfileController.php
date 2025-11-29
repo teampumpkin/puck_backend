@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
+use App\Models\TeamMember;
 use App\Models\V4Academy;
 use App\Models\V4AcademyAdmin;
 use App\Models\V4PlayerAchievement;
@@ -1584,7 +1585,6 @@ class ProfileController extends Controller
                     'teamCity' => $user->city,
                     'teamStateProvince' => $user->state . ',' . $user->province,
                     'teamZipPostalCode' => $user->zip,
-                    'province' => $user->province,
                     'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
                     'yearsRunning' => $profileData->team_years_running,
@@ -1686,6 +1686,8 @@ class ProfileController extends Controller
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
+            $userData['is_favourite'] = FavouriteUser::isFavourite($authUser->id, $user->id);
+
 
             if ($authUser->role == 'team') {
                 $authUser->load('teamProfile.team');
@@ -1694,6 +1696,12 @@ class ProfileController extends Controller
                     $userData['is_team_members'] = $authUser->teamProfile->team->isMember($user->id);
                 }
             }
+
+            if ($authUser->role === 'academy') {
+                $userData['academy_teams_member'] = V4Academy::adminAcademiesTeamsWithMember($authUser->id, $user->id);
+                $userData['academy_members'] = V4Academy::adminAcademiesMembers($authUser->id, $user->id);
+            }
+
 
             return response()->json([
                 'success' => true,
@@ -2721,10 +2729,11 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$user->id, $favId],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$user->id, $favId],
+                            ]);
 
+                    $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
                     } else {
@@ -2782,12 +2791,12 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Favourites retrieved successfully.',
-                'data' =>   $favouriteUsers
+                'data' => $favouriteUsers
             ]);
         } catch (Exception $e) {
             Log::error('Failed to fetch favourite users.', [
-                'error'  => $e->getMessage(),
-                'trace'  => $e->getTraceAsString(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'user_id' => $user->id ?? null,
             ]);
 

@@ -57,4 +57,35 @@ class V4Academy extends Model
     {
         return $this->members()->count();
     }
+
+    public static function adminAcademiesTeamsWithMember($adminId, $playerId)
+    {
+        $academyIds = V4AcademyAdmin::where('admin_id', $adminId)
+            ->pluck('academy_id');
+
+        return V4Team::whereIn('academy_id', $academyIds)
+            ->get()
+            ->map(fn($team) => [
+                'team' => $team,
+                'is_member' => TeamMember::where('player_id', $playerId)
+                    ->where('team_id', $team->id)
+                    ->exists(),
+            ]);
+    }
+
+    public static function adminAcademiesMembers($adminId, $playerId)
+    {
+        $academyIds = V4AcademyAdmin::where('admin_id', $adminId)
+            ->pluck('academy_id');
+
+
+        return V4Academy::whereIn('id', $academyIds)
+            ->get()
+            ->map(fn($academy) => [
+                'academy' => $academy,
+                'is_member' => AcademyMember::where('academy_id', $academy->id)
+                    ->where('player_id', $playerId)
+                    ->exists(),
+            ]);
+    }
 }
