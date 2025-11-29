@@ -39,6 +39,8 @@ class V4User extends Authenticatable implements JWTSubject
         'is_onboarded',
         'otp',
         'otp_expiry',
+        'provider',
+        'provider_id',
         'profile_photo',
         'followers_count',
         'followings_count'

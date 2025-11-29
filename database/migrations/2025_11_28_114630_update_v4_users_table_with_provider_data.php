@@ -19,9 +19,6 @@ class UpdateV4UsersTableWithProviderData extends Migration
 
             // Add 'provider_id' column to store the provider's unique identifier
             $table->string('provider_id')->nullable()->unique()->after('provider');
-
-            // Add 'provider_data' column to store additional provider-specific data (JSON)
-            $table->json('provider_data')->nullable()->after('provider_id');
         });
     }
 
@@ -34,7 +31,7 @@ class UpdateV4UsersTableWithProviderData extends Migration
     {
         Schema::table('v4_users', function (Blueprint $table) {
             // Drop the added columns if the migration is rolled back
-            $table->dropColumn(['provider', 'provider_id', 'provider_data']);
+            $table->dropColumn(['provider', 'provider_id']);
         });
     }
 }
