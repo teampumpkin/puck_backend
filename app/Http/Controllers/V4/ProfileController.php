@@ -1108,7 +1108,7 @@ class ProfileController extends Controller
 
         // Build the query
         $query = V4User::query()
-            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo'])
+            ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo', 'email', 'phone'])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
 
@@ -1116,7 +1116,9 @@ class ProfileController extends Controller
         if (!empty($searchTerm)) {
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                    ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
+                    ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                    ->orWhere('phone', 'ilike', "%{$searchTerm}%");
             });
         }
 
@@ -1561,7 +1563,6 @@ class ProfileController extends Controller
                 'fullName' => $user->name,
                 'status' => 'active',
                 'basicInfo' => [
-                    'name' =>  $profileData->academy,
                     'firstName' => $user->first_name,
                     'lastName' => $user->last_name,
                     'fullName' => $user->name,
@@ -1584,6 +1585,8 @@ class ProfileController extends Controller
                     'teamAddress' => $profileData->teamAddress,
                     'teamCity' => $user->city,
                     'teamStateProvince' => $user->state . ',' . $user->province,
+                    'state' => $user->state,
+                    'province' => $user->province,
                     'teamZipPostalCode' => $user->zip,
                     'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
@@ -1788,6 +1791,30 @@ class ProfileController extends Controller
             }
             return response()->json([
                 'children' => $children
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserPlayersDetailsById($id): JsonResponse
+    {
+        try {
+            $users = V4User::with([
+                'teamProfile.team.members.player'
+            ])->findOrFail($id);
+            return response()->json([
+                'members' => $users->teamProfile->team->members,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
