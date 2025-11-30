@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademyMember;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
 use App\Models\V4Team;
@@ -429,10 +430,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type' => 'group',
-                    'removeParticipants' => $removeIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'removeParticipants' => $removeIds,
+                        ]);
             }
 
             // Insert addIds
@@ -455,10 +456,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type' => 'group',
-                    'addParticipants' => $addIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'addParticipants' => $addIds,
+                        ]);
             }
 
             DB::commit();
@@ -520,53 +521,98 @@ class V4TeamController extends Controller
     public function getTeamMembers(Request $request, $teamId, $role = null): JsonResponse
     {
         try {
-            $validator = Validator::make(['teamId' => $teamId], [
-                'teamId' => 'required|integer|exists:v4_teams,id',
-            ]);
+            $authUser = auth()->user();
 
-            if ($validator->fails()) {
-                throw new ValidationException($validator);
+            if (!$authUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
             }
 
-            $team = V4Team::findOrFail($teamId);
+            // Validate just the id existence based on role
+            if ($authUser->role === 'team') {
 
-            // Modify the query to account for null role
-            $teamMembersQuery = TeamMember::with(['player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'])
-                ->where('team_id', $team->id);
+                // Validate as team_id
+                $validator = Validator::make(['teamId' => $teamId], [
+                    'teamId' => 'required|integer|exists:v4_teams,id',
+                ]);
 
-            if ($role) {
-                // Apply the role filter only if $role is not null
-                $teamMembersQuery->whereHas('player', function ($query) use ($role) {
-                    $query->where('role', $role);
-                });
+                if ($validator->fails()) {
+                    throw new ValidationException($validator);
+                }
+
+                $teamMembersQuery = TeamMember::with([
+                    'player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
+                ])
+                    ->where('team_id', $teamId);
+
+                if ($role) {
+                    $teamMembersQuery->whereHas('player', function ($query) use ($role) {
+                        $query->where('role', $role);
+                    });
+                }
+
+                $members = $teamMembersQuery->get();
+            } else if ($authUser->role === 'academy') {
+
+                // Validate as academy_id
+                $validator = Validator::make(['academyId' => $teamId], [
+                    'academyId' => 'required|integer|exists:v4_academies,id',
+                ]);
+
+                if ($validator->fails()) {
+                    throw new ValidationException($validator);
+                }
+
+                $academyMembersQuery = AcademyMember::with([
+                    'player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
+                ])
+                    ->where('academy_id', $teamId);
+
+                if ($role) {
+                    $academyMembersQuery->whereHas('player', function ($query) use ($role) {
+                        $query->where('role', $role);
+                    });
+                }
+
+                // Map exactly same output structure as team member API
+                $members = $academyMembersQuery->get();
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid user role'
+                ], 403);
             }
-
-            $teamMembers = $teamMembersQuery->get();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Fetched Team Members successfully',
-                'data' => $teamMembers
+                'message' => 'Fetched Members successfully',
+                'data' => $members
             ]);
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
             ], 422);
+
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Team not found',
+                'message' => 'Not found',
             ], 404);
+
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch team members',
-                'error' => $e->getMessage()
+                'message' => 'Failed to fetch members',
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
+
 
     public function getTeamsForProfileById(Request $request, int $userId): JsonResponse
     {
