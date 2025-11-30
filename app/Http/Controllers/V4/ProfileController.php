@@ -1814,7 +1814,7 @@ class ProfileController extends Controller
                 'teamProfile.team.members.player'
             ])->findOrFail($id);
             return response()->json([
-                'members' => $users->teamProfile->team->members,
+                'players' => $users->teamProfile->team->members,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
