@@ -31,7 +31,7 @@ class V4Team extends Model
         'conversation_id'
     ];
 
-    protected $appends = ['members_count'];
+    protected $appends = ['members_count', 'player_members_count'];
 
     protected $casts = [
         'leagues' => 'array',
@@ -47,6 +47,11 @@ class V4Team extends Model
         return $this->hasMany(TeamMember::class, 'team_id');
     }
 
+    public function admins()
+    {
+        return $this->hasMany(V4TeamAdmin::class, 'team_id');
+    }
+
     public function isMember($userId): bool
     {
         return $this->members()
@@ -54,8 +59,22 @@ class V4Team extends Model
             ->exists();
     }
 
+    public function playerMembers()
+    {
+        return $this->hasMany(TeamMember::class, 'team_id')
+            ->whereHas('player', function ($q) {
+                $q->where('role', 'player');
+            })
+            ->with(['player', 'player.playerProfile']);
+    }
+
     public function getMembersCountAttribute()
     {
         return $this->members()->count();
+    }
+
+    public function getPlayerMembersCountAttribute()
+    {
+        return $this->playerMembers()->count();
     }
 }
