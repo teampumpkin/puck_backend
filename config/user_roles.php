@@ -41,8 +41,4 @@ return [
         'label' => 'Evaluators',
         'color' => '#22C55E',
     ],
-    'super-admin' => [
-        'label' => 'Super Admins',
-        'color' => '#F59E0B',
-    ],
 ];
