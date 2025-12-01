@@ -1484,8 +1484,15 @@ class ProfileController extends Controller
         try {
 
             $user = V4User::findOrFail($id);
+            $user->adminRole = str_replace('-', '', $user->role);
 
-            $user->role = str_replace('-', '', $user->role);
+            $user->systemStats = [
+                'usersManaged' => V4User::whereNotIn('role', ['super-admin'])->count(),
+            ];
+
+            $user->lastLogin =  $user->updated_at;
+
+            $user->status = "active";
 
             return response()->json($user);
         } catch (ValidationException $e) {
