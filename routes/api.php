@@ -39,6 +39,7 @@ use App\Http\Controllers\V4\V4ChatMuteSettingController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\V4ParentalControlController;
 use App\Http\Controllers\V4\V4PaymentController;
+use App\Http\Controllers\V4\Admin\V4DashboardController;
 use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
@@ -289,6 +290,11 @@ Route::prefix('v4')->group(function () {
             // Route::prefix('dashboard')->group(function () {});
 
             // Route::prefix('analytics')->group(function () {});
+
+
+            Route::prefix('dashboard')->group(function () {
+                Route::get('/user-distribution', [V4DashboardController::class, 'getUserDistribution']);
+            });
 
             Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
             Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
