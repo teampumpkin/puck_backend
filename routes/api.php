@@ -488,6 +488,7 @@ Route::prefix('v4')->group(function () {
 
         Route::prefix('academies')->group(function () {
             Route::post('/{academyId}/members', [V4AcademyController::class, 'addRemoveAcademyMembers']);
+            Route::get('/{academyId}/members/{role?}', [V4TeamController::class, 'getAcademyMembers']);
         });
 
 
