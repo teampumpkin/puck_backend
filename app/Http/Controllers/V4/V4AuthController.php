@@ -30,7 +30,7 @@ class V4AuthController extends Controller
             ]);
 
             $identifier = $validated['email'] ?? $validated['phone'];
-            $field      = isset($validated['email']) ? 'email' : 'phone';
+            $field = isset($validated['email']) ? 'email' : 'phone';
 
             if ($validated['role'] === 'player' && ($validated['is_child'] ?? false)) {
                 return response()->json([
@@ -42,20 +42,20 @@ class V4AuthController extends Controller
             $user = V4User::firstOrCreate(
                 [$field => $identifier],
                 [
-                    'role'      => $validated['role'],
-                    'is_child'  => $validated['is_child'] ?? false,
+                    'role' => $validated['role'],
+                    'is_child' => $validated['is_child'] ?? false,
                     // When phone is the identifier, email may be null
-                    'email'     => $validated['email'] ?? null,
-                    'phone'     => $validated['phone'] ?? null,
-                    'provider'  => $field,
+                    'email' => $validated['email'] ?? null,
+                    'phone' => $validated['phone'] ?? null,
+                    'provider' => $field,
                 ]
             );
 
             // Generate OTP
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             $user->update([
-                'otp'         => $otp,
-                'otp_expiry'  => now()->addMinutes(10),
+                'otp' => $otp,
+                'otp_expiry' => now()->addMinutes(10),
             ]);
 
             //TODO: dispatch SMS job if $field === phone
@@ -66,15 +66,15 @@ class V4AuthController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'OTP sent successfully',
-                'otp'     => $otp, // need to remove later
-                $field    => $identifier,
-                'role'    => $user->role,
+                'otp' => $otp, // need to remove later
+                $field => $identifier,
+                'role' => $user->role,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors'  => $e->errors()
+                'errors' => $e->errors()
             ], 422);
         } catch (Exception $e) {
             Log::error('Send OTP error: ' . $e->getMessage());
@@ -82,7 +82,7 @@ class V4AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send OTP. Please try again.',
-                'error'   => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -93,10 +93,10 @@ class V4AuthController extends Controller
             $validated = $request->validate([
                 'email' => 'required_without:phone|email',
                 'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
-                'otp'   => 'required|string|size:6',
+                'otp' => 'required|string|size:6',
             ]);
 
-            $field      = isset($validated['email']) ? 'email' : 'phone';
+            $field = isset($validated['email']) ? 'email' : 'phone';
             $identifier = $validated[$field];
 
             $user = V4User::where($field, $identifier)->first();
@@ -105,7 +105,7 @@ class V4AuthController extends Controller
                 !$user ||
                 $user->otp !== $validated['otp']
                 || !$user->otp_expiry
-                ||  now()->gt($user->otp_expiry)
+                || now()->gt($user->otp_expiry)
             ) {
                 return response()->json(['message' => 'Invalid or expired OTP',], 401);
             }
@@ -118,19 +118,19 @@ class V4AuthController extends Controller
             }
 
             $user->update([
-                'otp'        => null,
+                'otp' => null,
                 'otp_expiry' => null,
             ]);
 
             $token = JWTAuth::fromUser($user);
 
             $responseUser = [
-                'id'          => $user->id,
-                'role'        => $user->role,
+                'id' => $user->id,
+                'role' => $user->role,
                 'isOnboarded' => $user->is_onboarded,
-                'email'       => $user->email,
-                'phone'       => $user->phone,
-                'is_child'    => $user->is_child,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'is_child' => $user->is_child,
             ];
 
             if ($user->role === 'evaluator') {
@@ -140,21 +140,21 @@ class V4AuthController extends Controller
 
             return response()->json([
                 'token' => $token,
-                'user'  => $responseUser,
+                'user' => $responseUser,
                 'message' => 'OTP verification successful',
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             Log::error('OTP verification failed: ' . $e->getMessage());
 
             return response()->json([
                 'message' => 'OTP verification failed.',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -170,26 +170,26 @@ class V4AuthController extends Controller
             ]);
 
             $user = V4User::create([
-                'email'    => $validated['email'],
+                'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
-                'role'     => 'super-admin',
+                'role' => 'super-admin',
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
             ]);
             return response()->json([
                 'success' => true,
                 'message' => 'Admin registered successfully',
-                'user'    => [
-                    'id'    => $user->id,
+                'user' => [
+                    'id' => $user->id,
                     'email' => $user->email,
-                    'role'  => $user->role,
+                    'role' => $user->role,
                 ],
             ], 201);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors'  => $e->errors()
+                'errors' => $e->errors()
             ], 422);
         } catch (Exception $e) {
             Log::error('Admin Register Error: ' . $e->getMessage());
@@ -197,7 +197,7 @@ class V4AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to register admin. Please try again.',
-                'error'   => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -233,10 +233,10 @@ class V4AuthController extends Controller
                 'success' => true,
                 'message' => 'Login successful',
                 'token' => $token,
-                'user'    => [
-                    'id'    => $user->id,
+                'user' => [
+                    'id' => $user->id,
                     'email' => $user->email,
-                    'role'  => $user->role,
+                    'role' => $user->role,
                     'firstName' => $user->first_name,
                     'lastName' => $user->last_name,
                 ],
@@ -245,7 +245,7 @@ class V4AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors'  => $e->errors()
+                'errors' => $e->errors()
             ], 422);
         } catch (Exception $e) {
             Log::error('Admin Login Error: ' . $e->getMessage());
@@ -253,7 +253,7 @@ class V4AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Login failed. Please try again.',
-                'error'   => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -281,7 +281,7 @@ class V4AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'role' => $user->role,
-                'is_onboarded' => $user->is_onboarded,
+                'isOnboarded' => $user->is_onboarded,
                 'is_child' => $user->is_child,
                 'email' => $user->email,
                 'phone' => $user->phone,
@@ -289,4 +289,5 @@ class V4AuthController extends Controller
             'message' => 'Login successful'
         ]);
     }
-};
+}
+;
