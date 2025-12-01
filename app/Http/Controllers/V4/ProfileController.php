@@ -1484,14 +1484,17 @@ class ProfileController extends Controller
         try {
 
             $user = V4User::findOrFail($id);
+            $user->adminRole = str_replace('-', '', $user->role);
 
-            $userData = $user;
+            $user->systemStats = [
+                'usersManaged' => V4User::whereNotIn('role', ['super-admin'])->count(),
+            ];
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Profile data retrieved successfully',
-                'user' => $userData,
-            ]);
+            $user->lastLogin =  $user->updated_at;
+
+            $user->status = "active";
+
+            return response()->json($user);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1572,26 +1575,26 @@ class ProfileController extends Controller
                     'dateOfBirth' => $user->date_of_birth,
                     'province' => $user->province,
                     'city' => $user->city,
-                    'league' => $profileData->leagues,
-                    'leagues' => $profileData->leagues,
-                    'team' => $profileData->teams,
-                    'weight' => $profileData->weight,
-                    'height' => $profileData->height,
-                    'position' => $profileData->position,
-                    'handedness' => $profileData->handedness,
-                    'teamName' => $profileData->team_name,
-                    'administratorFullName' => $profileData->administrator_name,
-                    'administratorEmail' => $profileData->email,
-                    'teamWebsite' => $profileData->website,
-                    'teamAddress' => $profileData->teamAddress,
-                    'teamCity' => $user->city,
+                    'league' => $profileData->leagues ?? null,
+                    'leagues' => $profileData->leagues ?? null,
+                    'team' => $profileData->teams ?? null,
+                    'weight' => $profileData->weight ?? null,
+                    'height' => $profileData->height ?? null,
+                    'position' => $profileData->position ?? null,
+                    'handedness' => $profileData->handedness ?? null,
+                    'teamName' => $profileData->team_name ?? null,
+                    'administratorFullName' => $profileData->administrator_name ?? null,
+                    'administratorEmail' => $profileData->email ?? null,
+                    'teamWebsite' => $profileData->website ?? null,
+                    'teamAddress' => $profileData->teamAddress ?? null,
+                    'teamCity' => $user->city ?? null,
                     'teamStateProvince' => $user->state . ',' . $user->province,
                     'state' => $user->state,
                     'province' => $user->province,
                     'teamZipPostalCode' => $user->zip,
                     'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
-                    'yearsRunning' => $profileData->team_years_running,
+                    'yearsRunning' => $profileData->team_years_running  ?? null,
                     'specializations' => MarketplaceTypes::all(),
                 ],
                 'socialStats' => [

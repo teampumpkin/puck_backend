@@ -30,7 +30,7 @@ class V4Academy extends Model
         'conversation_id',
     ];
 
-    protected $appends = ['members_count'];
+    protected $appends = ['members_count', 'player_members_count'];
 
     protected $casts = [
         'teams' => 'array',
@@ -51,6 +51,15 @@ class V4Academy extends Model
         return $this->members()
             ->where('team_id', $userId)
             ->exists();
+    }
+
+    public function playerMembers()
+    {
+        return $this->hasMany(AcademyMember::class, 'academy_id')
+            ->whereHas('player', function ($q) {
+                $q->where('role', 'player');
+            })
+            ->with(['player', 'player.playerProfile']);
     }
 
     public function getMembersCountAttribute()
@@ -87,5 +96,10 @@ class V4Academy extends Model
                     ->where('player_id', $playerId)
                     ->exists(),
             ]);
+    }
+
+    public function getPlayerMembersCountAttribute()
+    {
+        return $this->playerMembers()->count();
     }
 }
