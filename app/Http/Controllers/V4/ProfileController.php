@@ -1485,13 +1485,9 @@ class ProfileController extends Controller
 
             $user = V4User::findOrFail($id);
 
-            $userData = $user;
+            $user->role = str_replace('-', '', $user->role);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Profile data retrieved successfully',
-                'user' => $userData,
-            ]);
+            return response()->json($user);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
