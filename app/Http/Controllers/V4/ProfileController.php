@@ -1573,6 +1573,7 @@ class ProfileController extends Controller
                     'province' => $user->province,
                     'city' => $user->city,
                     'league' => $profileData->leagues,
+                    'leagues' => $profileData->leagues,
                     'team' => $profileData->teams,
                     'weight' => $profileData->weight,
                     'height' => $profileData->height,
@@ -1811,11 +1812,34 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
-                'teamProfile.team.members.player'
+                'teamProfile.team.members.player' => function ($q) {
+                    $q->where('role', 'player');
+                },
+                'teamProfile.team.members.player.playerProfile'
             ])->findOrFail($id);
-            return response()->json([
-                'members' => $users->teamProfile->team->members,
-            ]);
+
+            $members = $users->teamProfile->team->members;
+
+            $players = $members
+                ->filter(fn($member) => $member->player !== null)
+                ->map(function ($member) {
+                    $player = $member->player;
+
+                    return [
+                        'id'       => $player->id,
+                        'name'     => $player->name,
+                        'position' => $player->playerProfile->position ?? null,
+                        'age'      => $player->age,
+                        'height'   => $player->playerProfile->height ?? null,
+                        'weight'   => $player->playerProfile->weight ?? null,
+                        'avatar'   => $player->profile_photo,
+                        'role'     => $player->role,
+                        'status'   => 'active',
+                    ];
+                })
+                ->values();
+
+            return response()->json($players);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1826,7 +1850,182 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserCoachesDetailsById($id): JsonResponse
+    {
+        try {
+            $users = V4User::with([
+                'teamProfile.team.members.player' => function ($q) {
+                    $q->where('role', 'coach');
+                },
+                'teamProfile.team.members.player.playerProfile'
+            ])->findOrFail($id);
+
+            $members = $users->teamProfile->team->members;
+
+            $players = $members
+                ->filter(fn($member) => $member->player !== null)
+                ->map(function ($member) {
+                    $player = $member->player;
+
+                    return [
+                        'id'       => $player->id,
+                        'name'     => $player->name,
+                        'position' => $player->playerProfile->position ?? null,
+                        'age'      => $player->age,
+                        'height'   => $player->playerProfile->height ?? null,
+                        'weight'   => $player->playerProfile->weight ?? null,
+                        'avatar'   => $player->profile_photo,
+                        'role'     => $player->role,
+                        'status'   => 'active',
+                    ];
+                })
+                ->values();
+
+            return response()->json($players);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserTeamsDetailsById($id): JsonResponse
+    {
+        try {
+            $result = TeamMember::with([
+                'team'
+            ])->where('player_id', $id)->get();
+
+
+            $teams = $result
+                ->map(function ($member) {
+                    $player = $member->team;
+                    return [
+                        'id'       => $player->id,
+                        'name'     => $player->team_name,
+                        'leagues' => $player->leagues ?? null,
+                        'startDate' => $player->created_at,
+                        'players' => $player->player_members_count,
+                        'logo' => $player->profile_photo,
+                        'status'   => 'active',
+                    ];
+                })
+                ->values();
+
+
+            return response()->json(['teams' => $teams]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserScoutsDetailsById($id): JsonResponse
+    {
+        try {
+            $users = V4User::with([
+                'teamProfile.team.members.player' => function ($q) {
+                    $q->where('role', 'scout');
+                },
+                'teamProfile.team.members.player.playerProfile'
+            ])->findOrFail($id);
+
+            $members = $users->teamProfile->team->members;
+
+            $players = $members
+                ->filter(fn($member) => $member->player !== null)
+                ->map(function ($member) {
+                    $player = $member->player;
+
+                    return [
+                        'id'       => $player->id,
+                        'name'     => $player->name,
+                        'position' => $player->playerProfile->position ?? null,
+                        'age'      => $player->age,
+                        'height'   => $player->playerProfile->height ?? null,
+                        'weight'   => $player->playerProfile->weight ?? null,
+                        'avatar'   => $player->profile_photo,
+                        'role'     => $player->role,
+                        'status'   => 'active',
+                    ];
+                })
+                ->values();
+
+            return response()->json($players);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserAdminsDetailsById($id): JsonResponse
+    {
+        try {
+            $users = V4User::with([
+                'teamProfile.team.admins.admin.playerProfile'
+            ])->findOrFail($id);
+
+            $admins = $users->teamProfile->team->admins;
+
+            $players = $admins
+                ->filter(fn($admin) => $admin->admin !== null)
+                ->map(function ($admin) {
+                    $player = $admin->admin;
+                    return [
+                        'id'       => $player->id,
+                        'name'     => $player->name,
+                        'role'     => $player->role,
+                        'phone' => $player->phone,
+                        'email' => $player->email,
+                        'age'      => $player->age,
+                        'avatar'   => $player->profile_photo,
+                    ];
+                })
+                ->values();
+
+            return response()->json($players);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
