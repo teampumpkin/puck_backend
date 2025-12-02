@@ -476,7 +476,7 @@ Route::prefix('v4')->group(function () {
 
             // Favourite routes
             Route::post('/favourites', [ProfileController::class, 'addRemoveFavouriteUsers']);
-            Route::get('/favourites', [ProfileController::class, 'getFavouriteUsers']);
+            Route::get('/favourites/{userId}', [ProfileController::class, 'getFavouriteUsers']);
         });
 
         Route::prefix('teams')->group(function () {
