@@ -286,7 +286,8 @@ class V4SocialAuthController extends Controller
     {
         $teamId     = config('services.apple.team_id');                        // Apple Team ID
         $clientId   = config('services.apple.client_id');                      // Service ID
-        $privateKey = file_get_contents(config('services.apple.private_key')); // .p8 path
+        $keyPath    = config('services.apple.private_key');                    // .p8 path
+        $privateKey = file_get_contents(storage_path($keyPath));               // Read from storage directory
         $keyId      = config('services.apple.key_id');                         // Key ID
 
         $payload = [
