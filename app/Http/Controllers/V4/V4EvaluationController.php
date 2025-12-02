@@ -7047,11 +7047,11 @@ class V4EvaluationController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function getPlayerAllHockeyPortfolios(Request $request): JsonResponse
+    public function getPlayerAllHockeyPortfolios(Request $request, int $userId): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
-            if (!$user) {
+            $user = V4User::find($userId);
+            if (!$user || $user->role !== 'player') {
                 return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
             }
 
