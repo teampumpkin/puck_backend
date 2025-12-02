@@ -478,6 +478,7 @@ Route::prefix('v4')->group(function () {
 
         Route::prefix('teams')->group(function () {
             Route::get('/{userId}', [V4TeamController::class, 'getTeamsForProfileById']);
+            Route::get('/{teamId}/admins/{role?}', [V4TeamController::class, 'getTeamAdmins']);
             Route::post('/{teamId}/members/{academyId?}', [V4TeamController::class, 'addRemoveTeamMembers']);
             Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
             Route::get('/{teamId}/members/{role?}', [V4TeamController::class, 'getTeamMembers']);
@@ -489,7 +490,7 @@ Route::prefix('v4')->group(function () {
         Route::prefix('academies')->group(function () {
             Route::post('/{academyId}/members', [V4AcademyController::class, 'addRemoveAcademyMembers']);
             Route::get('/{academyId}/members/{role?}', [V4TeamController::class, 'getAcademyMembers']);
-            Route::get('/{academyId}/admins', [V4TeamController::class, 'getAcademyMembers']);
+            Route::get('/{academyId}/admins/{role?}', [V4TeamController::class, 'getAcademyAdmins']);
         });
 
 

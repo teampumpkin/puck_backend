@@ -578,6 +578,65 @@ class V4TeamController extends Controller
         }
     }
 
+    public function getTeamAdmins(Request $request, $teamId, $role = null): JsonResponse
+    {
+        try {
+            $authUser = auth()->user();
+
+            if (!$authUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            // Validate just the id existence based on role
+            $validator = Validator::make(['teamId' => $teamId], [
+                'teamId' => 'required|integer|exists:v4_teams,id',
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $teamMembersQuery = V4TeamAdmin::with([
+                'admin:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
+            ])
+                ->where('team_id', $teamId);
+
+            if ($role) {
+                $teamMembersQuery->whereHas('admin', function ($query) use ($role) {
+                    $query->where('role', $role);
+                });
+            }
+
+            $members = $teamMembersQuery->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Admins successfully',
+                'data' => $members
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch admins',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
     public function getAcademyMembers(Request $request, $academyId, $role = null): JsonResponse
     {
         try {
