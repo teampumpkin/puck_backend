@@ -127,7 +127,7 @@ class V4AuthController extends Controller
             $responseUser = [
                 'id' => $user->id,
                 'role' => $user->role,
-                'isOnboarded' => $user->is_onboarded,
+                'is_onboarded' => $user->is_onboarded,
                 'email' => $user->email,
                 'phone' => $user->phone,
                 'is_child' => $user->is_child,
@@ -281,7 +281,7 @@ class V4AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'role' => $user->role,
-                'isOnboarded' => $user->is_onboarded,
+                'is_onboarded' => $user->is_onboarded,
                 'is_child' => $user->is_child,
                 'email' => $user->email,
                 'phone' => $user->phone,
@@ -289,5 +289,4 @@ class V4AuthController extends Controller
             'message' => 'Login successful'
         ]);
     }
-}
-;
+};
