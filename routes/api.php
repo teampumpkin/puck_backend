@@ -282,7 +282,7 @@ Route::prefix('v4')->group(function () {
     });
 
     // Apple Sign-In redirect route for Android Web Authentication
-    Route::get('auth/apple/redirect', [V4SocialAuthController::class, 'handleAppleRedirect']);
+    Route::post('auth/apple/redirect', [V4SocialAuthController::class, 'handleAppleRedirect']);
 
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
