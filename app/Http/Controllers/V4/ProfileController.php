@@ -275,10 +275,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'group',
-                            'participants' => [$user->id],
-                            'name' => $v4Academy->academy_name
-                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name
+                                ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -294,10 +294,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4Academy->academy_name
-                                ]);
+                                            'type' => 'group',
+                                            'participants' => [$user->id],
+                                            'name' => $v4Academy->academy_name
+                                        ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -317,10 +317,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'group',
-                                'participants' => [$user->id],
-                                'name' => $v4Academy->academy_name
-                            ]);
+                                        'type' => 'group',
+                                        'participants' => [$user->id],
+                                        'name' => $v4Academy->academy_name
+                                    ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -365,10 +365,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'group',
-                            'participants' => [$user->id],
-                            'name' => $v4team->team_name
-                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name
+                                ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -383,10 +383,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4team->team_name
-                                ]);
+                                            'type' => 'group',
+                                            'participants' => [$user->id],
+                                            'name' => $v4team->team_name
+                                        ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -407,10 +407,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'group',
-                                'participants' => [$user->id],
-                                'name' => $v4team->team_name
-                            ]);
+                                        'type' => 'group',
+                                        'participants' => [$user->id],
+                                        'name' => $v4team->team_name
+                                    ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
@@ -770,7 +770,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1490,7 +1490,7 @@ class ProfileController extends Controller
                 'usersManaged' => V4User::whereNotIn('role', ['super-admin'])->count(),
             ];
 
-            $user->lastLogin =  $user->updated_at;
+            $user->lastLogin = $user->updated_at;
 
             $user->status = "active";
 
@@ -1594,7 +1594,7 @@ class ProfileController extends Controller
                     'teamZipPostalCode' => $user->zip,
                     'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
-                    'yearsRunning' => $profileData->team_years_running  ?? null,
+                    'yearsRunning' => $profileData->team_years_running ?? null,
                     'specializations' => MarketplaceTypes::all(),
                 ],
                 'socialStats' => [
@@ -1829,15 +1829,15 @@ class ProfileController extends Controller
                     $player = $member->player;
 
                     return [
-                        'id'       => $player->id,
-                        'name'     => $player->name,
+                        'id' => $player->id,
+                        'name' => $player->name,
                         'position' => $player->playerProfile->position ?? null,
-                        'age'      => $player->age,
-                        'height'   => $player->playerProfile->height ?? null,
-                        'weight'   => $player->playerProfile->weight ?? null,
-                        'avatar'   => $player->profile_photo,
-                        'role'     => $player->role,
-                        'status'   => 'active',
+                        'age' => $player->age,
+                        'height' => $player->playerProfile->height ?? null,
+                        'weight' => $player->playerProfile->weight ?? null,
+                        'avatar' => $player->profile_photo,
+                        'role' => $player->role,
+                        'status' => 'active',
                     ];
                 })
                 ->values();
@@ -1853,7 +1853,7 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -1876,15 +1876,15 @@ class ProfileController extends Controller
                     $player = $member->player;
 
                     return [
-                        'id'       => $player->id,
-                        'name'     => $player->name,
+                        'id' => $player->id,
+                        'name' => $player->name,
                         'position' => $player->playerProfile->position ?? null,
-                        'age'      => $player->age,
-                        'height'   => $player->playerProfile->height ?? null,
-                        'weight'   => $player->playerProfile->weight ?? null,
-                        'avatar'   => $player->profile_photo,
-                        'role'     => $player->role,
-                        'status'   => 'active',
+                        'age' => $player->age,
+                        'height' => $player->playerProfile->height ?? null,
+                        'weight' => $player->playerProfile->weight ?? null,
+                        'avatar' => $player->profile_photo,
+                        'role' => $player->role,
+                        'status' => 'active',
                     ];
                 })
                 ->values();
@@ -1900,7 +1900,7 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -1917,13 +1917,13 @@ class ProfileController extends Controller
                 ->map(function ($member) {
                     $player = $member->team;
                     return [
-                        'id'       => $player->id,
-                        'name'     => $player->team_name,
+                        'id' => $player->id,
+                        'name' => $player->team_name,
                         'leagues' => $player->leagues ?? null,
                         'startDate' => $player->created_at,
                         'players' => $player->player_members_count,
                         'logo' => $player->profile_photo,
-                        'status'   => 'active',
+                        'status' => 'active',
                     ];
                 })
                 ->values();
@@ -1940,7 +1940,7 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -1963,15 +1963,15 @@ class ProfileController extends Controller
                     $player = $member->player;
 
                     return [
-                        'id'       => $player->id,
-                        'name'     => $player->name,
+                        'id' => $player->id,
+                        'name' => $player->name,
                         'position' => $player->playerProfile->position ?? null,
-                        'age'      => $player->age,
-                        'height'   => $player->playerProfile->height ?? null,
-                        'weight'   => $player->playerProfile->weight ?? null,
-                        'avatar'   => $player->profile_photo,
-                        'role'     => $player->role,
-                        'status'   => 'active',
+                        'age' => $player->age,
+                        'height' => $player->playerProfile->height ?? null,
+                        'weight' => $player->playerProfile->weight ?? null,
+                        'avatar' => $player->profile_photo,
+                        'role' => $player->role,
+                        'status' => 'active',
                     ];
                 })
                 ->values();
@@ -1987,7 +1987,7 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -2006,13 +2006,13 @@ class ProfileController extends Controller
                 ->map(function ($admin) {
                     $player = $admin->admin;
                     return [
-                        'id'       => $player->id,
-                        'name'     => $player->name,
-                        'role'     => $player->role,
+                        'id' => $player->id,
+                        'name' => $player->name,
+                        'role' => $player->role,
                         'phone' => $player->phone,
                         'email' => $player->email,
-                        'age'      => $player->age,
-                        'avatar'   => $player->profile_photo,
+                        'age' => $player->age,
+                        'avatar' => $player->profile_photo,
                     ];
                 })
                 ->values();
@@ -2028,7 +2028,7 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -2480,10 +2480,10 @@ class ProfileController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function getAchievements(Request $request): JsonResponse
+    public function getAchievements(Request $request, int $userId): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
+            $user = V4User::find($userId);
 
             // Validate user must be a player
             if (!$user || $user->role !== 'player') {
@@ -2959,9 +2959,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$user->id, $favId],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$user->id, $favId],
+                            ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
@@ -3001,11 +3001,11 @@ class ProfileController extends Controller
     }
 
 
-    public function getFavouriteUsers(Request $request)
+    public function getFavouriteUsers(Request $request, int $userId): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
-            if (!$user) {
+            $user = V4User::find($userId);
+            if (!$user || !in_array($user->role, ['scout', 'coach', 'adviser'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',

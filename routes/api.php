@@ -468,7 +468,7 @@ Route::prefix('v4')->group(function () {
             Route::get('{userId}/following', [V4FollowController::class, 'following']);
 
             // Achievement routes
-            Route::get('/get-achievements', [ProfileController::class, 'getAchievements']);
+            Route::get('/get-achievements/{userId}', [ProfileController::class, 'getAchievements']);
             Route::post('/create-achievement', [ProfileController::class, 'createAchievement']);
             Route::post('/update-achievement', [ProfileController::class, 'updateAchievement']);
             Route::delete('/delete-achievement/{achievementId}', [ProfileController::class, 'deleteAchievement']);
@@ -569,7 +569,7 @@ Route::prefix('v4')->group(function () {
             // Professional Hockey Porfolio
             Route::delete('/delete-player-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'deletePlayerHockeyPortfolio']);
             Route::get('/get-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'getPlayerHockeyPortfolio']);
-            Route::get('/get-all-hockey-portfolios', [V4EvaluationController::class, 'getPlayerAllHockeyPortfolios']);
+            Route::get('/get-all-hockey-portfolios/{userId}', [V4EvaluationController::class, 'getPlayerAllHockeyPortfolios']);
             Route::post('/update-hockey-portfolio', [V4EvaluationController::class, 'updatePlayerHockeyPortfolio']);
 
             // My Report
