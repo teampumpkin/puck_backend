@@ -281,6 +281,9 @@ Route::prefix('v4')->group(function () {
         Route::post('apple', [V4SocialAuthController::class, 'handleAppleCallback']);
     });
 
+    // Apple Sign-In redirect route for Android Web Authentication
+    Route::get('auth/apple/redirect', [V4SocialAuthController::class, 'handleAppleRedirect']);
+
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);

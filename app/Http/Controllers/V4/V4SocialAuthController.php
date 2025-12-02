@@ -163,6 +163,92 @@ class V4SocialAuthController extends Controller
     }
 
     /**
+     * Apple Sign-In Redirect Handler (for Android Web Authentication)
+     * This handles the OAuth callback from Apple after user authentication
+     * Simplified pass-through version - app handles token exchange
+     */
+    public function handleAppleRedirect(Request $request)
+    {
+        try {
+            // Get Android configuration
+            $androidPackageId = config('services.apple.android_package_id', env('APPLE_ANDROID_PACKAGE_ID', 'com.puck.recruiter'));
+            $androidScheme = config('services.apple.android_scheme') ?: 'signinwithapple';
+
+            // Check if this is an Android request
+            $isAndroid = $request->query('platform') === 'android'
+                || strpos($request->query('state') ?? '', 'android') !== false
+                || strpos($request->userAgent() ?? '', 'Android') !== false;
+
+            // Log for debugging
+            if ($request->has('error')) {
+                Log::error("Apple OAuth Error", [
+                    'error' => $request->query('error'),
+                    'error_description' => $request->query('error_description'),
+                    'is_android' => $isAndroid,
+                ]);
+            } else {
+                Log::info("Apple Redirect Callback", [
+                    'has_code' => $request->has('code'),
+                    'has_state' => $request->has('state'),
+                    'is_android' => $isAndroid,
+                ]);
+            }
+
+            // Only pass through safe parameters from Apple
+            $safeParams = $request->only(['code', 'state', 'error', 'error_description']);
+            $redirectParams = http_build_query(array_filter($safeParams));
+
+            if ($isAndroid && $androidPackageId) {
+                // For Android, redirect using intent URL format
+                // Format: intent://callback?${PARAMETERS}#Intent;package=YOUR.PACKAGE.IDENTIFIER;scheme=SCHEME;end
+                $redirect = "intent://callback?{$redirectParams}#Intent;package={$androidPackageId};scheme={$androidScheme};end";
+                return redirect($redirect, 307);
+            }
+
+            // For web/frontend, redirect to frontend URL
+            $frontendUrl = config('services.apple.frontend_redirect_url', env('APP_FRONTEND_URL', ''));
+            if ($frontendUrl) {
+                return redirect($frontendUrl . '?' . $redirectParams, 307);
+            }
+
+            // Fallback: redirect to Android if no frontend URL (shouldn't happen but safe fallback)
+            if ($androidPackageId) {
+                $redirect = "intent://callback?{$redirectParams}#Intent;package={$androidPackageId};scheme={$androidScheme};end";
+                return redirect($redirect, 307);
+            }
+
+            // Last resort: redirect to a safe error page (or you can remove this)
+            Log::error("Apple Redirect: No configuration found");
+            return redirect('/?error=configuration_error', 307);
+        } catch (Exception $e) {
+            Log::error("Apple Redirect Error: {$e->getMessage()}", [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            // Try to redirect with error
+            $androidPackageId = config('services.apple.android_package_id', env('APPLE_ANDROID_PACKAGE_ID', 'com.puck.recruiter'));
+            $androidScheme = config('services.apple.android_scheme') ?: 'signinwithapple';
+            $isAndroid = strpos($request->userAgent() ?? '', 'Android') !== false;
+
+            if ($isAndroid && $androidPackageId) {
+                $params = http_build_query(['error' => 'server_error', 'error_description' => $e->getMessage()]);
+                $intentUrl = "intent://callback?{$params}#Intent;package={$androidPackageId};scheme={$androidScheme};end";
+                return redirect($intentUrl, 307);
+            }
+
+            // Fallback redirect for web
+            $frontendUrl = config('services.apple.frontend_redirect_url', env('APP_FRONTEND_URL', ''));
+            if ($frontendUrl) {
+                $params = http_build_query(['error' => 'server_error', 'error_description' => $e->getMessage()]);
+                return redirect($frontendUrl . '?' . $params, 307);
+            }
+
+            // Last resort redirect
+            return redirect('/?error=server_error', 307);
+        }
+    }
+
+    /**
      * Create or authenticate user
      */
     private function findOrCreateUser($socialUser, string $provider): JsonResponse

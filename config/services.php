@@ -60,6 +60,8 @@ return [
         'team_id' => env('APPLE_TEAM_ID'),
         'key_id' => env('APPLE_KEY_ID'),
         'private_key' => env('APPLE_PRIVATE_KEY_PATH'),
-        'redirect' => env('APPLE_REDIRECT_URI')
+        'frontend_redirect_url' => env('APPLE_FRONTEND_REDIRECT_URL', env('APP_FRONTEND_URL')),
+        'android_package_id' => env('APPLE_ANDROID_PACKAGE_ID'),
+        'android_scheme' => env('APPLE_ANDROID_SCHEME'),
     ],
 ];
