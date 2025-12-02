@@ -104,9 +104,9 @@ class V4SocialAuthController extends Controller
     public function handleAppleCallback(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'identity_token'     => 'required|string',
-            'authorization_code' => 'required|string',
-            'user_identifier'    => 'required|string',
+            'identity_token'     => 'nullable|string',
+            'authorization_code' => 'nullable|string',
+            'user_identifier'    => 'nullable|string',
             'role'               => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
             'first_name'         => 'nullable|string|max:255',
             'last_name'          => 'nullable|string|max:255',
