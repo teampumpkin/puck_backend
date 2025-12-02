@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademyMember;
+use App\Models\V4AcademyAdmin;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
 use App\Models\V4Team;
@@ -632,6 +633,66 @@ class V4TeamController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch members',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function getAcademyAdmins(Request $request, $academyId, $role = null): JsonResponse
+    {
+        try {
+            $authUser = auth()->user();
+
+            if (!$authUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            // Validate just the id existence based on role
+            $validator = Validator::make(['academyId' => $academyId], [
+                'academyId' => 'required|integer|exists:v4_academies,id',
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $academyMembersQuery = V4AcademyAdmin::with([
+                'admin:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
+            ])
+                ->where('academy_id', $academyId);
+
+            if ($role) {
+                $academyMembersQuery->whereHas('admin', function ($query) use ($role) {
+                    $query->where('role', $role);
+                });
+            }
+
+            // Map exactly same output structure as team member API
+            $members = $academyMembersQuery->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Admins successfully',
+                'data' => $members
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch Admins',
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
