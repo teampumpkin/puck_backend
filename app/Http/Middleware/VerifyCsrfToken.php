@@ -12,6 +12,7 @@ class VerifyCsrfToken extends Middleware
      * @var array
      */
     protected $except = [
-        //
+        // Facebook Data Deletion Callback - called by Facebook servers
+        'facebook/data-deletion',
     ];
 }

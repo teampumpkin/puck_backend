@@ -28,6 +28,11 @@ Route::get('/account/delete', [DeleteAccountController::class, 'showDeleteForm']
 // Route to handle account deletion request
 Route::post('/account/delete', [DeleteAccountController::class, 'deleteAccount'])->name('account.delete');
 
+// Facebook Data Deletion Callback (excluded from CSRF verification)
+// This endpoint is called by Facebook when a user requests data deletion
+// Supports both GET (for verification) and POST (for actual deletion)
+Route::match(['get', 'post'], '/facebook/data-deletion', [DeleteAccountController::class, 'handleFacebookDataDeletion'])->name('facebook.data.deletion');
+
 
 Route::get("send-otp", [V4AuthController::class, 'sendOtp']);
 
