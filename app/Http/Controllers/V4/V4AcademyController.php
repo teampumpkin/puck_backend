@@ -5,14 +5,18 @@ namespace App\Http\Controllers\V4;
 use App\Http\Controllers\Controller;
 use App\Models\AcademyMember;
 use App\Models\V4Academy;
+use App\Models\V4AcademyAdmin;
 use App\Models\V4User;
+use Illuminate\Validation\ValidationException;
+use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Exception;
+use Illuminate\Support\Facades\Validator;
 
 class V4AcademyController extends Controller
 {
@@ -165,6 +169,126 @@ class V4AcademyController extends Controller
                 'success' => false,
                 'message' => 'Failed to update academy members',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getAcademyMembers(Request $request, $academyId, $role = null)
+    {
+        try {
+            $authUser = auth()->user();
+
+            if (!$authUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            // Validate just the id existence based on role
+            $validator = Validator::make(['academyId' => $academyId], [
+                'academyId' => 'required|integer|exists:v4_academies,id',
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $academyMembersQuery = AcademyMember::with([
+                'player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
+            ])
+                ->where('academy_id', $academyId);
+
+            if ($role) {
+                $academyMembersQuery->whereHas('player', function ($query) use ($role) {
+                    $query->where('role', $role);
+                });
+            }
+
+            // Map exactly same output structure as team member API
+            $members = $academyMembersQuery->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Members successfully',
+                'data' => $members
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch members',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function getAcademyAdmins(Request $request, $academyId, $role = null)
+    {
+        try {
+            $authUser = auth()->user();
+
+            if (!$authUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            // Validate just the id existence based on role
+            $validator = Validator::make(['academyId' => $academyId], [
+                'academyId' => 'required|integer|exists:v4_academies,id',
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $academyMembersQuery = V4AcademyAdmin::with([
+                'admin:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
+            ])
+                ->where('academy_id', $academyId);
+
+            if ($role) {
+                $academyMembersQuery->whereHas('admin', function ($query) use ($role) {
+                    $query->where('role', $role);
+                });
+            }
+
+            // Map exactly same output structure as team member API
+            $members = $academyMembersQuery->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched Admins successfully',
+                'data' => $members
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch Admins',
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
