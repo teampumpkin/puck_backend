@@ -488,12 +488,18 @@ Route::prefix('v4')->group(function () {
             Route::post('/{teamId}/update', [V4TeamController::class, 'updateTeam']);
             Route::delete('/{teamId}', [V4TeamController::class, 'deleteTeam']);
 
+            // admins
             Route::get('/{teamId}/admins', [V4TeamController::class, 'getTeamAdmins']);
+            Route::post('/{teamId}/admins', [V4TeamController::class, 'createTeamAdmin']);
+            Route::post('/{teamId}/admins/{id}', [V4TeamController::class, 'updateTeamAdmin']);
+            Route::delete('/{teamId}/admins/{id}', [V4TeamController::class, 'deleteTeamAdmin']);
         });
 
         Route::prefix('academies')->group(function () {
             Route::post('/{academyId}/members', [V4AcademyController::class, 'addRemoveAcademyMembers']);
             Route::get('/{academyId}/members/{role?}', [V4AcademyController::class, 'getAcademyMembers']);
+
+            // admins
             Route::get('/{academyId}/admins/{role?}', [V4AcademyController::class, 'getAcademyAdmins']);
         });
 
