@@ -14,6 +14,11 @@ class V4TeamAdmin extends Model
     protected $fillable = [
         'team_id',
         'admin_id',
+        'designation',
+        'name',
+        'email',
+        'phone',
+        'location',
     ];
 
     public function team()
