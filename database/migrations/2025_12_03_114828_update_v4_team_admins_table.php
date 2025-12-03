@@ -15,6 +15,7 @@ class UpdateV4TeamAdminsTable extends Migration
 
             // Add new fields
             $table->string('designation')->nullable();
+            $table->string('profile_photo')->nullable();
             $table->string('name')->nullable();
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
@@ -27,6 +28,7 @@ class UpdateV4TeamAdminsTable extends Migration
         Schema::table('v4_team_admins', function (Blueprint $table) {
             $table->dropColumn([
                 'designation',
+                'profile_photo',
                 'name',
                 'email',
                 'phone',

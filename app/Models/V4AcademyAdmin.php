@@ -15,6 +15,7 @@ class V4AcademyAdmin extends Model
         'academy_id',
         'admin_id',
         'designation',
+        'profile_photo',
         'name',
         'email',
         'phone',

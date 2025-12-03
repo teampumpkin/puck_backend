@@ -14,11 +14,12 @@ class UpdateV4AcademyAdminsTable extends Migration
             $table->unsignedBigInteger('admin_id')->nullable()->change();
 
             // Add new fields
-            $table->string('designation')->nullable()->after('admin_id');
-            $table->string('name')->nullable()->after('designation');
-            $table->string('email')->nullable()->after('name');
-            $table->string('phone')->nullable()->after('email');
-            $table->string('location')->nullable()->after('phone');
+            $table->string('designation')->nullable();
+            $table->string('profile_photo')->nullable();
+            $table->string('name')->nullable();
+            $table->string('email')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('location')->nullable();
         });
     }
 
@@ -30,6 +31,7 @@ class UpdateV4AcademyAdminsTable extends Migration
 
             $table->dropColumn([
                 'designation',
+                'profile_photo',
                 'name',
                 'email',
                 'phone',

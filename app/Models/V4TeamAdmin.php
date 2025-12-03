@@ -15,6 +15,7 @@ class V4TeamAdmin extends Model
         'team_id',
         'admin_id',
         'designation',
+        'profile_photo',
         'name',
         'email',
         'phone',
