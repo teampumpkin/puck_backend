@@ -400,4 +400,9 @@ class V4User extends Authenticatable implements JWTSubject
 
         return $conversation?->conversation_id;
     }
+
+    public function fcmTokens()
+    {
+        return $this->hasMany(V4UserFcmToken::class, 'user_id');
+    }
 }

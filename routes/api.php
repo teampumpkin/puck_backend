@@ -25,6 +25,7 @@ use App\Http\Controllers\PlayableController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\V4\EvaluationRejectionReasonController;
+use App\Http\Controllers\V4\V4UserFcmTokenController;
 use App\Http\Controllers\V4\NotificationController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\UserBlockController;
@@ -452,6 +453,10 @@ Route::prefix('v4')->group(function () {
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
         Route::delete('/user/{id}/delete-account', [ProfileController::class, 'deleteUserAccount']);
 
+        Route::prefix('users')->group(function () {
+            Route::post('/store', [V4UserFcmTokenController::class, 'store']);
+            Route::delete('/remove', [V4UserFcmTokenController::class, 'destroy']);
+        });
 
         Route::prefix('users')->group(function () {
 
