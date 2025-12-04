@@ -481,19 +481,31 @@ Route::prefix('v4')->group(function () {
 
         Route::prefix('teams')->group(function () {
             Route::get('/{userId}', [V4TeamController::class, 'getTeamsForProfileById']);
-            Route::get('/{teamId}/admins/{role?}', [V4TeamController::class, 'getTeamAdmins']);
             Route::post('/{teamId}/members/{academyId?}', [V4TeamController::class, 'addRemoveTeamMembers']);
             Route::get('/{teamId}/details', [V4TeamController::class, 'getTeamDetails']);
             Route::get('/{teamId}/members/{role?}', [V4TeamController::class, 'getTeamMembers']);
             Route::post('/create', [V4TeamController::class, 'createTeam']);
             Route::post('/{teamId}/update', [V4TeamController::class, 'updateTeam']);
             Route::delete('/{teamId}', [V4TeamController::class, 'deleteTeam']);
+
+            // admins
+            Route::get('/{teamId}/admins', [V4TeamController::class, 'getTeamAdmins']);
+            Route::get('/{teamId}/admins/{id}', [V4TeamController::class, 'getTeamAdminById']);
+            Route::post('/{teamId}/admins', [V4TeamController::class, 'createTeamAdmin']);
+            Route::post('/{teamId}/admins/{id}', [V4TeamController::class, 'updateTeamAdmin']);
+            Route::delete('/{teamId}/admins/{id}', [V4TeamController::class, 'deleteTeamAdmin']);
         });
 
         Route::prefix('academies')->group(function () {
             Route::post('/{academyId}/members', [V4AcademyController::class, 'addRemoveAcademyMembers']);
-            Route::get('/{academyId}/members/{role?}', [V4TeamController::class, 'getAcademyMembers']);
-            Route::get('/{academyId}/admins/{role?}', [V4TeamController::class, 'getAcademyAdmins']);
+            Route::get('/{academyId}/members/{role?}', [V4AcademyController::class, 'getAcademyMembers']);
+
+            // admins
+            Route::get('/{academyId}/admins', [V4AcademyController::class, 'getAcademyAdmins']);
+            Route::get('/{academyId}/admins/{id}', [V4AcademyController::class, 'getAcademyAdminById']);
+            Route::post('/{academyId}/admins', [V4AcademyController::class, 'createAcademyAdmin']);
+            Route::post('/{academyId}/admins/{id}', [V4AcademyController::class, 'updateAcademyAdmin']);
+            Route::delete('/{academyId}/admins/{id}', [V4AcademyController::class, 'deleteAcademyAdmin']);
         });
 
 

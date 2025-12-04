@@ -3,8 +3,6 @@
 namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
-use App\Models\AcademyMember;
-use App\Models\V4AcademyAdmin;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
 use App\Models\V4Team;
@@ -431,10 +429,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type' => 'group',
-                    'removeParticipants' => $removeIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'removeParticipants' => $removeIds,
+                        ]);
             }
 
             // Insert addIds
@@ -457,10 +455,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type' => 'group',
-                    'addParticipants' => $addIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'addParticipants' => $addIds,
+                        ]);
             }
 
             DB::commit();
@@ -578,185 +576,6 @@ class V4TeamController extends Controller
         }
     }
 
-    public function getTeamAdmins(Request $request, $teamId, $role = null): JsonResponse
-    {
-        try {
-            $authUser = auth()->user();
-
-            if (!$authUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ], 401);
-            }
-
-            // Validate just the id existence based on role
-            $validator = Validator::make(['teamId' => $teamId], [
-                'teamId' => 'required|integer|exists:v4_teams,id',
-            ]);
-
-            if ($validator->fails()) {
-                throw new ValidationException($validator);
-            }
-
-            $teamMembersQuery = V4TeamAdmin::with([
-                'admin:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
-            ])
-                ->where('team_id', $teamId);
-
-            if ($role) {
-                $teamMembersQuery->whereHas('admin', function ($query) use ($role) {
-                    $query->where('role', $role);
-                });
-            }
-
-            $members = $teamMembersQuery->get();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Fetched Admins successfully',
-                'data' => $members
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Not found',
-            ], 404);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch admins',
-                'error' => config('app.debug') ? $e->getMessage() : null
-            ], 500);
-        }
-    }
-
-    public function getAcademyMembers(Request $request, $academyId, $role = null): JsonResponse
-    {
-        try {
-            $authUser = auth()->user();
-
-            if (!$authUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ], 401);
-            }
-
-            // Validate just the id existence based on role
-            $validator = Validator::make(['academyId' => $academyId], [
-                'academyId' => 'required|integer|exists:v4_academies,id',
-            ]);
-
-            if ($validator->fails()) {
-                throw new ValidationException($validator);
-            }
-
-            $academyMembersQuery = AcademyMember::with([
-                'player:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
-            ])
-                ->where('academy_id', $academyId);
-
-            if ($role) {
-                $academyMembersQuery->whereHas('player', function ($query) use ($role) {
-                    $query->where('role', $role);
-                });
-            }
-
-            // Map exactly same output structure as team member API
-            $members = $academyMembersQuery->get();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Fetched Members successfully',
-                'data' => $members
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Not found',
-            ], 404);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch members',
-                'error' => config('app.debug') ? $e->getMessage() : null
-            ], 500);
-        }
-    }
-
-    public function getAcademyAdmins(Request $request, $academyId, $role = null): JsonResponse
-    {
-        try {
-            $authUser = auth()->user();
-
-            if (!$authUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ], 401);
-            }
-
-            // Validate just the id existence based on role
-            $validator = Validator::make(['academyId' => $academyId], [
-                'academyId' => 'required|integer|exists:v4_academies,id',
-            ]);
-
-            if ($validator->fails()) {
-                throw new ValidationException($validator);
-            }
-
-            $academyMembersQuery = V4AcademyAdmin::with([
-                'admin:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
-            ])
-                ->where('academy_id', $academyId);
-
-            if ($role) {
-                $academyMembersQuery->whereHas('admin', function ($query) use ($role) {
-                    $query->where('role', $role);
-                });
-            }
-
-            // Map exactly same output structure as team member API
-            $members = $academyMembersQuery->get();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Fetched Admins successfully',
-                'data' => $members
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Not found',
-            ], 404);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch Admins',
-                'error' => config('app.debug') ? $e->getMessage() : null
-            ], 500);
-        }
-    }
-
     public function getTeamsForProfileById(Request $request, int $userId): JsonResponse
     {
         try {
@@ -811,6 +630,233 @@ class V4TeamController extends Controller
                 'success' => false,
                 'message' => 'Failed to fetched team members',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getTeamAdmins($teamId)
+    {
+        try {
+            // Validate teamId
+            $validator = Validator::make(
+                ['teamId' => $teamId],
+                ['teamId' => 'required|integer|exists:v4_teams,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $admins = V4TeamAdmin::where('team_id', $teamId)->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched team admins successfully',
+                'data' => $admins,
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch team admins',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getTeamAdminById($teamId, $id)
+    {
+        try {
+            // Validate team
+            $validator = Validator::make(
+                ['teamId' => $teamId],
+                ['teamId' => 'required|integer|exists:v4_teams,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Fetch admin belonging to this team
+            $admin = V4TeamAdmin::where('team_id', $teamId)->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched team admin successfully',
+                'data' => $admin
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team admin not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch team admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function createTeamAdmin(Request $request, $teamId)
+    {
+        try {
+            // Validate teamId exists
+            $validator = Validator::make(
+                ['teamId' => $teamId],
+                ['teamId' => 'required|integer|exists:v4_teams,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Validate request body
+            $data = $request->validate([
+                'profile_photo' => 'nullable|file|image|max:5120',
+                'designation' => 'required|string|max:255',
+                'name' => 'required|string|max:255',
+                'email' => 'required|email',
+                'phone' => 'required|string|max:50',
+                'location' => 'required|string|max:255',
+            ]);
+
+            $data['team_id'] = $teamId;
+
+            if ($request->hasFile('profile_photo')) {
+                $file = $request->file('profile_photo');
+                $path = $file->storeAs('team_admins', $file->getClientOriginalName(), 's3');
+                $data['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            // Create admin
+            $admin = V4TeamAdmin::create($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team admin created successfully',
+                'data' => $admin
+            ], 201);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create team admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function updateTeamAdmin(Request $request, $teamId, $id)
+    {
+        try {
+            // Validate teamId exists
+            $validator = Validator::make(
+                ['teamId' => $teamId],
+                ['teamId' => 'required|integer|exists:v4_teams,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $admin = V4TeamAdmin::where('team_id', $teamId)->findOrFail($id);
+
+            // Validate request
+            $data = $request->validate([
+                'profile_photo' => 'nullable|file|image|max:5120',
+                'designation' => 'sometimes|string|max:255',
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email',
+                'phone' => 'sometimes|string|max:50',
+                'location' => 'sometimes|string|max:255',
+            ]);
+
+            // Upload new image if provided
+            if ($request->hasFile('profile_photo')) {
+                $file = $request->file('profile_photo');
+                $path = $file->storeAs('team_admins', $file->getClientOriginalName(), 's3');
+                $data['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            $admin->update($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team admin updated successfully',
+                'data' => $admin
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team admin not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update team admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function deleteTeamAdmin($teamId, $id)
+    {
+        try {
+            // Validate teamId
+            $validator = Validator::make(
+                ['teamId' => $teamId],
+                ['teamId' => 'required|integer|exists:v4_teams,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $admin = V4TeamAdmin::where('team_id', $teamId)->findOrFail($id);
+
+            $admin->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team admin deleted successfully',
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team admin not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete team admin',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

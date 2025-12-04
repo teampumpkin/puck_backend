@@ -14,6 +14,12 @@ class V4AcademyAdmin extends Model
     protected $fillable = [
         'academy_id',
         'admin_id',
+        'designation',
+        'profile_photo',
+        'name',
+        'email',
+        'phone',
+        'location',
     ];
 
     public function academy()
