@@ -9,13 +9,11 @@ use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
-use App\Models\V4AcademyAdmin;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\EvaluatorAssignment;
 use App\Models\V4PlayerPortfolioSub;
 use App\Models\V4Team;
-use App\Models\V4TeamAdmin;
 use App\Models\V4UploadedMedia;
 use App\Models\V4Post;
 use App\Models\V4User;
@@ -265,10 +263,6 @@ class ProfileController extends Controller
 
                     if (!$user->is_onboarded) {
                         $v4Academy = V4Academy::create($academyValidated);
-                        V4AcademyAdmin::create([
-                            'academy_id' => $v4Academy->id,
-                            'admin_id' => $user->id,
-                        ]);
                         $token = $request->bearerToken();
                         $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                         $response = Http::withHeaders([
@@ -307,10 +301,6 @@ class ProfileController extends Controller
                         } else {
                             // Fallback
                             $v4Academy = V4Academy::create($academyValidated);
-                            V4AcademyAdmin::create([
-                                'academy_id' => $v4Academy->id,
-                                'admin_id' => $user->id,
-                            ]);
                             $token = $request->bearerToken();
                             $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                             $response = Http::withHeaders([
@@ -355,10 +345,6 @@ class ProfileController extends Controller
 
                     if (!$user->is_onboarded) {
                         $v4team = V4Team::create($teamValidated);
-                        V4TeamAdmin::create([
-                            'team_id' => $v4team->id,
-                            'admin_id' => $user->id,
-                        ]);
                         $token = $request->bearerToken();
                         $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                         $response = Http::withHeaders([
@@ -396,10 +382,6 @@ class ProfileController extends Controller
                         } else {
                             // Fallback
                             $v4team = V4Team::create($teamValidated);
-                            V4TeamAdmin::create([
-                                'team_id' => $v4team->id,
-                                'admin_id' => $user->id,
-                            ]);
 
                             $token = $request->bearerToken();
                             $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
