@@ -233,62 +233,181 @@ class V4AcademyController extends Controller
         }
     }
 
-    public function getAcademyAdmins(Request $request, $academyId, $role = null)
+    public function getAcademyAdmins($academyId)
     {
         try {
-            $authUser = auth()->user();
-
-            if (!$authUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ], 401);
-            }
-
-            // Validate just the id existence based on role
-            $validator = Validator::make(['academyId' => $academyId], [
-                'academyId' => 'required|integer|exists:v4_academies,id',
-            ]);
+            $validator = Validator::make(
+                ['academyId' => $academyId],
+                ['academyId' => 'required|integer|exists:v4_academies,id']
+            );
 
             if ($validator->fails()) {
-                throw new ValidationException($validator);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Academy not found',
+                    'errors' => $validator->errors()
+                ], 422);
             }
 
-            $academyMembersQuery = V4AcademyAdmin::with([
-                'admin:id,first_name,last_name,role,profile_photo,email,country,date_of_birth,state,city,zip,username,enable_private_account'
-            ])
-                ->where('academy_id', $academyId);
-
-            if ($role) {
-                $academyMembersQuery->whereHas('admin', function ($query) use ($role) {
-                    $query->where('role', $role);
-                });
-            }
-
-            // Map exactly same output structure as team member API
-            $members = $academyMembersQuery->get();
+            $admins = V4AcademyAdmin::where('academy_id', $academyId)->get();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Fetched Admins successfully',
-                'data' => $members
+                'message' => 'Fetched academy admins successfully',
+                'data' => $admins,
             ]);
-        } catch (ValidationException $e) {
+
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
+                'message' => 'Failed to fetch academy admins',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function createAcademyAdmin(Request $request, $academyId)
+    {
+        try {
+            $validator = Validator::make(
+                ['academyId' => $academyId],
+                ['academyId' => 'required|integer|exists:v4_academies,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Academy not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $data = $request->validate([
+                'profile_photo' => 'nullable|file|image|max:5120',
+                'designation' => 'required|string|max:255',
+                'name' => 'required|string|max:255',
+                'email' => 'required|email',
+                'phone' => 'required|string|max:50',
+                'location' => 'required|string|max:255',
+            ]);
+
+            $data['academy_id'] = $academyId;
+
+            if ($request->hasFile('profile_photo')) {
+                $file = $request->file('profile_photo');
+                $path = $file->storeAs('academy_admins', $file->getClientOriginalName(), 's3');
+                $data['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            $admin = V4AcademyAdmin::create($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Academy admin created successfully',
+                'data' => $admin
+            ], 201);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create academy admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function updateAcademyAdmin(Request $request, $academyId, $id)
+    {
+        try {
+            $validator = Validator::make(
+                ['academyId' => $academyId],
+                ['academyId' => 'required|integer|exists:v4_academies,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Academy not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $admin = V4AcademyAdmin::where('academy_id', $academyId)->findOrFail($id);
+
+            $data = $request->validate([
+                'profile_photo' => 'nullable|file|image|max:5120',
+                'designation' => 'sometimes|string|max:255',
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email',
+                'phone' => 'sometimes|string|max:50',
+                'location' => 'sometimes|string|max:255',
+            ]);
+
+            if ($request->hasFile('profile_photo')) {
+                $file = $request->file('profile_photo');
+                $path = $file->storeAs('academy_admins', $file->getClientOriginalName(), 's3');
+                $data['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            $admin->update($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Academy admin updated successfully',
+                'data' => $admin
+            ], 200);
+
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Not found',
+                'message' => 'Academy admin not found',
             ], 404);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch Admins',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'message' => 'Failed to update academy admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function deleteAcademyAdmin($academyId, $id)
+    {
+        try {
+            $validator = Validator::make(
+                ['academyId' => $academyId],
+                ['academyId' => 'required|integer|exists:v4_academies,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Academy not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $admin = V4AcademyAdmin::where('academy_id', $academyId)->findOrFail($id);
+
+            $admin->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Academy admin deleted successfully',
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Academy admin not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete academy admin',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

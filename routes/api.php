@@ -501,6 +501,9 @@ Route::prefix('v4')->group(function () {
 
             // admins
             Route::get('/{academyId}/admins/{role?}', [V4AcademyController::class, 'getAcademyAdmins']);
+            Route::post('/{academyId}/admins', [V4AcademyController::class, 'createAcademyAdmin']);
+            Route::post('/{academyId}/admins/{id}', [V4AcademyController::class, 'updateAcademyAdmin']);
+            Route::delete('/{academyId}/admins/{id}', [V4AcademyController::class, 'deleteAcademyAdmin']);
         });
 
 
