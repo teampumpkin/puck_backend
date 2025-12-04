@@ -668,6 +668,46 @@ class V4TeamController extends Controller
         }
     }
 
+    public function getTeamAdminById($teamId, $id)
+    {
+        try {
+            // Validate team
+            $validator = Validator::make(
+                ['teamId' => $teamId],
+                ['teamId' => 'required|integer|exists:v4_teams,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Fetch admin belonging to this team
+            $admin = V4TeamAdmin::where('team_id', $teamId)->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched team admin successfully',
+                'data' => $admin
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Team admin not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch team admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 
     public function createTeamAdmin(Request $request, $teamId)
     {

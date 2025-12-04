@@ -266,6 +266,47 @@ class V4AcademyController extends Controller
         }
     }
 
+    public function getAcademyAdminById($academyId, $id)
+    {
+        try {
+            // Validate academy
+            $validator = Validator::make(
+                ['academyId' => $academyId],
+                ['academyId' => 'required|integer|exists:v4_academies,id']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Academy not found',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Fetch admin belonging to this academy
+            $admin = V4AcademyAdmin::where('academy_id', $academyId)->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fetched academy admin successfully',
+                'data' => $admin
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Academy admin not found',
+            ], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch academy admin',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
     public function createAcademyAdmin(Request $request, $academyId)
     {
         try {
