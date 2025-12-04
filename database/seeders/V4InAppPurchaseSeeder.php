@@ -20,7 +20,7 @@ class V4InAppPurchaseSeeder extends Seeder
                 'title' => 'Personalized Video Evaluation',
                 'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
-                'product_type' => 'service',
+                'product_type' => 'consumable',
                 'meta' => null,
                 'active' => true,
                 'currency' => 'CAD'
@@ -30,6 +30,7 @@ class V4InAppPurchaseSeeder extends Seeder
                 'title' => "1 on 1 Consultation Video Call",
                 'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
+                'product_type' => 'consumable',
                 'meta' => null,
                 'active' => true,
                 'currency' => 'CAD'
@@ -39,6 +40,7 @@ class V4InAppPurchaseSeeder extends Seeder
                 'title' => "12-Week Mentorship Program",
                 'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
+                'product_type' => 'consumable',
                 'meta' => null,
                 'active' => true,
                 'currency' => 'CAD'
@@ -48,6 +50,7 @@ class V4InAppPurchaseSeeder extends Seeder
                 'title' => "Professional Hockey Portfolio",
                 'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
                 'amount_cents' => 25900,
+                'product_type' => 'consumable',
                 'meta' => null,
                 'active' => true,
                 'currency' => 'CAD'
