@@ -36,10 +36,17 @@ return [
 
     'channels' => [
         'stack' => [
-            'driver'            => 'stack',
-            'channels'          => (env('APP_ENV') === 'local') ? ['single'] : ['single', 'slack'],
+            'driver' => 'stack',
+            'channels' => (env('APP_ENV') === 'local') ? ['single'] : ['single', 'slack'],
             'ignore_exceptions' => false,
         ],
+
+        'main' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/laravel.log'),
+            'level' => 'debug',
+        ],
+
 
         'single' => [
             'driver' => 'single',
@@ -55,11 +62,11 @@ return [
         ],
 
         'slack' => [
-            'driver'   => 'slack',
-            'url'      => env('LOG_SLACK_WEBHOOK_URL', ''),
+            'driver' => 'slack',
+            'url' => env('LOG_SLACK_WEBHOOK_URL', ''),
             'username' => 'Laravel Log',
-            'emoji'    => ':boom:',
-            'level'    => env('LOG_LEVEL', 'critical'),
+            'emoji' => ':boom:',
+            'level' => env('LOG_LEVEL', 'critical'),
         ],
 
         'papertrail' => [
