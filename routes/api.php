@@ -453,7 +453,7 @@ Route::prefix('v4')->group(function () {
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
         Route::delete('/user/{id}/delete-account', [ProfileController::class, 'deleteUserAccount']);
 
-        Route::prefix('users')->group(function () {
+        Route::prefix('fcm')->group(function () {
             Route::post('/store', [V4UserFcmTokenController::class, 'store']);
             Route::delete('/remove', [V4UserFcmTokenController::class, 'destroy']);
         });
