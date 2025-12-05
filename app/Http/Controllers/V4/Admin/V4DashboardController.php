@@ -141,4 +141,30 @@ class V4DashboardController extends Controller
 
         return response()->json($data);
     }
+
+    public function getRecentActivity(Request $request): JsonResponse
+    {
+
+
+        $response = [
+            // [
+            //     "id" => 1,
+            //     "type" => "evaluation",
+            //     "user" => "Connor McDavid Jr.",
+            //     "action" => "submitted skating evaluation",
+            //     "status" => "pending",
+            //     "time" => "2 hours ago"
+            // ],
+            // [
+            //     "id" => 2,
+            //     "type" => "event",
+            //     "user" => "Emma Thompson",
+            //     "action" => "registered for Summer Elite Camp",
+            //     "status" => "approved",
+            //     "time" => "4 hours ago"
+            // ]
+        ];
+
+        return response()->json($response);
+    }
 }
