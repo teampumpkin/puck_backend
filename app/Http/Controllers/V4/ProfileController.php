@@ -1556,7 +1556,9 @@ class ProfileController extends Controller
                 'id' => $user->id,
                 'profilePicture' => $user->profile_photo,
                 'fullName' => $user->name,
-                'status' => 'active',
+                'status' => $user->is_suspended
+                    ? 'suspended'
+                    : ($user->is_banned ? 'banned' : 'active'),
                 'basicInfo' => [
                     'firstName' => $user->first_name,
                     'lastName' => $user->last_name,
@@ -1829,7 +1831,9 @@ class ProfileController extends Controller
                         'weight' => $player->playerProfile->weight ?? null,
                         'avatar' => $player->profile_photo,
                         'role' => $player->role,
-                        'status' => 'active',
+                        'status' => $player->is_suspended
+                            ? 'suspended'
+                            : ($player->is_banned ? 'banned' : 'active'),
                     ];
                 })
                 ->values();
@@ -1876,7 +1880,9 @@ class ProfileController extends Controller
                         'weight' => $player->playerProfile->weight ?? null,
                         'avatar' => $player->profile_photo,
                         'role' => $player->role,
-                        'status' => 'active',
+                        'status' => $player->is_suspended
+                            ? 'suspended'
+                            : ($player->is_banned ? 'banned' : 'active'),
                     ];
                 })
                 ->values();
@@ -1915,7 +1921,9 @@ class ProfileController extends Controller
                         'startDate' => $player->created_at,
                         'players' => $player->player_members_count,
                         'logo' => $player->profile_photo,
-                        'status' => 'active',
+                        'status' => $player->is_suspended
+                            ? 'suspended'
+                            : ($player->is_banned ? 'banned' : 'active'),
                     ];
                 })
                 ->values();
@@ -1963,7 +1971,9 @@ class ProfileController extends Controller
                         'weight' => $player->playerProfile->weight ?? null,
                         'avatar' => $player->profile_photo,
                         'role' => $player->role,
-                        'status' => 'active',
+                        'status' => $player->is_suspended
+                            ? 'suspended'
+                            : ($player->is_banned ? 'banned' : 'active'),
                     ];
                 })
                 ->values();
