@@ -2,76 +2,143 @@
 
 namespace App\Http\Controllers\V4\Admin;
 
-
-
 use App\Http\Controllers\Controller;
 use App\Models\V4User;
+use App\Models\EvaluationSubmission;
+use App\Models\V4Post;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
-
 
 class V4DashboardController extends Controller
 {
+    private function monthRanges(): array
+    {
+        return [
+            'currentStart' => now()->startOfMonth(),
+            'currentEnd'   => now()->endOfMonth(),
+            'prevStart'    => now()->subMonth()->startOfMonth(),
+            'prevEnd'      => now()->subMonth()->endOfMonth(),
+        ];
+    }
+
+    private function calculateChange(int $current, int $previous): array
+    {
+        $changePercent = $previous > 0
+            ? (($current - $previous) / $previous) * 100
+            : ($current > 0 ? 100 : 0);
+
+        $changeType = $current > $previous ? 'positive'
+            : ($current < $previous ? 'negative' : 'neutral');
+
+        return [
+            'percent' => round($changePercent, 2) . ' %',
+            'type' => $changeType,
+        ];
+    }
+
+    private function cache(string $key, \Closure $callback)
+    {
+        return Cache::remember($key, 300, $callback);
+    }
+
     public function getUserDistribution(Request $request): JsonResponse
     {
-        $roleConfig = config('user_roles');
+        $data = $this->cache('dashboard_user_distribution', function () {
+            $roleConfig = config('user_roles');
 
-        // Cache for 5 minutes (300 seconds)
-        $counts = Cache::remember('user_role_counts', 300, function () {
-            return V4User::query()
-                ->select('role', DB::raw('COUNT(*) as total'))
+            $counts = V4User::select('role', DB::raw('COUNT(*) as total'))
                 ->groupBy('role')
                 ->pluck('total', 'role');
+
+            return collect($roleConfig)->map(function ($cfg, $role) use ($counts) {
+                return [
+                    'type'  => $cfg['label'],
+                    'count' => $counts[$role] ?? 0,
+                    'color' => $cfg['color'],
+                ];
+            })->values();
         });
 
-        // Build response
-        $response = collect($roleConfig)->map(function ($data, $role) use ($counts) {
-            return [
-                'type'  => $data['label'],
-                'count' => $counts[$role] ?? 0,
-                'color' => $data['color'],
-            ];
-        })->values();
-
-        return response()->json($response);
+        return response()->json($data);
     }
 
     public function getTotalUsers(Request $request): JsonResponse
     {
-        // Total users now
-        $totalUsers = V4User::count();
+        $data = $this->cache('dashboard_total_users', function () {
+            $dates = $this->monthRanges();
 
-        // Total users at the end of last month
-        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth()->toDateString();
-        $lastMonthTotal = V4User::where('created_at', '<=', $lastMonthEnd)->count();
+            $current = V4User::whereBetween('created_at', [$dates['currentStart'], $dates['currentEnd']])->count();
+            $previous = V4User::whereBetween('created_at', [$dates['prevStart'], $dates['prevEnd']])->count();
 
-        // Calculate percentage change
-        if ($lastMonthTotal == 0) {
-            // Avoid division by zero
-            $changePercent = $totalUsers > 0 ? 100 : 0;
-        } else {
-            $changePercent = (($totalUsers - $lastMonthTotal) / $lastMonthTotal) * 100;
-        }
+            $change = $this->calculateChange($current, $previous);
 
-        // Determine change type
-        if ($changePercent > 0) {
-            $changeType = 'positive';
-        } elseif ($changePercent < 0) {
-            $changeType = 'negative';
-        } else {
-            $changeType = 'neutral';
-        }
+            return [
+                'value' => $current,
+                'change' => $change['percent'],
+                'changeType' => $change['type'],
+            ];
+        });
 
-        return response()->json([
-            'value' => $totalUsers,
-            'change' => round($changePercent, 2) . " %", // Rounded to 2 decimal places
-            'changeType' => $changeType,
-        ]);
+        return response()->json($data);
+    }
+
+    public function getPendingEvaluations(Request $request): JsonResponse
+    {
+        $data = $this->cache('dashboard_pending_evaluations', function () {
+            $dates = $this->monthRanges();
+
+            $current = EvaluationSubmission::where('status', 'pending')
+                ->whereBetween('created_at', [$dates['currentStart'], $dates['currentEnd']])
+                ->count();
+
+            $previous = EvaluationSubmission::where('status', 'pending')
+                ->whereBetween('created_at', [$dates['prevStart'], $dates['prevEnd']])
+                ->count();
+
+            $change = $this->calculateChange($current, $previous);
+
+            return [
+                'value' => $current,
+                'change' => $change['percent'],
+                'changeType' => $change['type'],
+            ];
+        });
+
+        return response()->json($data);
+    }
+
+    public function getActiveEvents(Request $request): JsonResponse
+    {
+        $data = $this->cache('dashboard_active_events', function () {
+            return [
+                'value' => 0,
+                'change' => '0 %',
+                'changeType' => 'neutral',
+            ];
+        });
+
+        return response()->json($data);
+    }
+
+    public function getSocialPosts(Request $request): JsonResponse
+    {
+        $data = $this->cache('dashboard_social_posts', function () {
+            $dates = $this->monthRanges();
+
+            $current = V4Post::whereBetween('created_at', [$dates['currentStart'], $dates['currentEnd']])->count();
+            $previous = V4Post::whereBetween('created_at', [$dates['prevStart'], $dates['prevEnd']])->count();
+
+            $change = $this->calculateChange($current, $previous);
+
+            return [
+                'value' => $current,
+                'change' => $change['percent'],
+                'changeType' => $change['type'],
+            ];
+        });
+
+        return response()->json($data);
     }
 }

@@ -299,6 +299,9 @@ Route::prefix('v4')->group(function () {
             Route::prefix('dashboard')->group(function () {
                 Route::get('/user-distribution', [V4DashboardController::class, 'getUserDistribution']);
                 Route::get('/total-users', [V4DashboardController::class, 'getTotalUsers']);
+                Route::get('/pending-evaluations', [V4DashboardController::class, 'getPendingEvaluations']);
+                Route::get('/active-events', [V4DashboardController::class, 'getActiveEvents']);
+                Route::get('/social-posts', [V4DashboardController::class, 'getSocialPosts']);
             });
 
             Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
