@@ -59,6 +59,8 @@ class V4User extends Authenticatable implements JWTSubject
     protected $appends = [
         'block_status',
         'name',
+        'is_suspended',
+        'is_banned',
         // 'age'
     ];
 
@@ -404,5 +406,39 @@ class V4User extends Authenticatable implements JWTSubject
     public function fcmTokens()
     {
         return $this->hasMany(V4UserFcmToken::class, 'user_id');
+    }
+
+    public function suspensions()
+    {
+        return $this->hasMany(V4SuspendedUser::class, 'user_id')->withTrashed();
+    }
+
+    public function activeSuspension()
+    {
+        return $this->hasOne(V4SuspendedUser::class, 'user_id')
+            ->whereNull('unsuspended_at')
+            ->whereNull('deleted_at');
+    }
+
+    public function bans()
+    {
+        return $this->hasMany(V4BannedUser::class, 'user_id')->withTrashed();
+    }
+
+    public function activeBan()
+    {
+        return $this->hasOne(V4BannedUser::class, 'user_id')
+            ->whereNull('unbanned_at')
+            ->whereNull('deleted_at');
+    }
+
+    public function getIsSuspendedAttribute(): bool
+    {
+        return $this->activeSuspension()->exists();
+    }
+
+    public function getIsBannedAttribute(): bool
+    {
+        return $this->activeBan()->exists();
     }
 }

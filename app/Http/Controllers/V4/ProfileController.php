@@ -269,10 +269,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4Academy->academy_name
-                                ]);
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4Academy->academy_name
+                        ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -288,10 +288,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                            'type' => 'group',
-                                            'participants' => [$user->id],
-                                            'name' => $v4Academy->academy_name
-                                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name
+                                ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -307,10 +307,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                        'type' => 'group',
-                                        'participants' => [$user->id],
-                                        'name' => $v4Academy->academy_name
-                                    ]);
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4Academy->academy_name
+                            ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -351,10 +351,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4team->team_name
-                                ]);
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4team->team_name
+                        ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -369,10 +369,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                            'type' => 'group',
-                                            'participants' => [$user->id],
-                                            'name' => $v4team->team_name
-                                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name
+                                ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -389,10 +389,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                        'type' => 'group',
-                                        'participants' => [$user->id],
-                                        'name' => $v4team->team_name
-                                    ]);
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4team->team_name
+                            ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
@@ -752,7 +752,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1242,7 +1242,9 @@ class ProfileController extends Controller
             if (!empty($searchTerm)) {
                 $query->where(function ($q) use ($searchTerm) {
                     $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('phone', 'ilike', "%{$searchTerm}%");
                 });
             }
 
@@ -1267,10 +1269,14 @@ class ProfileController extends Controller
             $data = $users
                 ->map(function ($user) {
                     return [
+                        'parentId' => $user->parent_id ?? null,
+                        'parentName' => $user->parent->name ?? null,
                         'id' => $user->id,
                         'name' => $user->name,
                         'email' => $user->email,
-                        'status' => 'active',
+                        'status' => $user->is_suspended
+                            ? 'suspended'
+                            : ($user->is_banned ? 'banned' : 'active'),
                         'role' => $user->role,
                         'country' => $user->country,
                         'createdAt' => $user->created_at,
@@ -1331,7 +1337,9 @@ class ProfileController extends Controller
             if (!empty($searchTerm)) {
                 $query->where(function ($q) use ($searchTerm) {
                     $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
+                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('phone', 'ilike', "%{$searchTerm}%");
                 });
             }
 
@@ -1350,7 +1358,9 @@ class ProfileController extends Controller
                         'id' => $user->id,
                         'name' => $user->name,
                         'email' => $user->email,
-                        'status' => 'active',
+                        'status' => $user->is_suspended
+                            ? 'suspended'
+                            : ($user->is_banned ? 'banned' : 'active'),
                         'role' => $user->role,
                         'country' => $user->country,
                         'createdAt' => $user->created_at,
@@ -2941,9 +2951,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [$user->id, $favId],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [$user->id, $favId],
+                    ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {

@@ -40,6 +40,10 @@ use App\Http\Controllers\V4\V4ChatMuteSettingController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\V4ParentalControlController;
 use App\Http\Controllers\V4\V4PaymentController;
+use App\Http\Controllers\V4\V4SuspendReasonController;
+use App\Http\Controllers\V4\V4SuspendedUserController;
+use App\Http\Controllers\V4\V4BanReasonController;
+use App\Http\Controllers\V4\V4BannedUserController;
 use App\Http\Controllers\V4\Admin\V4DashboardController;
 use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
@@ -308,6 +312,22 @@ Route::prefix('v4')->group(function () {
                 Route::get('available', [ProfileController::class, 'getAllAvailableEvaluators']);
             });
 
+            Route::prefix('suspend-reasons')->group(function () {
+                Route::get('/', [V4SuspendReasonController::class, 'index']);
+                Route::post('/', [V4SuspendReasonController::class, 'create']);
+                Route::get('/{id}', [V4SuspendReasonController::class, 'show']);
+                Route::put('/{id}', [V4SuspendReasonController::class, 'update']);
+                Route::delete('/{id}', [V4SuspendReasonController::class, 'destroy']);
+            });
+
+            Route::prefix('ban-reasons')->group(function () {
+                Route::get('/', [V4BanReasonController::class, 'index']);
+                Route::post('/', [V4BanReasonController::class, 'create']);
+                Route::get('/{id}', [V4BanReasonController::class, 'show']);
+                Route::put('/{id}', [V4BanReasonController::class, 'update']);
+                Route::delete('/{id}', [V4BanReasonController::class, 'destroy']);
+            });
+
             Route::prefix('users')->group(function () {
                 Route::delete('{id}/delete-account', [ProfileController::class, 'deleteUserAccountFromAdmin']);
 
@@ -326,12 +346,47 @@ Route::prefix('v4')->group(function () {
                 Route::get('{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
                 Route::get('{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
                 Route::post('{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
+                // Route::get('{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
+
+                Route::prefix('{userId}/suspend')->group(function () {
+                    Route::post('/', [V4SuspendedUserController::class, 'suspend']);
+                    Route::post('/unsuspend', [V4SuspendedUserController::class, 'unsuspend']);
+                });
+
+                Route::prefix('{userId}/ban')->group(function () {
+                    Route::post('/', [V4BannedUserController::class, 'ban']);
+                    Route::post('/unban', [V4BannedUserController::class, 'unban']);
+                });
+            });
+
+            Route::prefix('suspended-users')->group(function () {
+                Route::get('/', [V4SuspendedUserController::class, 'index']);
+                Route::get('/{id}', [V4SuspendedUserController::class, 'show']);
+                Route::delete('/{id}', [V4SuspendedUserController::class, 'destroy']);
             });
 
 
-            // Route::get('/users/{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
+            Route::prefix('banned-users')->group(function () {
+                Route::get('/', [V4BannedUserController::class, 'index']);
+                Route::get('/{id}', [V4BannedUserController::class, 'show']);
+                Route::delete('/{id}', [V4BannedUserController::class, 'destroy']);
+            });
 
-            Route::get('admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
+            Route::prefix('admin-users')->group(function () {
+                Route::get('{id}', [ProfileController::class, 'getAdminUserDetailsById']);
+
+                Route::prefix('{userId}/suspend')->group(function () {
+                    Route::post('/', [V4SuspendedUserController::class, 'suspend']);
+                    Route::post('/unsuspend', [V4SuspendedUserController::class, 'unsuspend']);
+                });
+
+                Route::prefix('{userId}/ban')->group(function () {
+                    Route::post('/', [V4BannedUserController::class, 'ban']);
+                    Route::post('/unban', [V4BannedUserController::class, 'unban']);
+                });
+            });
+
+
 
 
             Route::prefix('evaluation')->group(function () {
