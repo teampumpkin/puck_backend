@@ -1833,19 +1833,17 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'notifications' => $notifications,
-                'meta' => [
-                    'total' => $totalCount,
-                    'limit' => $limit,
-                    'offset' => $offset,
-                    'type' => $type,
-                    'unread_only' => $unreadOnly,
-                    'with_trashed' => $withTrashed,
-                    'user_id' => $userId,
-                    'start_date' => $startDate,
-                    'end_date' => $endDate,
-                ]
+            'data' => $notifications,
+            'meta' => [
+                'total' => $totalCount,
+                'limit' => $limit,
+                'offset' => $offset,
+                'type' => $type,
+                'unread_only' => $unreadOnly,
+                'with_trashed' => $withTrashed,
+                'user_id' => $userId,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ]
         ]);
     }
