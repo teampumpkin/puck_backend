@@ -58,7 +58,7 @@ class V4AuthController extends Controller
             // Generate OTP
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             $requestedAt = Carbon::now();
-            $expireAt = $requestedAt->copy()->addMinutes(10);
+            $expireAt = $requestedAt->copy()->addMinutes(env('OTP_EXPIRY_TIME_MIN', 10));
 
             // Delete existing OTPs for the user
             V4Otp::where('user_id', $user->id)->delete();
@@ -68,16 +68,15 @@ class V4AuthController extends Controller
                 'user_id' => $user->id,
                 'otp' => $otp,
                 'type' => ($field === 'email') ? OtpType::EMAIL : OtpType::PHONE,
-                'provider' => OtpProvider::TEST,
+                'provider' => ($field === 'email') ? OtpProvider::SMTP : OtpProvider::Twilio,
                 'requested_at' => $requestedAt,
                 'expire_at' => $expireAt,
             ]);
 
-            //SendXOtpController::sendOtp($user->email, $otp);
 
             if ($user->email) {
-                Log::info('Sending OTP to email: ' . $user->email);
                 Mail::to($user->email)->send(new SendOtpMail($otp));
+                //SendXOtpController::sendOtp($user->email, $otp);
             } else {
                 $TwilioSmsService = new TwilioSmsService();
                 $message = "Your Puck Recruiter OTP is: $otp. It will expire in 10 minutes.";
