@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V4;
 use App\Http\Controllers\Controller;
 use App\Mail\SendOtpMail;
 use App\Models\V4User;
+use App\Services\TwilioSmsService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class V4AuthController extends Controller
                 'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
             ]);
 
             $identifier = $validated['email'] ?? $validated['phone'];
@@ -39,36 +40,45 @@ class V4AuthController extends Controller
                 ], 403);
             }
 
-            $user = V4User::firstOrCreate(
-                [$field => $identifier],
-                [
-                    'role' => $validated['role'],
-                    'is_child' => $validated['is_child'] ?? false,
-                    // When phone is the identifier, email may be null
-                    'email' => $validated['email'] ?? null,
-                    'phone' => $validated['phone'] ?? null,
-                    'provider' => $field,
-                ]
-            );
+            //            $user = V4User::firstOrCreate(
+            //                [$field => $identifier],
+            //                [
+            //                    'role' => $validated['role'],
+            //                    'is_child' => $validated['is_child'] ?? false,
+            //                    // When phone is the identifier, email may be null
+            //                    'email' => $validated['email'] ?? null,
+            //                    'phone' => $validated['phone'] ?? null,
+            //                    'provider' => $field,
+            //                ]
+            //            );
 
             // Generate OTP
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $user->update([
-                'otp' => $otp,
-                'otp_expiry' => now()->addMinutes(10),
-            ]);
+            //            $user->update([
+            //                'otp' => $otp,
+            //                'otp_expiry' => now()->addMinutes(10),
+            //            ]);
 
-            //TODO: dispatch SMS job if $field === phone
-            //if ($field === 'email') {
-            // Mail::to($user->email)->send(new SendOtpMail($otp));
-            //}
+            // Send OTP via SMS for phone
+            //            if ($field === 'phone') {
+            $twilioService = new TwilioSmsService();
+            $message = "Your Puck Recruiter OTP is: {$otp}. It expires in 10 minutes.";
+            $sent = $twilioService->sendSms($validated['phone'], $message);
+
+            if (!$sent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to send OTP via SMS. Please try again.',
+                ], 500);
+            }
+            //            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'OTP sent successfully',
                 'otp' => $otp, // need to remove later
                 $field => $identifier,
-                'role' => $user->role,
+                //                'role' => $user->role,
             ]);
         } catch (ValidationException $e) {
             return response()->json([

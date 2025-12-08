@@ -64,4 +64,9 @@ return [
         'android_package_id' => env('APPLE_ANDROID_PACKAGE_ID'),
         'android_scheme' => env('APPLE_ANDROID_SCHEME'),
     ],
+    'twilio' => [
+        'sid' => env('TWILIO_SID'),
+        'token' => env('TWILIO_TOKEN'),
+        'phone_number' => env('TWILIO_PHONE_NUMBER')
+    ]
 ];
