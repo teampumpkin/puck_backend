@@ -6,6 +6,7 @@ class OtpProvider
 {
     const SENDX = 'sendx';
     const TEST = 'test';
+    const SMTP = 'smtp';
     const Twilio = 'twilio';
 
     public static function all()

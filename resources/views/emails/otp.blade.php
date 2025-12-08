@@ -28,7 +28,7 @@
                     </span>
                 </div>
                 <p style="color: #6b7280; margin: 20px 0;">
-                    This code will expire in <strong>10 minutes</strong>.
+                    This code will expire in <strong>{{ env('OTP_EXPIRY_TIME_MIN', 10) }} minutes</strong>.
                 </p>
                 <p style="color: #9ca3af; font-size: 14px;">
                     If you didn't request this, please ignore this email.
