@@ -2173,31 +2173,58 @@ class ProfileController extends Controller
                 'teamProfile.team.members.player.coachProfile'
             ])->findOrFail($id);
 
-            $members = $users->role == "team" ? $users->teamProfile->team->members : $users->academyProfile->academy->members;
+            if ($users->role == "team") {
+                $members = $users->teamProfile->team->members;
 
-            $players = $members
-                ->filter(fn($member) => $member->player !== null)
-                ->map(function ($member) {
-                    $player = $member->player;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
 
-                    return [
-                        'id' => $player->id,
-                        'name' => $player->name,
-                        'position' => $player->coachProfile->position ?? null,
-                        'age' => $player->age,
-                        'height' => $player->coachProfile->height ?? null,
-                        'weight' => $player->coachProfile->weight ?? null,
-                        'avatar' => $player->profile_photo,
-                        'role' => $player->role,
-                        'experience' => null,
-                        'status' => $player->is_suspended
-                            ? 'suspended'
-                            : ($player->is_banned ? 'banned' : 'active'),
-                    ];
-                })
-                ->values();
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->coachProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->coachProfile->height ?? null,
+                            'weight' => $player->coachProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
 
-            return response()->json(['coaches' => $players]);
+                return response()->json($players);
+            } else {
+                $members = $users->academyProfile->academy->members;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
+
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->coachProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->coachProfile->height ?? null,
+                            'weight' => $player->coachProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
+
+                return response()->json(['coaches' => $players]);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -2289,36 +2316,68 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
+                'academyProfile.academy.members.player' => function ($q) {
+                    $q->where('role', 'scout');
+                },
+                'academyProfile.academy.members.player.scoutProfile',
                 'teamProfile.team.members.player' => function ($q) {
                     $q->where('role', 'scout');
                 },
-                'teamProfile.team.members.player.playerProfile'
+                'teamProfile.team.members.player.scoutProfile'
             ])->findOrFail($id);
 
-            $members = $users->teamProfile->team->members;
+            if ($users->role == "team") {
+                $members = $users->teamProfile->team->members;
 
-            $players = $members
-                ->filter(fn($member) => $member->player !== null)
-                ->map(function ($member) {
-                    $player = $member->player;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
 
-                    return [
-                        'id' => $player->id,
-                        'name' => $player->name,
-                        'position' => $player->playerProfile->position ?? null,
-                        'age' => $player->age,
-                        'height' => $player->playerProfile->height ?? null,
-                        'weight' => $player->playerProfile->weight ?? null,
-                        'avatar' => $player->profile_photo,
-                        'role' => $player->role,
-                        'status' => $player->is_suspended
-                            ? 'suspended'
-                            : ($player->is_banned ? 'banned' : 'active'),
-                    ];
-                })
-                ->values();
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->scoutProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->scoutProfile->height ?? null,
+                            'weight' => $player->scoutProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
 
-            return response()->json($players);
+                return response()->json($players);
+            } else {
+                $members = $users->academyProfile->academy->members;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
+
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->scoutProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->scoutProfile->height ?? null,
+                            'weight' => $player->scoutProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
+
+                return response()->json(['coaches' => $players]);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -2348,7 +2407,7 @@ class ProfileController extends Controller
                     return [
                         'id' => $player->id,
                         'name' => $player->name,
-                        'role' => $player->role,
+                        'role' => $player->designation,
                         'phone' => $player->phone,
                         'email' => $player->email,
                         'age' => $player->age,
