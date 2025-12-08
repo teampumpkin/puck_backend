@@ -408,7 +408,10 @@ Route::prefix('v4')->group(function () {
             });
 
 
-
+            Route::prefix('posts')->group(function () {
+                Route::get('/my', [V4PostController::class, 'getMyPosts']);
+                Route::post('/upload', [V4PostController::class, 'uploadPost']);
+            });
 
             Route::prefix('evaluation')->group(function () {
 

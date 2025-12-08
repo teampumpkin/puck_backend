@@ -71,10 +71,17 @@ class V4PostController extends Controller
             ]);
 
             // --------------------------
+            // ✅ Determine the user ID for post ownership
+            // --------------------------
+            $postUserId = $authUser->role === 'super-admin'
+                ? optional($authUser->superAdminProfile)->super_admin_id ?? $authUser->id
+                : $authUser->id;
+
+            // --------------------------
             // ✅ Create Post
             // --------------------------
             $post = V4Post::create([
-                'user_id' => $authUser->id,
+                'user_id' => $postUserId,
                 'caption' => $validated['caption'] ?? null,
             ]);
 
@@ -155,10 +162,15 @@ class V4PostController extends Controller
 
             $perPage = $validated['per_page'] ?? 10;
 
+            // Determine the ID to filter posts
+            $filterUserId = $user->role === 'super-admin'
+                ? optional($user->superAdminProfile)->super_admin_id ?? $user->id
+                : $user->id;
+
             // Fetch paginated posts with media
             // Fetch paginated posts
             $posts = V4Post::with('media')
-                ->where('user_id', $user->id)
+                ->where('user_id', $filterUserId)
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 
