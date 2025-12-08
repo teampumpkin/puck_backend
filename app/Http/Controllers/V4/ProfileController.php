@@ -1577,7 +1577,6 @@ class ProfileController extends Controller
                     'height' => $profileData->height ?? null,
                     'position' => $profileData->position ?? null,
                     'handedness' => $profileData->handedness ?? null,
-                    'teamName' => $profileData->team_name ?? null,
                     'administratorFullName' => $profileData->administrator_name ?? null,
                     'administratorEmail' => $profileData->email ?? null,
                     'teamWebsite' => $profileData->website ?? null,
@@ -1590,7 +1589,8 @@ class ProfileController extends Controller
                     'teamCountry' => $user->country,
                     'yearsRunning' => $profileData->team_years_running ?? null,
                     'specializations' => MarketplaceTypes::all(),
-                    'academyName' => $user->academyProfile->academy->academy_name ?? '',
+                    'academyName' => $user->academyProfile->academy->academy_name ?? null,
+                    'teamName' => $user->teamProfile->team->team_name ?? null,
                 ],
                 'socialStats' => [
                     'followers' => $user->followers_count,
@@ -1618,31 +1618,80 @@ class ProfileController extends Controller
             $user = V4User::findOrFail($id);
 
             if ($request->has('fullName')) {
-                $nameParts = explode(' ', $request->fullName, 2);
+                $parts = explode(' ', $request->fullName, 2);
                 $request->merge([
-                    'first_name' => $nameParts[0] ?? null,
-                    'last_name' => $nameParts[1] ?? null,
+                    'first_name' => $parts[0] ?? null,
+                    'last_name'  => $parts[1] ?? null,
                 ]);
             }
 
             if ($request->has('basicInfo')) {
+
                 $basic = $request->basicInfo;
 
                 $request->merge([
-                    'email'        => $basic['email']        ?? null,
-                    'phone'        => $basic['phone']        ?? null,
-                    'country'      => $basic['country']      ?? null,
-                    'state'        => $basic['province']     ?? null,
-                    'city'         => $basic['city']         ?? null,
-                    'date_of_birth' => $basic['dateOfBirth']  ?? null,
+                    'email'         => $basic['email'] ?? null,
+                    'phone'         => $basic['phone'] ?? null,
+                    'country'       => $basic['country'] ?? null,
+                    'state'         => $basic['province'] ?? null,
+                    'city'          => $basic['city'] ?? null,
+                    'date_of_birth' => $basic['dateOfBirth'] ?? null,
 
-                    'handedness'   => $basic['handedness']   ?? null,
-                    'weight'       => $basic['weight']       ?? null,
-                    'height'       => $basic['height']       ?? null,
-                    'position'     => $basic['position']     ?? null,
-                    'teams'        => [$basic['team']   ?? null],
-                    'leagues'      => [$basic['league'] ?? null],
+                    'handedness' => $basic['handedness'] ?? null,
+                    'weight'     => $basic['weight'] ?? null,
+                    'height'     => $basic['height'] ?? null,
+                    'position'   => $basic['position'] ?? null,
+
+                    'teams'   => isset($basic['team']) ? [$basic['team']] : null,
+                    'leagues' => isset($basic['league']) ? [$basic['league']] : null,
                 ]);
+
+                if (isset($basic['teamName'])) {
+
+                    $adminParts = explode(' ', $basic['administratorFullName'] ?? '', 2);
+
+                    $request->merge([
+                        'phone'   => $basic['organizationPhone'] ?? null,
+                        'country' => $basic['teamCountry'] ?? null,
+                        'state'   => $basic['state'] ?? $basic['province'] ?? null,
+                        'city'    => $basic['teamCity'] ?? null,
+                        'zip'     => $basic['teamZipPostalCode'] ?? null,
+
+                        'team_name'                => $basic['teamName'] ?? null,
+                        'administrator_first_name' => $adminParts[0] ?? null,
+                        'administrator_last_name'  => $adminParts[1] ?? null,
+                        'website'                  => $basic['teamWebsite'] ?? null,
+                        'address'                  => $basic['teamAddress'] ?? null,
+                        'team_years_running'       => isset($basic['yearsRunning'])
+                            ? (int)$basic['yearsRunning']
+                            : null,
+                        'leagues'                  => [$basic['league'] ?? null],
+                    ]);
+                }
+                if ($user->role === 'academy') {
+
+                    // Administrator full name (academy owner/director)
+
+                    $request->merge([
+                        'academy_name'             => $basic['academyName'] ?? null,
+                        'administrator_first_name' => $adminParts[0] ?? null,
+                        'administrator_last_name'  => $adminParts[1] ?? null,
+
+                        // academy contact
+                        'phone'        => $basic['phone'] ?? null,
+                        'address'      => $basic['address'] ?? null,
+                        'city'         => $basic['city'] ?? null,
+                        'state'        => $basic['province'] ?? null,
+                        'country'      => $basic['country'] ?? null,
+
+                        // leagues array
+                        'leagues'      => !empty($basic['leagues']) ? $basic['leagues'] : [],
+
+                        // founded → academy_years_running
+                        'academy_years_running' =>
+                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                    ]);
+                }
             }
 
             $rules = [
@@ -1657,7 +1706,6 @@ class ProfileController extends Controller
                 'city'       => 'nullable|string|max:100',
                 'date_of_birth' => 'nullable|date',
                 'zip'        => 'nullable|string|max:20',
-                'is_onboarded' => 'nullable|boolean',
 
                 'enable_private_account' => 'nullable|boolean',
                 'receive_news_offers'    => 'nullable|boolean',
@@ -1703,14 +1751,12 @@ class ProfileController extends Controller
                         'leagues' => 'nullable|array',
                         'teams'   => 'nullable|array',
                     ]);
-
                     $user->coachProfile()->updateOrCreate([], $coachValidated);
-
                     $user->load('coachProfile');
                     break;
 
                 case 'team':
-                    $teamProfileValidated = $request->validate([
+                    $teamData = $request->validate([
                         'team_name'                => 'nullable|string|max:255',
                         'administrator_first_name' => 'nullable|string|max:255',
                         'administrator_last_name'  => 'nullable|string|max:255',
@@ -1720,26 +1766,27 @@ class ProfileController extends Controller
                         'team_years_running'       => 'nullable|integer',
                     ]);
 
-                    $teamValidated = $teamProfileValidated;
-                    $teamValidated['phone'] = $validated['phone'] ?? null;
-
-                    if (!empty($validated['profile_photo'])) {
-                        $teamValidated['profile_photo'] = $validated['profile_photo'];
+                    if (!empty($validated['phone'])) {
+                        $teamData['phone'] = $validated['phone'];
                     }
 
-                    $teamId = $validated['team_id'] ?? null;
-                    $v4team = $teamId ? V4Team::find($teamId) : V4Team::create($teamValidated);
+                    if (!empty($validated['profile_photo'])) {
+                        $teamData['profile_photo'] = $validated['profile_photo'];
+                    }
 
-                    $v4team->update($teamValidated);
+                    $teamProfile = $user->teamProfile;
+                    if (!$teamProfile || !$teamProfile->team) {
+                        throw new Exception("Team profile or team not found.");
+                    }
 
-                    $teamProfileValidated['team_id'] = $v4team->id;
-                    $user->teamProfile()->updateOrCreate([], $teamProfileValidated);
+                    $team = $teamProfile->team;
+                    $team->update($teamData);
 
                     $user->load('teamProfile.team');
                     break;
 
                 case 'academy':
-                    $academyValidated = $request->validate([
+                    $academyData = $request->validate([
                         "academy_name" => "nullable|string|max:255",
                         "administrator_first_name" => "nullable|string|max:255",
                         "administrator_last_name" => "nullable|string|max:255",
@@ -1749,19 +1796,27 @@ class ProfileController extends Controller
                         "academy_years_running" => "nullable|integer",
                     ]);
 
-                    $academyValidated['phone'] = $validated['phone'] ?? null;
-
-                    if (!empty($validated['profile_photo'])) {
-                        $academyValidated['profile_photo'] = $validated['profile_photo'];
+                    if (isset($academyData['leagues']) && is_array($academyData['leagues'])) {
+                        $academyData['leagues'] = array_filter($academyData['leagues']);
                     }
 
-                    $academyId = $validated['academy_id'] ?? null;
-                    $v4Academy = $academyId ? V4Academy::find($academyId) : V4Academy::create($academyValidated);
+                    if (!empty($validated['phone'])) {
+                        $academyData['phone'] = $validated['phone'];
+                    }
 
-                    $v4Academy->update($academyValidated);
+                    if (!empty($validated['profile_photo'])) {
+                        $academyData['profile_photo'] = $validated['profile_photo'];
+                    }
 
-                    $academyValidated['academy_id'] = $v4Academy->id;
-                    $user->academyProfile()->updateOrCreate([], $academyValidated);
+                    $academyProfile = $user->academyProfile;
+
+                    if (!$academyProfile || !$academyProfile->academy) {
+                        throw new Exception("Academy profile or academy record not found for user.");
+                    }
+
+                    $academyModel = $academyProfile->academy;
+
+                    $academyModel->update($academyData);
 
                     $user->load('academyProfile.academy');
                     break;
@@ -1769,7 +1824,6 @@ class ProfileController extends Controller
                 case 'scout':
                 case 'adviser':
                 case 'evaluator':
-                    $fileField = 'resume';
 
                     $baseRules = [
                         'leagues' => 'nullable|array',
@@ -1788,9 +1842,9 @@ class ProfileController extends Controller
 
                     $validatedProfile = $request->validate($baseRules);
 
-                    if ($request->hasFile($fileField)) {
-                        $path = $request->file($fileField)->store("resume/{$user->id}", 's3');
-                        $validatedProfile[$fileField] = Storage::disk('s3')->url($path);
+                    if ($request->hasFile('resume')) {
+                        $path = $request->file('resume')->store("resume/{$user->id}", 's3');
+                        $validatedProfile['resume'] = Storage::disk('s3')->url($path);
                     }
 
                     $relation = $user->role . 'Profile';
@@ -1810,7 +1864,6 @@ class ProfileController extends Controller
                         "link_of_previous_events" => "nullable|array",
                         "number_of_events_organized" => "nullable|integer",
                     ]);
-
                     $user->organizerProfile()->updateOrCreate([], $organizerValidated);
                     $user->load('organizerProfile');
                     break;
@@ -1862,7 +1915,6 @@ class ProfileController extends Controller
             ], 500);
         }
     }
-
 
     public function getUserDetailsById($id): JsonResponse
     {
@@ -2062,6 +2114,9 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
+                'teamProfile.team.members.player' => function ($q) {
+                    $q->where('role', 'player');
+                },
                 'teamProfile.team.members.player.playerProfile'
             ])->findOrFail($id);
 
@@ -2108,13 +2163,17 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
+                'academyProfile.academy.members.player' => function ($q) {
+                    $q->where('role', 'coach');
+                },
+                'academyProfile.academy.members.player.coachProfile',
                 'teamProfile.team.members.player' => function ($q) {
                     $q->where('role', 'coach');
                 },
-                'teamProfile.team.members.player.playerProfile'
+                'teamProfile.team.members.player.coachProfile'
             ])->findOrFail($id);
 
-            $members = $users->teamProfile->team->members;
+            $members = $users->role == "team" ? $users->teamProfile->team->members : $users->academyProfile->academy->members;
 
             $players = $members
                 ->filter(fn($member) => $member->player !== null)
@@ -2124,12 +2183,13 @@ class ProfileController extends Controller
                     return [
                         'id' => $player->id,
                         'name' => $player->name,
-                        'position' => $player->playerProfile->position ?? null,
+                        'position' => $player->coachProfile->position ?? null,
                         'age' => $player->age,
-                        'height' => $player->playerProfile->height ?? null,
-                        'weight' => $player->playerProfile->weight ?? null,
+                        'height' => $player->coachProfile->height ?? null,
+                        'weight' => $player->coachProfile->weight ?? null,
                         'avatar' => $player->profile_photo,
                         'role' => $player->role,
+                        'experience' => null,
                         'status' => $player->is_suspended
                             ? 'suspended'
                             : ($player->is_banned ? 'banned' : 'active'),
@@ -2137,7 +2197,7 @@ class ProfileController extends Controller
                 })
                 ->values();
 
-            return response()->json($players);
+            return response()->json(['coaches' => $players]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -2162,14 +2222,12 @@ class ProfileController extends Controller
             ])->findOrFail($id);
 
             if ($user->role == 'academy') {
-                $result = AcademyMember::with([
-                    'team'
-                ])->where('player_id', $user->academyProfile->academy->id)->get();
-
+                $result = V4Team::where('academy_id', $user->academyProfile->academy->id)
+                    ->get();
 
                 $teams = $result
                     ->map(function ($member) {
-                        $player = $member->team;
+                        $player = $member;
                         return [
                             'id' => $player->id,
                             'name' => $player->team_name,
