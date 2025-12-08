@@ -67,14 +67,13 @@ class V4AuthController extends Controller
                 'user_id' => $user->id,
                 'otp' => $otp,
                 'type' => ($field === 'email') ? OtpType::EMAIL : OtpType::PHONE,
-                'provider' => OtpProvider::TEST,
+                'provider' => ($field === 'email') ? OtpProvider::SMTP : OtpProvider::Twilio,
                 'requested_at' => $requestedAt,
                 'expire_at' => $expireAt,
             ]);
 
 
             if ($user->email) {
-                Log::info('Sending OTP to email: ' . $user->email);
                 Mail::to($user->email)->send(new SendOtpMail($otp));
                 //SendXOtpController::sendOtp($user->email, $otp);
             } else {
