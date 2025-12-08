@@ -28,22 +28,14 @@ class MessageSendingListener
         $original_prefix = '';
 
         switch ($domain) {
-            case 'development':
-                $original_prefix = '[DEV]';
-                break;
-            case 'dev':
-                $original_prefix = '[INT-QA]';
-                break;
-            case '':
-                $original_prefix = '[EXT-QA]';
+            case 'production':
+                $original_prefix = '';
                 break;
             default:
-                $original_prefix = '';
+                $original_prefix = '[DEV]';
                 break;
         }
 
-        $prefix = env('PREFIX_EMAIL', $original_prefix);
-
-        $event->message->setSubject($prefix . ' ' . $event->message->getSubject())->addBcc(env('BBC_EMAIL')); // you can pass an array as well
+        $event->message->setSubject($original_prefix . ' ' . $event->message->getSubject());
     }
 }
