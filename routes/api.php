@@ -341,6 +341,7 @@ Route::prefix('v4')->group(function () {
                 Route::get('{id}/scouts', [ProfileController::class, 'getUserScoutsDetailsById']);
                 Route::get('{id}/coaches', [ProfileController::class, 'getUserCoachesDetailsById']);
                 Route::get('{id}/teams', [ProfileController::class, 'getUserTeamsDetailsById']);
+                Route::get('{id}/reports', [ProfileController::class, 'getUserReportsDetailsById']);
                 // Route::get('{id}/statistics', [ProfileController::class, 'getUserStatisticsDetailsById'])
                 Route::get('{id}/evaluation', [ProfileController::class, 'getUserEvaluationDetailsById']);
                 Route::get('{id}/achievements', [ProfileController::class, 'getUserAchievementsDetailsById']);

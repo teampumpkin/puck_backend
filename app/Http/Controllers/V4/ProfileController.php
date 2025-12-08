@@ -10,6 +10,7 @@ use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
+use App\Models\V4UserReport;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\EvaluatorAssignment;
@@ -18,6 +19,7 @@ use App\Models\V4Team;
 use App\Models\V4UploadedMedia;
 use App\Models\V4Post;
 use App\Models\V4User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -2312,6 +2314,31 @@ class ProfileController extends Controller
         }
     }
 
+    public function getUserReportsDetailsById($id): JsonResponse
+    {
+        try {
+            $result = V4UserReport::with([
+                'reportedUser',
+                'reportingUser',
+                'reason'
+            ])->where('reported_user_id', $id)->get();
+
+            return response()->json($result);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function getUserScoutsDetailsById($id): JsonResponse
     {
         try {
@@ -2440,18 +2467,21 @@ class ProfileController extends Controller
                 'evaluation',
                 'submission.paymentRequest.inAppPurchase.marketplaceItem',
             ])->where('evaluator_id', $id)
-                ->whereIn('status', [EvaluatorAssignment::STATUS_COMPLETED])
+                // ->whereIn('status', [EvaluatorAssignment::STATUS_COMPLETED, ])
                 ->orderBy('assigned_at', 'desc')
                 ->get();
             $formattedEvaluations = collect();
 
             foreach ($assignments as $assignment) {
+                if ($assignment->evaluation != null) {
+                    $overallRating = $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating;
+                }
                 $baseData = [
                     'id' => $assignment->id,
                     'playerName' => $assignment->submission->player->name,
                     'playerPosition' => $assignment->submission->player->playerProfile->position,
-                    'evaluationDate' => \Carbon\Carbon::parse($assignment->created_at)->format('d-m-Y'),
-                    'overallRating' => $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating,
+                    'evaluationDate' => Carbon::parse($assignment->created_at)->format('d-m-Y'),
+                    'overallRating' =>  $overallRating ?? null,
                     'status' => $assignment->status,
                     'category' => $assignment->submission->paymentRequest->inAppPurchase->marketplaceItem->title
                 ];
