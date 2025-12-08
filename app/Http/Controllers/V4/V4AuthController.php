@@ -79,7 +79,9 @@ class V4AuthController extends Controller
                 Log::info('Sending OTP to email: ' . $user->email);
                 Mail::to($user->email)->send(new SendOtpMail($otp));
             } else {
-                Log::info('Sending OTP to phone: ' . $user->phone); // TODO
+                $TwilioSmsService = new TwilioSmsService();
+                $message = "Your Puck Recruiter OTP is: $otp. It will expire in 10 minutes.";
+                $TwilioSmsService->sendSms($user->phone, $message);
             }
 
             return response()->json([
@@ -87,7 +89,7 @@ class V4AuthController extends Controller
                 'message' => 'OTP sent successfully',
                 'otp' => $otp, // need to remove later
                 $field => $identifier,
-                //                'role' => $user->role,
+                'role' => $user->role,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
