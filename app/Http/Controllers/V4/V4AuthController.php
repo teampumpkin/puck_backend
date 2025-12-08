@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\V4;
 
+use App\Constants\OtpProvider;
+use App\Constants\OtpType;
 use App\Http\Controllers\Controller;
 use App\Mail\SendOtpMail;
+use App\Models\V4Otp;
 use App\Models\V4User;
 use Carbon\Carbon;
 use Exception;
@@ -53,15 +56,30 @@ class V4AuthController extends Controller
 
             // Generate OTP
             $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $user->update([
+            $requestedAt = Carbon::now();
+            $expireAt = $requestedAt->copy()->addMinutes(10);
+
+            // Delete existing OTPs for the user
+            V4Otp::where('user_id', $user->id)->delete();
+
+            // Store in v4_otps table
+            V4Otp::create([
+                'user_id' => $user->id,
                 'otp' => $otp,
-                'otp_expiry' => now()->addMinutes(10),
+                'type' => ($field === 'email') ? OtpType::EMAIL : OtpType::PHONE,
+                'provider' => OtpProvider::TEST,
+                'requested_at' => $requestedAt,
+                'expire_at' => $expireAt,
             ]);
 
-            //TODO: dispatch SMS job if $field === phone
-            //if ($field === 'email') {
-            // Mail::to($user->email)->send(new SendOtpMail($otp));
-            //}
+            //SendXOtpController::sendOtp($user->email, $otp);
+
+            if ($user->email) {
+                Log::info('Sending OTP to email: ' . $user->email);
+                Mail::to($user->email)->send(new SendOtpMail($otp));
+            } else {
+                Log::info('Sending OTP to phone: ' . $user->phone); // TODO
+            }
 
             return response()->json([
                 'success' => true,
@@ -101,13 +119,8 @@ class V4AuthController extends Controller
 
             $user = V4User::where($field, $identifier)->first();
 
-            if (
-                !$user ||
-                $user->otp !== $validated['otp']
-                || !$user->otp_expiry
-                || now()->gt($user->otp_expiry)
-            ) {
-                return response()->json(['message' => 'Invalid or expired OTP',], 401);
+            if (!$user) {
+                return response()->json(['message' => 'Invalid or expired OTP'], 401);
             }
 
             // Child players are not allowed via OTP
@@ -117,10 +130,21 @@ class V4AuthController extends Controller
                 ], 401);
             }
 
-            $user->update([
-                'otp' => null,
-                'otp_expiry' => null,
-            ]);
+            $otpRecord = V4Otp::where('user_id', $user->id)
+                ->whereNull('deleted_at')
+                ->orderByDesc('requested_at')
+                ->first();
+
+            if (
+                !$otpRecord ||
+                $otpRecord->otp !== $validated['otp'] ||
+                !$otpRecord->expire_at ||
+                Carbon::now()->gt(Carbon::parse($otpRecord->expire_at))
+            ) {
+                return response()->json(['message' => 'Invalid or expired OTP'], 401);
+            }
+
+            $otpRecord->delete();
 
             $token = JWTAuth::fromUser($user);
 
@@ -289,4 +313,5 @@ class V4AuthController extends Controller
             'message' => 'Login successful'
         ]);
     }
-};
+}
+;

@@ -45,9 +45,9 @@ class V4User extends Authenticatable implements JWTSubject
         'followers_count',
         'followings_count'
     ];
-    protected $hidden   = ['password'];
+    protected $hidden = ['password'];
 
-    protected $casts    = [
+    protected $casts = [
         'date_of_birth' => 'date',
         'is_child' => 'boolean',
         'enable_private_account' => 'boolean',
@@ -440,5 +440,10 @@ class V4User extends Authenticatable implements JWTSubject
     public function getIsBannedAttribute(): bool
     {
         return $this->activeBan()->exists();
+    }
+
+    public function otps()
+    {
+        return $this->hasMany(V4Otp::class, 'user_id');
     }
 }
