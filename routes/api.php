@@ -348,6 +348,7 @@ Route::prefix('v4')->group(function () {
                 Route::get('{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
                 Route::get('{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
                 Route::post('{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
+                Route::get('{id}/following', [V4FollowController::class, 'getUserFollowingById']);
                 // Route::get('{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
 
                 Route::prefix('{userId}/suspend')->group(function () {
