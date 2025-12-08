@@ -303,6 +303,24 @@ Route::prefix('v4')->group(function () {
                 Route::get('recent-activity', [V4DashboardController::class, 'getRecentActivity']);
             });
 
+            Route::prefix('reports')->group(function () {
+
+                Route::prefix('metrics')->group(function () {
+                    Route::get('total-users', [V4DashboardController::class, 'getReportMetricTotalUsers']);
+                    Route::get('pending-evaluations', [V4DashboardController::class, 'getReportMetricPendingEvaluations']);
+                    Route::get('active-events', [V4DashboardController::class, 'getReportMetricActiveEvents']);
+                    Route::get('social-posts', [V4DashboardController::class, 'getReportMetricSocialPosts']);
+                });
+
+                Route::prefix('growth')->group(function () {
+                    Route::get('/', [V4DashboardController::class, 'getReportMetricGrowth']);
+                });
+
+                Route::prefix('evaluation-types')->group(function () {
+                    Route::get('/', [V4DashboardController::class, 'getReportMetricEvaluationTypes']);
+                });
+            });
+
             Route::prefix('search')->group(function () {
                 Route::get('users', [ProfileController::class, 'searchAndSortUsers']);
                 Route::get('admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
