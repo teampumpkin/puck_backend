@@ -22,6 +22,7 @@
         "php-open-source-saver/jwt-auth": "^2.2",
         "sendx/sendx-php-sdk": "dev-main",
         "stripe/stripe-php": "^10.14",
+        "twilio/sdk": "^8.9",
         "tymon/jwt-auth": "^1.0@dev"
     },
     "require-dev": {

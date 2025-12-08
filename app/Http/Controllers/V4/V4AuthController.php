@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\SendOtpMail;
 use App\Models\V4Otp;
 use App\Models\V4User;
+use App\Services\TwilioSmsService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class V4AuthController extends Controller
                 'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
             ]);
 
             $identifier = $validated['email'] ?? $validated['phone'];
@@ -77,7 +78,9 @@ class V4AuthController extends Controller
                 Mail::to($user->email)->send(new SendOtpMail($otp));
                 //SendXOtpController::sendOtp($user->email, $otp);
             } else {
-                Log::info('Sending OTP to phone: ' . $user->phone); // TODO
+                $TwilioSmsService = new TwilioSmsService();
+                $message = "Your Puck Recruiter OTP is: $otp. It will expire in 10 minutes.";
+                $TwilioSmsService->sendSms($user->phone, $message);
             }
 
             return response()->json([
