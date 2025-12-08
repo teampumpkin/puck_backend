@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
+        $this->call(V4SuperAdminSeeder::class);
         $this->call(PrcSkillSeeder::class);
         $this->call(CreateAdminSeeder::class);
         $this->call(CreateUserTypeAndModulesSeeder::class);

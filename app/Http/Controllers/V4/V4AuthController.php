@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\SendOtpMail;
 use App\Models\V4Otp;
 use App\Models\V4User;
+use App\Models\SuperAdminProfile;
 use App\Services\TwilioSmsService;
 use Carbon\Carbon;
 use Exception;
@@ -193,6 +194,7 @@ class V4AuthController extends Controller
                 'last_name' => 'required|string',
                 'email' => 'required|email|unique:v4_users,email',
                 'password' => 'required|string|min:8',
+                'super_admin_id' => 'nullable|exists:v4_users,id',
             ]);
 
             $user = V4User::create([
@@ -201,7 +203,14 @@ class V4AuthController extends Controller
                 'role' => 'super-admin',
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
+                'super_admin_id' => $validated['super_admin_id'] ?? null,
             ]);
+
+            SuperAdminProfile::create([
+                'v4_user_id' => $user->id,
+                'is_verified' => true,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Admin registered successfully',
@@ -209,6 +218,7 @@ class V4AuthController extends Controller
                     'id' => $user->id,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'super_admin_id' => $user->super_admin_id,
                 ],
             ], 201);
         } catch (ValidationException $e) {
@@ -284,7 +294,6 @@ class V4AuthController extends Controller
         }
     }
 
-
     public function childLogin(Request $request)
     {
         $request->validate([
@@ -315,5 +324,4 @@ class V4AuthController extends Controller
             'message' => 'Login successful'
         ]);
     }
-}
-;
+};
