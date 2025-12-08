@@ -31,6 +31,10 @@ class SendOtpMail extends Mailable
      */
     public function build()
     {
-        return $this->subject("Testing mail this is its SUBJECT")->view("emails.sample-mail");
+        return $this->subject('Your Login OTP Code')
+            ->view('emails.otp')
+            ->with([
+                'otp' => $this->otp,
+            ]);
     }
 }
