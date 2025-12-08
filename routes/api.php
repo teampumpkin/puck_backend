@@ -332,6 +332,7 @@ Route::prefix('v4')->group(function () {
                 Route::delete('{id}/delete-account', [ProfileController::class, 'deleteUserAccountFromAdmin']);
 
                 Route::get('{id}', [ProfileController::class, 'getUserAdminDetailsById']);
+                Route::put('{id}', [ProfileController::class, 'updateUserAdminDetailsById']);
 
                 Route::get('{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
                 Route::get('{id}/children', [ProfileController::class, 'getUserChildrenDetailsById']);
