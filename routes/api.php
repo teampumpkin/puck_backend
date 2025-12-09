@@ -414,6 +414,8 @@ Route::prefix('v4')->group(function () {
                 Route::get('/players', [V4PostController::class, 'getPlayersForPost']);
                 Route::get('/teams', [V4PostController::class, 'getTeamsForPost']);
                 Route::post('/', [V4PostController::class, 'uploadPost']);
+                Route::put('{postId}', [V4PostController::class, 'editPost']);
+                Route::delete('{postId}', [V4PostController::class, 'deletePost']);
             });
 
             Route::prefix('evaluation')->group(function () {
