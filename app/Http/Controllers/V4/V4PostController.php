@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V4;
 use App\Http\Controllers\Controller;
 use App\Models\V4Post;
 use App\Models\V4PostMedia;
+use App\Models\V4User;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class V4PostController extends Controller
             // ✅ Validation
             // --------------------------
             $validated = $request->validate([
+                'status'       => 'nullable|string|in:draft,published,archived',
                 'caption'      => 'nullable|string|max:2000',
                 'media'        => 'required|array|min:1|max:10', // max 10 uploads
                 'media.*.type' => 'required|in:image,video',
@@ -71,11 +73,19 @@ class V4PostController extends Controller
             ]);
 
             // --------------------------
+            // ✅ Determine the user ID for post ownership
+            // --------------------------
+            $postUserId = $authUser->role === 'super-admin'
+                ? optional($authUser->superAdminProfile)->super_admin_id ?? $authUser->id
+                : $authUser->id;
+
+            // --------------------------
             // ✅ Create Post
             // --------------------------
             $post = V4Post::create([
-                'user_id' => $authUser->id,
+                'user_id' => $postUserId,
                 'caption' => $validated['caption'] ?? null,
+                'status'  => $validated['status'] ?? 'published',
             ]);
 
             // --------------------------
@@ -144,6 +154,46 @@ class V4PostController extends Controller
         }
     }
 
+    public function getPostStats(Request $request): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+
+        // Determine which user's posts to count
+        $filterUserId = $user->role === 'super-admin'
+            ? optional($user->superAdminProfile)->super_admin_id ?? $user->id
+            : $user->id;
+
+        // Count posts by status
+        $published = V4Post::
+            // where('user_id', $filterUserId)->
+            where('status', 'published')
+            ->count();
+
+        $draft = V4Post::
+            // where('user_id', $filterUserId)->
+            where('status', 'draft')
+            ->count();
+
+        $scheduled = V4Post::
+            // where('user_id', $filterUserId)->
+            where('status', 'scheduled')
+            ->count();
+
+        // Sum likes_count for all posts by this user
+        $totalLikes = V4Post::
+            // where('user_id', $filterUserId)->
+            sum('likes_count');
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Post stats retrieved successfully',
+            'published'  => $published,
+            'draft'      => $draft,
+            'scheduled'  => $scheduled,
+            'totalLikes' => $totalLikes,
+        ]);
+    }
+
     public function getMyPosts(Request $request): JsonResponse
     {
         $user = Auth::guard('v4api')->user();
@@ -155,10 +205,15 @@ class V4PostController extends Controller
 
             $perPage = $validated['per_page'] ?? 10;
 
+            // Determine the ID to filter posts
+            $filterUserId = $user->role === 'super-admin'
+                ? optional($user->superAdminProfile)->super_admin_id ?? $user->id
+                : $user->id;
+
             // Fetch paginated posts with media
             // Fetch paginated posts
             $posts = V4Post::with('media')
-                ->where('user_id', $user->id)
+                ->where('user_id', $filterUserId)
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 
@@ -195,6 +250,40 @@ class V4PostController extends Controller
                 'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    public function getPlayersForPost(Request $request): JsonResponse
+    {
+        $result = V4User::where('role', 'player')->get()
+            ->filter(fn($player) => ! is_null($player->name))
+            ->map(function ($player) {
+                return [
+                    'id'   => (string) $player->id,
+                    'name' => $player->name,
+                    'team' => $player->team ?? null,
+                ];
+            });
+
+        return response()->json(
+            $result
+        );
+    }
+
+    public function getTeamsForPost(Request $request): JsonResponse
+    {
+        $result = V4User::with(['teamProfile.team'])
+            ->where('role', 'team')->get()
+            ->filter(fn($player) => ! is_null($player->name))
+            ->map(function ($player) {
+                return [
+                    'id'   => (string) $player->id,
+                    'name' => $player->teamProfile->team->team_name,
+                ];
+            });
+
+        return response()->json(
+            $result
+        );
     }
 
     public function getMyPost($postId): JsonResponse
@@ -297,45 +386,54 @@ class V4PostController extends Controller
 
     public function editPost(Request $request, int $postId): JsonResponse
     {
-        $user = Auth::guard('v4api')->user();
+        DB::beginTransaction();
+
+        $authUser = Auth::guard('v4api')->user();
 
         try {
-            // Validation
             $validated = $request->validate([
-                'caption' => ['nullable', 'string', 'max:2000'],
+                'status'  => 'nullable|string|in:draft,published,archived',
+                'caption' => 'nullable|string|max:2000',
             ]);
 
-            // Find post
+            $postUserId = $authUser->role === 'super-admin'
+                ? optional($authUser->superAdminProfile)->super_admin_id ?? $authUser->id
+                : $authUser->id;
+
             $post = V4Post::findOrFail($postId);
 
-            // Authorization
-            if ($post->user_id !== $user->id) {
+            if ($post->user_id !== $postUserId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to edit this post.',
                 ], 403);
             }
 
-            // Update
             $post->update([
                 'caption' => $validated['caption'] ?? $post->caption,
+                'status'  => $validated['status'] ?? $post->status,
             ]);
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Post updated successfully.',
                 'data'    => $post->fresh()->load('media'),
-            ]);
+            ], 200);
         } catch (ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
                 'errors'  => $e->errors(),
             ], 422);
         } catch (ModelNotFoundException $e) {
+            DB::rollBack();
+
             Log::warning('Post not found during update attempt.', [
                 'post_id' => $postId,
-                'user_id' => $user->id,
+                'user_id' => $authUser->id,
                 'trace'   => $e->getTraceAsString(),
             ]);
 
@@ -344,9 +442,11 @@ class V4PostController extends Controller
                 'message' => 'Post not found.',
             ], 404);
         } catch (Exception $e) {
+            DB::rollBack();
+
             Log::error('Failed to update post.', [
                 'post_id' => $postId,
-                'user_id' => $user->id,
+                'user_id' => $authUser->id,
                 'message' => $e->getMessage(),
                 'trace'   => $e->getTraceAsString(),
             ]);
@@ -361,26 +461,29 @@ class V4PostController extends Controller
 
     public function deletePost(int $postId): JsonResponse
     {
+        DB::beginTransaction();
+
         $authUser = Auth::guard('v4api')->user();
 
         try {
+            $postUserId = $authUser->role === 'super-admin'
+                ? optional($authUser->superAdminProfile)->super_admin_id ?? $authUser->id
+                : $authUser->id;
+
             $post = V4Post::findOrFail($postId);
 
-            // Authorization: Ensure the authenticated user owns the post
-            if ($post->user_id !== $authUser->id) {
+            if ($post->user_id !== $postUserId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not have permission to delete this post.',
                 ], 403);
             }
 
-            DB::beginTransaction();
-
-            // Optionally, delete files from S3 storage here before deleting DB records
-            // foreach ($post->media as $media) {
-            //     Storage::disk('s3')->delete($media->meta['storage_path'] ?? null);
-            // }
-
+            foreach ($post->media as $media) {
+                if (! empty($media->meta['storage_path'])) {
+                    Storage::disk('s3')->delete($media->meta['storage_path']);
+                }
+            }
             $post->delete();
 
             DB::commit();
@@ -390,6 +493,8 @@ class V4PostController extends Controller
                 'message' => 'Post deleted successfully.',
             ], 200);
         } catch (ModelNotFoundException $e) {
+            DB::rollBack();
+
             Log::warning('Post not found during deletion attempt.', [
                 'post_id' => $postId,
                 'user_id' => $authUser->id,
@@ -400,8 +505,15 @@ class V4PostController extends Controller
                 'success' => false,
                 'message' => 'Post not found.',
             ], 404);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
+
+            Log::error('Failed to delete post.', [
+                'post_id' => $postId,
+                'user_id' => $authUser->id,
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
 
             return response()->json([
                 'success' => false,

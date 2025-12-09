@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
+        $this->call(V4SuperAdminSeeder::class);
         $this->call(PrcSkillSeeder::class);
         $this->call(CreateAdminSeeder::class);
         $this->call(CreateUserTypeAndModulesSeeder::class);
@@ -31,5 +32,7 @@ class DatabaseSeeder extends Seeder
         $this->call(EvaluationQuestionSeeder::class);
         $this->call(EvaluationQuestionOptionSeeder::class);
         $this->call(V4InAppPurchaseSeeder::class);
+        $this->call(V4BanReasonSeeder::class);
+        $this->call(V4SuspendReasonSeeder::class);
     }
 }

@@ -903,6 +903,40 @@ class V4FollowController extends Controller
         }
     }
 
+    public function getUserFollowingById($id, Request $request): JsonResponse
+    {
+        try {
+            $user = V4User::findOrFail($id);
+
+            $query = V4Follow::with('following')
+                ->where('follower_id', $user->id)
+                ->where('status', 'accepted')
+                ->latest();
+            $following = $query->get()->map(function ($user) {
+                return [
+                    'id' => $user->following->id,
+                    'name' => $user->following->name,
+                    'type' => $user->following->role,
+                    'avatar' => $user->following->profile_photo,
+                ];
+            });
+            return response()->json([
+                'following' => $following,
+            ]);
+        } catch (Exception $e) {
+            Log::error('Fetching following list failed: ' . $e->getMessage(), [
+                'user_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve following list.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     public function myFollowing(Request $request): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();

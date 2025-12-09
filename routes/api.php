@@ -25,6 +25,7 @@ use App\Http\Controllers\PlayableController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\V4\EvaluationRejectionReasonController;
+use App\Http\Controllers\V4\V4UserFcmTokenController;
 use App\Http\Controllers\V4\NotificationController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\UserBlockController;
@@ -39,6 +40,10 @@ use App\Http\Controllers\V4\V4ChatMuteSettingController;
 use App\Http\Controllers\V4\V4MediaController;
 use App\Http\Controllers\V4\V4ParentalControlController;
 use App\Http\Controllers\V4\V4PaymentController;
+use App\Http\Controllers\V4\V4SuspendReasonController;
+use App\Http\Controllers\V4\V4SuspendedUserController;
+use App\Http\Controllers\V4\V4BanReasonController;
+use App\Http\Controllers\V4\V4BannedUserController;
 use App\Http\Controllers\V4\Admin\V4DashboardController;
 use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
@@ -288,153 +293,230 @@ Route::prefix('v4')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
 
+
+
         Route::middleware('auth:v4api')->group(function () {
 
-            // Route::prefix('dashboard')->group(function () {});
+            Route::prefix('profile')->group(function () {
+                Route::put('/', [ProfileController::class, 'updateSuperAdminProfile']);
+            });
 
-            // Route::prefix('analytics')->group(function () {});
+            Route::prefix('security')->group(function () {
+                Route::put('/password', [ProfileController::class, 'updateSuperAdminPassword']);
+            });
 
 
             Route::prefix('dashboard')->group(function () {
-                Route::get('/user-distribution', [V4DashboardController::class, 'getUserDistribution']);
+                Route::get('user-distribution', [V4DashboardController::class, 'getUserDistribution']);
+                Route::get('total-users', [V4DashboardController::class, 'getTotalUsers']);
+                Route::get('pending-evaluations', [V4DashboardController::class, 'getPendingEvaluations']);
+                Route::get('active-events', [V4DashboardController::class, 'getActiveEvents']);
+                Route::get('social-posts', [V4DashboardController::class, 'getSocialPosts']);
+                Route::get('recent-activity', [V4DashboardController::class, 'getRecentActivity']);
             });
 
-            Route::get('/search-users', [ProfileController::class, 'searchAndSortUsers']);
-            Route::get('/search-admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
+            Route::prefix('reports')->group(function () {
+
+                Route::prefix('metrics')->group(function () {
+                    Route::get('total-users', [V4DashboardController::class, 'getReportMetricTotalUsers']);
+                    Route::get('pending-evaluations', [V4DashboardController::class, 'getReportMetricPendingEvaluations']);
+                    Route::get('active-events', [V4DashboardController::class, 'getReportMetricActiveEvents']);
+                    Route::get('social-posts', [V4DashboardController::class, 'getReportMetricSocialPosts']);
+                });
+
+                Route::prefix('growth')->group(function () {
+                    Route::get('/', [V4DashboardController::class, 'getReportMetricGrowth']);
+                });
+
+                Route::prefix('evaluation-types')->group(function () {
+                    Route::get('/', [V4DashboardController::class, 'getReportMetricEvaluationTypes']);
+                });
+            });
+
+            Route::prefix('search')->group(function () {
+                Route::get('users', [ProfileController::class, 'searchAndSortUsers']);
+                Route::get('admin-users', [ProfileController::class, 'searchAndSortAdminUsers']);
+            });
 
             Route::prefix('evaluators')->group(function () {
-                Route::get('/get-available', [ProfileController::class, 'getAllAvailableEvaluators']);
+                Route::get('available', [ProfileController::class, 'getAllAvailableEvaluators']);
             });
-            Route::delete('/users/{id}/delete-account', [ProfileController::class, 'deleteUserAccountFromAdmin']);
 
-            Route::get('/users/{id}', [ProfileController::class, 'getUserAdminDetailsById']);
-            Route::get('/users/{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
-            Route::get('/users/{id}/children', [ProfileController::class, 'getUserChildrenDetailsById']);
-            Route::get('/users/{id}/players', [ProfileController::class, 'getUserPlayersDetailsById']);
-            Route::get('/users/{id}/admins', [ProfileController::class, 'getUserAdminsDetailsById']);
-            Route::get('/users/{id}/scouts', [ProfileController::class, 'getUserScoutsDetailsById']);
-            Route::get('/users/{id}/coaches', [ProfileController::class, 'getUserCoachesDetailsById']);
-            Route::get('/users/{id}/teams', [ProfileController::class, 'getUserTeamsDetailsById']);
-            // Route::get('/users/{id}/statistics', [ProfileController::class, 'getUserStatisticsDetailsById']);
-            Route::get('/users/{id}/evaluation', [ProfileController::class, 'getUserEvaluationDetailsById']);
-            Route::get('/users/{id}/achievements', [ProfileController::class, 'getUserAchievementsDetailsById']);
-            // Route::get('/users/{id}/reports', [ProfileController::class, 'getUserReportsDetailsById']);
-            Route::get('/users/{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
-            Route::get('/users/{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
+            Route::prefix('suspend-reasons')->group(function () {
+                Route::get('/', [V4SuspendReasonController::class, 'index']);
+                Route::post('/', [V4SuspendReasonController::class, 'create']);
+                Route::get('/{id}', [V4SuspendReasonController::class, 'show']);
+                Route::put('/{id}', [V4SuspendReasonController::class, 'update']);
+                Route::delete('/{id}', [V4SuspendReasonController::class, 'destroy']);
+            });
+
+            Route::prefix('ban-reasons')->group(function () {
+                Route::get('/', [V4BanReasonController::class, 'index']);
+                Route::post('/', [V4BanReasonController::class, 'create']);
+                Route::get('/{id}', [V4BanReasonController::class, 'show']);
+                Route::put('/{id}', [V4BanReasonController::class, 'update']);
+                Route::delete('/{id}', [V4BanReasonController::class, 'destroy']);
+            });
+
+            Route::prefix('users')->group(function () {
+                Route::delete('{id}/delete-account', [ProfileController::class, 'deleteUserAccountFromAdmin']);
+
+                Route::get('{id}', [ProfileController::class, 'getUserAdminDetailsById']);
+                Route::put('{id}', [ProfileController::class, 'updateUserAdminDetailsById']);
+
+                Route::get('{id}/media', [ProfileController::class, 'getUserMediaDetailsById']);
+                Route::get('{id}/children', [ProfileController::class, 'getUserChildrenDetailsById']);
+                Route::get('{id}/players', [ProfileController::class, 'getUserPlayersDetailsById']);
+                Route::get('{id}/admins', [ProfileController::class, 'getUserAdminsDetailsById']);
+                Route::get('{id}/scouts', [ProfileController::class, 'getUserScoutsDetailsById']);
+                Route::get('{id}/coaches', [ProfileController::class, 'getUserCoachesDetailsById']);
+                Route::get('{id}/teams', [ProfileController::class, 'getUserTeamsDetailsById']);
+                Route::get('{id}/reports', [ProfileController::class, 'getUserReportsDetailsById']);
+                // Route::get('{id}/statistics', [ProfileController::class, 'getUserStatisticsDetailsById'])
+                Route::get('{id}/evaluation', [ProfileController::class, 'getUserEvaluationDetailsById']);
+                Route::get('{id}/achievements', [ProfileController::class, 'getUserAchievementsDetailsById']);
+                Route::get('{id}/portfolio', [ProfileController::class, 'getUserPortfolioDetailsById']);
+                Route::get('{id}/evaluations', [ProfileController::class, 'getUserEvaluationsDetailsById']);
+                Route::post('{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
+                Route::get('{id}/following', [V4FollowController::class, 'getUserFollowingById']);
+                // Route::get('{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
+
+                Route::prefix('{userId}/suspend')->group(function () {
+                    Route::post('/', [V4SuspendedUserController::class, 'suspend']);
+                    Route::post('/unsuspend', [V4SuspendedUserController::class, 'unsuspend']);
+                });
+
+                Route::prefix('{userId}/ban')->group(function () {
+                    Route::post('/', [V4BannedUserController::class, 'ban']);
+                    Route::post('/unban', [V4BannedUserController::class, 'unban']);
+                });
+            });
+
+            Route::prefix('suspended-users')->group(function () {
+                Route::get('/', [V4SuspendedUserController::class, 'index']);
+                Route::get('/{id}', [V4SuspendedUserController::class, 'show']);
+                Route::delete('/{id}', [V4SuspendedUserController::class, 'destroy']);
+            });
 
 
-            // Route::get('/users/{id}/chat-history', [ProfileController::class, 'getUserChatHistoryDetailsById']);
+            Route::prefix('banned-users')->group(function () {
+                Route::get('/', [V4BannedUserController::class, 'index']);
+                Route::get('/{id}', [V4BannedUserController::class, 'show']);
+                Route::delete('/{id}', [V4BannedUserController::class, 'destroy']);
+            });
 
-            Route::get('/admin-users/{id}', [ProfileController::class, 'getAdminUserDetailsById']);
+            Route::prefix('admin-users')->group(function () {
+                Route::get('{id}', [ProfileController::class, 'getAdminUserDetailsById']);
 
-            Route::post('/users/{id}/toggle-verification', [ProfileController::class, 'toggleVerificationEvaluator']);
+                Route::prefix('{userId}/suspend')->group(function () {
+                    Route::post('/', [V4SuspendedUserController::class, 'suspend']);
+                    Route::post('/unsuspend', [V4SuspendedUserController::class, 'unsuspend']);
+                });
+
+                Route::prefix('{userId}/ban')->group(function () {
+                    Route::post('/', [V4BannedUserController::class, 'ban']);
+                    Route::post('/unban', [V4BannedUserController::class, 'unban']);
+                });
+            });
+
+
+            Route::prefix('posts')->group(function () {
+                Route::get('stats', [V4PostController::class, 'getPostStats']);
+                Route::get('/', [V4PostController::class, 'getMyPosts']);
+                Route::get('/players', [V4PostController::class, 'getPlayersForPost']);
+                Route::get('/teams', [V4PostController::class, 'getTeamsForPost']);
+                Route::post('/', [V4PostController::class, 'uploadPost']);
+                Route::put('{postId}', [V4PostController::class, 'editPost']);
+                Route::delete('{postId}', [V4PostController::class, 'deletePost']);
+            });
 
             Route::prefix('evaluation')->group(function () {
-                /// Category
-                // Get All Categories
-                Route::get('/categories', [V4EvaluationController::class, 'getAllCategories']);
-                // Get Category by id
-                Route::get('/category/{id}', [V4EvaluationController::class, 'getCategory']);
-                // Create Category
-                Route::post('/category', [V4EvaluationController::class, 'createCategory']);
-                // Update Category by id
-                Route::put('/category/{id}', [V4EvaluationController::class, 'updateCategoryById']);
-                // Delete Category by id
-                Route::delete('/category/{id}', [V4EvaluationController::class, 'deleteCategoryById']);
-                // Re-Order Categories
-                Route::put('/categories/reorder', [V4EvaluationController::class, 'reorderCategories']);
 
-                /// Question
-                // Get Questions Category by id
-                Route::get('/questions/{id}', [V4EvaluationController::class, 'getAllQuestionsById']);
+                // Categories
+                Route::prefix('categories')->group(function () {
+                    Route::get('/', [V4EvaluationController::class, 'getAllCategories']);
+                    Route::post('/', [V4EvaluationController::class, 'createCategory']);
+                    Route::put('reorder', [V4EvaluationController::class, 'reorderCategories']);
+                    Route::get('{id}', [V4EvaluationController::class, 'getCategory']);
+                    Route::put('{id}', [V4EvaluationController::class, 'updateCategoryById']);
+                    Route::delete('{id}', [V4EvaluationController::class, 'deleteCategoryById']);
+                });
 
-                // Create Question Category by id
-                Route::post('/question', [V4EvaluationController::class, 'createQuestion']);
+                // Questions
+                Route::prefix('questions')->group(function () {
+                    Route::get('{id}', [V4EvaluationController::class, 'getAllQuestionsById']);
+                    Route::post('/', [V4EvaluationController::class, 'createQuestion']);
+                    Route::put('/', [V4EvaluationController::class, 'updateQuestion']);
+                    Route::put('reorder', [V4EvaluationController::class, 'reorderQuestions']);
+                    Route::delete('{id}', [V4EvaluationController::class, 'deleteQuestion']);
+                });
 
-                // Update Question Category by id
-                Route::put('/question', [V4EvaluationController::class, 'updateQuestion']);
-
-                // Delete Question Category by id
-                Route::delete('/question/{id}', [V4EvaluationController::class, 'deleteQuestion']);
-
-                // Re-Order Question Category by id
-                Route::put('/questions/reorder', [V4EvaluationController::class, 'reorderQuestions']);
-
-                /// Options Question
-                // Get All Options Question by id
-                Route::get('/question-options/{id}', [V4EvaluationController::class, 'getQuestionOptionsById']);
-
-                // Create Options Question by id
-                Route::post('/question-options', [V4EvaluationController::class, 'createQuestionOption']);
-
-                // Update Options Question by id
-                Route::put('/question-options', [V4EvaluationController::class, 'updateQuestionOption']);
-
-                // Delete Options Question by id
-                Route::delete('/question-options/{id}', [V4EvaluationController::class, 'deleteQuestionOption']);
-
-                // Re-Order Options Question by id
-                Route::put('/question-options/reorder', [V4EvaluationController::class, 'reorderQuestionOption']);
+                // Options
+                Route::prefix('question-options')->group(function () {
+                    Route::get('{id}', [V4EvaluationController::class, 'getQuestionOptionsById']);
+                    Route::post('/', [V4EvaluationController::class, 'createQuestionOption']);
+                    Route::put('/', [V4EvaluationController::class, 'updateQuestionOption']);
+                    Route::put('reorder', [V4EvaluationController::class, 'reorderQuestionOption']);
+                    Route::delete('{id}', [V4EvaluationController::class, 'deleteQuestionOption']);
+                });
             });
+
             Route::prefix('evaluations')->group(function () {
-                Route::get('/evaluation-requests', [V4EvaluationController::class, 'getAllEvaluationRequests']);
-                Route::get('/evaluation-requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
-                Route::get('/evaluation-requests/{id}/reports/{reportId}', [V4EvaluationController::class, 'getEvaluationRequestByIdAndReportId']);
-                Route::post('/evaluation-requests/{id}/assign', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
+                Route::get('requests', [V4EvaluationController::class, 'getAllEvaluationRequests']);
+                Route::get('requests/{id}', [V4EvaluationController::class, 'getEvaluationRequestById']);
+                Route::get('requests/{id}/reports/{reportId}', [V4EvaluationController::class, 'getEvaluationRequestByIdAndReportId']);
+                Route::post('requests/{id}/assign', [V4EvaluationController::class, 'allotEvaluatorForSubmission']);
             });
 
             Route::prefix('notifications')->group(function () {
                 Route::get('/', [NotificationController::class, 'getAdminNotifications']);
-                Route::get('/dashboard-statistics', [NotificationController::class, 'getAdminDashboardStatistics']);
-                Route::get('/user-statistics/{userId}', [NotificationController::class, 'getAdminUserStatistics']);
-                Route::get('/{id}', [NotificationController::class, 'getAdminNotification']);
+                Route::get('dashboard-statistics', [NotificationController::class, 'getAdminDashboardStatistics']);
+                Route::get('user-statistics/{userId}', [NotificationController::class, 'getAdminUserStatistics']);
+                Route::get('{id}', [NotificationController::class, 'getAdminNotification']);
 
-                // Send notifications
-                Route::post('/send', [NotificationController::class, 'sendAdminNotification']);
-                Route::post('/broadcast', [NotificationController::class, 'broadcastAdminNotification']);
+                Route::post('send', [NotificationController::class, 'sendAdminNotification']);
+                Route::post('broadcast', [NotificationController::class, 'broadcastAdminNotification']);
+                Route::post('bulk-operations', [NotificationController::class, 'adminBulkOperations']);
 
-                // Bulk operations
-                Route::post('/bulk-operations', [NotificationController::class, 'adminBulkOperations']);
-
-                // Delete operations
-                Route::delete('/{id}', [NotificationController::class, 'deleteAdminNotification']);
-                Route::delete('/{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
-                Route::post('/{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
+                Route::delete('{id}', [NotificationController::class, 'deleteAdminNotification']);
+                Route::delete('{id}/force', [NotificationController::class, 'forceDeleteAdminNotification']);
+                Route::post('{id}/restore', [NotificationController::class, 'restoreAdminNotification']);
             });
 
             Route::prefix('marketplace')->group(function () {
                 Route::get('/', [V4MarketplaceController::class, 'getMarketPlaces']);
                 Route::post('/', [V4MarketplaceController::class, 'storeMarketplace']);
-                Route::get('/sku/{sku}', [V4MarketplaceController::class, 'getMarketPlaceBySku']);
-                Route::get('/{v4MarketplaceId}', [V4MarketplaceController::class, 'getMarketPlaceById']);
-                Route::post('/{v4MarketplaceId}/update', [V4MarketplaceController::class, 'updateMarketplaceById']);
-                Route::delete('/{v4MarketplaceId}', [V4MarketplaceController::class, 'destroyMarketplaceById']);
+                Route::get('sku/{sku}', [V4MarketplaceController::class, 'getMarketPlaceBySku']);
+                Route::get('{id}', [V4MarketplaceController::class, 'getMarketPlaceById']);
+                Route::post('{id}/update', [V4MarketplaceController::class, 'updateMarketplaceById']);
+                Route::delete('{id}', [V4MarketplaceController::class, 'destroyMarketplaceById']);
             });
+
             Route::prefix('in-app-purchases')->group(function () {
                 Route::get('/', [V4InAppPurchaseController::class, 'getInAppPurchases']);
                 Route::post('/', [V4InAppPurchaseController::class, 'createInAppPurchase']);
-                Route::get('/{id}', [V4InAppPurchaseController::class, 'getInAppPurchaseById']);    // GET by ID
-                Route::put('/{id}', [V4InAppPurchaseController::class, 'updateInAppPurchaseById']);  // UPDATE by ID
-                Route::delete('/{id}', [V4InAppPurchaseController::class, 'destroyInAppPurchaseById']); // DELETE by ID
+                Route::get('{id}', [V4InAppPurchaseController::class, 'getInAppPurchaseById']);
+                Route::put('{id}', [V4InAppPurchaseController::class, 'updateInAppPurchaseById']);
+                Route::delete('{id}', [V4InAppPurchaseController::class, 'destroyInAppPurchaseById']);
                 Route::post('{id}/restore', [V4InAppPurchaseController::class, 'restoreInAppPurchaseById']);
             });
 
             Route::prefix('faqs')->group(function () {
                 Route::get('/', [V4FaqController::class, 'getFaqs']);
-                Route::get('/{id}', [V4FaqController::class, 'getFaqById']);
+                Route::get('{id}', [V4FaqController::class, 'getFaqById']);
                 Route::post('/', [V4FaqController::class, 'createFaq']);
-                Route::put('/{id}', [V4FaqController::class, 'updateFaq']);
-                Route::delete('/{id}', [V4FaqController::class, 'softDeleteFaq']);
-                Route::post('/reorder', [V4FaqController::class, 'reorderFaq']);
+                Route::put('{id}', [V4FaqController::class, 'updateFaq']);
+                Route::delete('{id}', [V4FaqController::class, 'softDeleteFaq']);
+                Route::post('reorder', [V4FaqController::class, 'reorderFaq']);
             });
 
             Route::prefix('report-reasons')->group(function () {
-                Route::get('/active', [V4UserReportReasonController::class, 'getActiveReasons']);
+                Route::get('active', [V4UserReportReasonController::class, 'getActiveReasons']);
                 Route::get('/', [V4UserReportReasonController::class, 'getAllReasons']);
                 Route::post('/', [V4UserReportReasonController::class, 'create']);
-                Route::put('/{id}', [V4UserReportReasonController::class, 'update']);
-                Route::delete('/{id}', [V4UserReportReasonController::class, 'delete']);
-                Route::get('/{id}', [V4UserReportReasonController::class, 'getRejectionReason']);
+                Route::put('{id}', [V4UserReportReasonController::class, 'update']);
+                Route::delete('{id}', [V4UserReportReasonController::class, 'delete']);
+                Route::get('{id}', [V4UserReportReasonController::class, 'getRejectionReason']);
             });
         });
     });
@@ -451,6 +533,10 @@ Route::prefix('v4')->group(function () {
         Route::get('/search-users', [ProfileController::class, 'searchUsers']);
         Route::delete('/user/{id}/delete-account', [ProfileController::class, 'deleteUserAccount']);
 
+        Route::prefix('fcm')->group(function () {
+            Route::post('/store', [V4UserFcmTokenController::class, 'store']);
+            Route::delete('/remove', [V4UserFcmTokenController::class, 'destroy']);
+        });
 
         Route::prefix('users')->group(function () {
 

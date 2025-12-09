@@ -4,11 +4,13 @@ namespace App\Http\Controllers\V4;
 
 use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
+use App\Models\AcademyMember;
 use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
+use App\Models\V4UserReport;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\EvaluatorAssignment;
@@ -17,10 +19,12 @@ use App\Models\V4Team;
 use App\Models\V4UploadedMedia;
 use App\Models\V4Post;
 use App\Models\V4User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -269,10 +273,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4Academy->academy_name
-                                ]);
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4Academy->academy_name
+                        ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -288,10 +292,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                            'type' => 'group',
-                                            'participants' => [$user->id],
-                                            'name' => $v4Academy->academy_name
-                                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name
+                                ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -307,10 +311,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                        'type' => 'group',
-                                        'participants' => [$user->id],
-                                        'name' => $v4Academy->academy_name
-                                    ]);
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4Academy->academy_name
+                            ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -351,10 +355,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4team->team_name
-                                ]);
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4team->team_name
+                        ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -369,10 +373,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                            'type' => 'group',
-                                            'participants' => [$user->id],
-                                            'name' => $v4team->team_name
-                                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name
+                                ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -389,10 +393,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                        'type' => 'group',
-                                        'participants' => [$user->id],
-                                        'name' => $v4team->team_name
-                                    ]);
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4team->team_name
+                            ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
@@ -752,7 +756,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1236,50 +1240,63 @@ class ProfileController extends Controller
             $sortBy = $validated['sort_by'] ?? 'first_name';
             $sortOrder = $validated['sort_order'] ?? 'asc';
 
-            $query = V4User::query()
-                ->whereNotIn('role', ['super-admin', 'admin', 'manager']);
+            $cacheKey = 'users_search_' . md5(json_encode([
+                'q' => $searchTerm,
+                'page' => $page,
+                'per_page' => $perPage,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
+            ]));
 
-            if (!empty($searchTerm)) {
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
-                });
-            }
+            $users = Cache::remember($cacheKey, 600, function () use ($searchTerm, $page, $perPage, $sortBy, $sortOrder) {
+                $query = V4User::query()
+                    ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
+                    ->with([
+                        'playerProfile:id,v4_user_id,teams,leagues,handedness,weight,height,position,gender,permissions',
+                        'coachProfile:id,v4_user_id,leagues,teams',
+                        'teamProfile:id,v4_user_id,team_name,administrator_first_name,administrator_last_name,leagues,website,address,team_years_running',
+                        'scoutProfile:id,v4_user_id,scouting_years,level_hockey_played,current_involvement_level,current_sport_role,leagues,teams,resume,references',
+                        'academyProfile:id,v4_user_id',
+                        'organizerProfile:id,v4_user_id',
+                        'adviserProfile:id,v4_user_id',
+                        'parentProfile:id,v4_user_id',
+                        'evaluatorProfile:id,v4_user_id,is_verified,references,resume,number_of_years_experience,current_sport_role,leagues,current_involvement_level,level_hockey_played',
+                        'fanProfile:id,v4_user_id',
+                    ]);
 
-            // Optimized eager loading: Only load relationship IDs or necessary fields
-            $query->with([
-                'playerProfile:id,v4_user_id,teams,leagues,handedness,weight,height,position,gender,permissions',
-                'coachProfile:id,v4_user_id,leagues,teams',
-                'teamProfile:id,v4_user_id,team_name,administrator_first_name,administrator_last_name,leagues,website,address,team_years_running',
-                'scoutProfile:id,v4_user_id,scouting_years,level_hockey_played,current_involvement_level,current_sport_role,leagues,teams,resume,references',
-                'academyProfile:id,v4_user_id',
-                'organizerProfile:id,v4_user_id',
-                'adviserProfile:id,v4_user_id',
-                'parentProfile:id,v4_user_id',
-                'evaluatorProfile:id,v4_user_id,is_verified,references,resume,number_of_years_experience,current_sport_role,leagues,current_involvement_level,level_hockey_played',
-                'fanProfile:id,v4_user_id',
-            ]);
+                if (!empty($searchTerm)) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('first_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('phone', 'ilike', "%{$searchTerm}%");
+                    });
+                }
 
-            $query->orderBy($sortBy, $sortOrder);
+                $query->orderBy($sortBy, $sortOrder);
 
-            $users = $query->paginate($perPage, ['*'], 'page', $page);
+                return $query->paginate($perPage, ['*'], 'page', $page);
+            });
 
-            $data = $users
-                ->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
-                        'status' => 'active',
-                        'role' => $user->role,
-                        'country' => $user->country,
-                        'createdAt' => $user->created_at,
-                        'age' => $user->age,
-                        'phone' => $user->phone,
-                        'avatar' => $user->profile_picture,
-                        'profileData' => $user->profile_data, // accessor
-                    ];
-                });
+            $data = $users->map(function ($user) {
+                return [
+                    'parentId' => $user->parent_id ?? null,
+                    'parentName' => $user->parent->name ?? null,
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'status' => $user->is_suspended
+                        ? 'suspended'
+                        : ($user->is_banned ? 'banned' : 'active'),
+                    'role' => $user->role,
+                    'country' => $user->country,
+                    'createdAt' => $user->created_at,
+                    'age' => $user->age,
+                    'phone' => $user->phone,
+                    'avatar' => $user->profile_picture,
+                    'profileData' => $user->profile_data,
+                ];
+            });
 
             return response()->json([
                 'data' => $data,
@@ -1325,41 +1342,54 @@ class ProfileController extends Controller
             $sortBy = $validated['sort_by'] ?? 'first_name';
             $sortOrder = $validated['sort_order'] ?? 'asc';
 
-            $query = V4User::query()
-                ->whereIn('role', ['super-admin', 'admin', 'manager']);
+            // Create a unique cache key based on query params
+            $cacheKey = 'admin_users_search_' . md5(json_encode([
+                'q' => $searchTerm,
+                'page' => $page,
+                'per_page' => $perPage,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder,
+            ]));
 
-            if (!empty($searchTerm)) {
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                        ->orWhere('last_name', 'ilike', "%{$searchTerm}%");
-                });
-            }
+            // Cache results for 10 minutes
+            $users = Cache::remember($cacheKey, 600, function () use ($searchTerm, $page, $perPage, $sortBy, $sortOrder) {
+                $query = V4User::query()
+                    ->whereIn('role', ['super-admin', 'admin', 'manager'])
+                    ->with([
+                        'superAdminProfile:id,v4_user_id,is_verified',
+                    ]);
 
-            // Optimized eager loading: Only load relationship IDs or necessary fields
-            $query->with([
-                'superAdminProfile:id,v4_user_id,is_verified',
-            ]);
+                if (!empty($searchTerm)) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('first_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('phone', 'ilike', "%{$searchTerm}%");
+                    });
+                }
 
-            $query->orderBy($sortBy, $sortOrder);
+                $query->orderBy($sortBy, $sortOrder);
 
-            $users = $query->paginate($perPage, ['*'], 'page', $page);
+                return $query->paginate($perPage, ['*'], 'page', $page);
+            });
 
-            $data = $users
-                ->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
-                        'status' => 'active',
-                        'role' => $user->role,
-                        'country' => $user->country,
-                        'createdAt' => $user->created_at,
-                        'age' => $user->age,
-                        'phone' => $user->phone,
-                        'avatar' => $user->profile_picture,
-                        'profileData' => $user->profile_data, // accessor
-                    ];
-                });
+            $data = $users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'status' => $user->is_suspended
+                        ? 'suspended'
+                        : ($user->is_banned ? 'banned' : 'active'),
+                    'role' => $user->role,
+                    'country' => $user->country,
+                    'createdAt' => $user->created_at,
+                    'age' => $user->age,
+                    'phone' => $user->phone,
+                    'avatar' => $user->profile_picture,
+                    'profileData' => $user->profile_data,
+                ];
+            });
 
             return response()->json([
                 'data' => $data,
@@ -1546,7 +1576,9 @@ class ProfileController extends Controller
                 'id' => $user->id,
                 'profilePicture' => $user->profile_photo,
                 'fullName' => $user->name,
-                'status' => 'active',
+                'status' => $user->is_suspended
+                    ? 'suspended'
+                    : ($user->is_banned ? 'banned' : 'active'),
                 'basicInfo' => [
                     'firstName' => $user->first_name,
                     'lastName' => $user->last_name,
@@ -1555,7 +1587,7 @@ class ProfileController extends Controller
                     'phone' => $user->phone,
                     'country' => $user->country,
                     'dateOfBirth' => $user->date_of_birth,
-                    'province' => $user->province,
+                    'province' => $user->state ?? $user->province ?? null,
                     'city' => $user->city,
                     'league' => $profileData->leagues ?? null,
                     'leagues' => $profileData->leagues ?? null,
@@ -1564,7 +1596,6 @@ class ProfileController extends Controller
                     'height' => $profileData->height ?? null,
                     'position' => $profileData->position ?? null,
                     'handedness' => $profileData->handedness ?? null,
-                    'teamName' => $profileData->team_name ?? null,
                     'administratorFullName' => $profileData->administrator_name ?? null,
                     'administratorEmail' => $profileData->email ?? null,
                     'teamWebsite' => $profileData->website ?? null,
@@ -1572,12 +1603,13 @@ class ProfileController extends Controller
                     'teamCity' => $user->city ?? null,
                     'teamStateProvince' => $user->state . ',' . $user->province,
                     'state' => $user->state,
-                    'province' => $user->province,
                     'teamZipPostalCode' => $user->zip,
                     'stateProvince' => $user->state . ',' . $user->province,
                     'teamCountry' => $user->country,
                     'yearsRunning' => $profileData->team_years_running ?? null,
                     'specializations' => MarketplaceTypes::all(),
+                    'academyName' => $user->academyProfile->academy->academy_name ?? null,
+                    'teamName' => $user->teamProfile->team->team_name ?? null,
                 ],
                 'socialStats' => [
                     'followers' => $user->followers_count,
@@ -1594,6 +1626,310 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function updateUserAdminDetailsById(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = V4User::findOrFail($id);
+
+            if ($request->has('fullName')) {
+                $parts = explode(' ', $request->fullName, 2);
+                $request->merge([
+                    'first_name' => $parts[0] ?? null,
+                    'last_name'  => $parts[1] ?? null,
+                ]);
+            }
+
+            if ($request->has('basicInfo')) {
+
+                $basic = $request->basicInfo;
+
+                $request->merge([
+                    'email'         => $basic['email'] ?? null,
+                    'phone'         => $basic['phone'] ?? null,
+                    'country'       => $basic['country'] ?? null,
+                    'state'         => $basic['province'] ?? null,
+                    'city'          => $basic['city'] ?? null,
+                    'date_of_birth' => $basic['dateOfBirth'] ?? null,
+
+                    'handedness' => $basic['handedness'] ?? null,
+                    'weight'     => $basic['weight'] ?? null,
+                    'height'     => $basic['height'] ?? null,
+                    'position'   => $basic['position'] ?? null,
+
+                    'teams'   => isset($basic['team']) ? [$basic['team']] : null,
+                    'leagues' => isset($basic['league']) ? [$basic['league']] : null,
+                ]);
+
+                if (isset($basic['teamName'])) {
+
+                    $adminParts = explode(' ', $basic['administratorFullName'] ?? '', 2);
+
+                    $request->merge([
+                        'phone'   => $basic['organizationPhone'] ?? null,
+                        'country' => $basic['teamCountry'] ?? null,
+                        'state'   => $basic['state'] ?? $basic['province'] ?? null,
+                        'city'    => $basic['teamCity'] ?? null,
+                        'zip'     => $basic['teamZipPostalCode'] ?? null,
+
+                        'team_name'                => $basic['teamName'] ?? null,
+                        'administrator_first_name' => $adminParts[0] ?? null,
+                        'administrator_last_name'  => $adminParts[1] ?? null,
+                        'website'                  => $basic['teamWebsite'] ?? null,
+                        'address'                  => $basic['teamAddress'] ?? null,
+                        'team_years_running'       => isset($basic['yearsRunning'])
+                            ? (int)$basic['yearsRunning']
+                            : null,
+                        'leagues'                  => [$basic['league'] ?? null],
+                    ]);
+                }
+                if ($user->role === 'academy') {
+
+                    // Administrator full name (academy owner/director)
+
+                    $request->merge([
+                        'academy_name'             => $basic['academyName'] ?? null,
+                        'administrator_first_name' => $adminParts[0] ?? null,
+                        'administrator_last_name'  => $adminParts[1] ?? null,
+
+                        // academy contact
+                        'phone'        => $basic['phone'] ?? null,
+                        'address'      => $basic['address'] ?? null,
+                        'city'         => $basic['city'] ?? null,
+                        'state'        => $basic['province'] ?? null,
+                        'country'      => $basic['country'] ?? null,
+
+                        // leagues array
+                        'leagues'      => !empty($basic['leagues']) ? $basic['leagues'] : [],
+
+                        // founded → academy_years_running
+                        'academy_years_running' =>
+                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                    ]);
+                }
+            }
+
+            $rules = [
+                'team_id'    => 'nullable|exists:v4_teams,id',
+                'academy_id' => 'nullable|exists:v4_academies,id',
+                'first_name' => 'nullable|string|max:255',
+                'last_name'  => 'nullable|string|max:255',
+                'email'      => 'nullable|email',
+                'phone'      => 'nullable|string|max:20',
+                'country'    => 'nullable|string|max:100',
+                'state'      => 'nullable|string|max:100',
+                'city'       => 'nullable|string|max:100',
+                'date_of_birth' => 'nullable|date',
+                'zip'        => 'nullable|string|max:20',
+
+                'enable_private_account' => 'nullable|boolean',
+                'receive_news_offers'    => 'nullable|boolean',
+            ];
+
+            if ($request->hasFile('profile_photo')) {
+                $rules['profile_photo'] = 'file|image|max:5120';
+            }
+
+            $validated = $request->validate($rules);
+
+            if ($request->hasFile('profile_photo')) {
+                $path = $request->file('profile_photo')->store("profile_photos/{$user->id}", 's3');
+                $validated['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            $user->update($validated);
+            $user->refresh();
+
+            switch ($user->role) {
+
+                case 'player':
+                    $playerValidated = $request->validate([
+                        'teams'      => 'nullable|array',
+                        'leagues'    => 'nullable|array',
+                        'handedness' => 'nullable|in:left,right,ambidextrous',
+                        'weight'     => 'nullable|numeric',
+                        'height'     => 'nullable|numeric',
+                        'position'   => 'nullable|string|max:100',
+                        'gender'     => 'nullable|in:male,female,other',
+                    ]);
+
+                    $user->playerProfile()->updateOrCreate(
+                        ['v4_user_id' => $user->id],
+                        $playerValidated
+                    );
+
+                    $user->load('playerProfile');
+                    break;
+
+                case 'coach':
+                    $coachValidated = $request->validate([
+                        'leagues' => 'nullable|array',
+                        'teams'   => 'nullable|array',
+                    ]);
+                    $user->coachProfile()->updateOrCreate([], $coachValidated);
+                    $user->load('coachProfile');
+                    break;
+
+                case 'team':
+                    $teamData = $request->validate([
+                        'team_name'                => 'nullable|string|max:255',
+                        'administrator_first_name' => 'nullable|string|max:255',
+                        'administrator_last_name'  => 'nullable|string|max:255',
+                        'leagues'                  => 'nullable|array',
+                        'website'                  => 'nullable|string|max:255',
+                        'address'                  => 'nullable|string|max:255',
+                        'team_years_running'       => 'nullable|integer',
+                    ]);
+
+                    if (!empty($validated['phone'])) {
+                        $teamData['phone'] = $validated['phone'];
+                    }
+
+                    if (!empty($validated['profile_photo'])) {
+                        $teamData['profile_photo'] = $validated['profile_photo'];
+                    }
+
+                    $teamProfile = $user->teamProfile;
+                    if (!$teamProfile || !$teamProfile->team) {
+                        throw new Exception("Team profile or team not found.");
+                    }
+
+                    $team = $teamProfile->team;
+                    $team->update($teamData);
+
+                    $user->load('teamProfile.team');
+                    break;
+
+                case 'academy':
+                    $academyData = $request->validate([
+                        "academy_name" => "nullable|string|max:255",
+                        "administrator_first_name" => "nullable|string|max:255",
+                        "administrator_last_name" => "nullable|string|max:255",
+                        "leagues" => "nullable|array",
+                        "website" => "nullable|string|max:255",
+                        "address" => "nullable|string|max:255",
+                        "academy_years_running" => "nullable|integer",
+                    ]);
+
+                    if (isset($academyData['leagues']) && is_array($academyData['leagues'])) {
+                        $academyData['leagues'] = array_filter($academyData['leagues']);
+                    }
+
+                    if (!empty($validated['phone'])) {
+                        $academyData['phone'] = $validated['phone'];
+                    }
+
+                    if (!empty($validated['profile_photo'])) {
+                        $academyData['profile_photo'] = $validated['profile_photo'];
+                    }
+
+                    $academyProfile = $user->academyProfile;
+
+                    if (!$academyProfile || !$academyProfile->academy) {
+                        throw new Exception("Academy profile or academy record not found for user.");
+                    }
+
+                    $academyModel = $academyProfile->academy;
+
+                    $academyModel->update($academyData);
+
+                    $user->load('academyProfile.academy');
+                    break;
+
+                case 'scout':
+                case 'adviser':
+                case 'evaluator':
+
+                    $baseRules = [
+                        'leagues' => 'nullable|array',
+                        'teams' => 'nullable|array',
+                        'address' => 'nullable|string|max:255',
+                        'level_hockey_played' => 'nullable|string|max:255',
+                        'current_involvement_level' => 'nullable|string|max:255',
+                        'current_sport_role' => 'nullable|string|max:255',
+                        'number_of_years_experience' => 'nullable|integer',
+                        'resume' => 'nullable|file|mimes:pdf|max:10240',
+                        'references' => 'nullable|array',
+                        'references.*.name' => 'required_with:references|string|max:255',
+                        'references.*.email' => 'required_with:references|email|max:255',
+                        'references.*.phone' => 'required_with:references|string|max:20',
+                    ];
+
+                    $validatedProfile = $request->validate($baseRules);
+
+                    if ($request->hasFile('resume')) {
+                        $path = $request->file('resume')->store("resume/{$user->id}", 's3');
+                        $validatedProfile['resume'] = Storage::disk('s3')->url($path);
+                    }
+
+                    $relation = $user->role . 'Profile';
+                    $user->{$relation}()->updateOrCreate([], $validatedProfile);
+
+                    $user->load($relation);
+                    break;
+
+                case 'organizer':
+                    $organizerValidated = $request->validate([
+                        "business_name" => "nullable|string|max:255",
+                        "business_phone" => "nullable|string|max:20",
+                        "address" => "nullable|string|max:255",
+                        "website" => "nullable|string|max:255",
+                        "number_years_organizing" => "nullable|integer",
+                        "leagues" => "nullable|array",
+                        "link_of_previous_events" => "nullable|array",
+                        "number_of_events_organized" => "nullable|integer",
+                    ]);
+                    $user->organizerProfile()->updateOrCreate([], $organizerValidated);
+                    $user->load('organizerProfile');
+                    break;
+
+                case 'parent':
+                    $user->parentProfile()->updateOrCreate([], []);
+                    $user->load('parentProfile');
+                    break;
+
+                case 'fan':
+                    $user->fanProfile()->updateOrCreate([], []);
+                    $user->load('fanProfile');
+                    break;
+            }
+
+            $userData = $user->toArray();
+
+            unset(
+                $userData['player_profile'],
+                $userData['coach_profile'],
+                $userData['team_profile'],
+                $userData['scout_profile'],
+                $userData['academy_profile'],
+                $userData['organizer_profile'],
+                $userData['adviser_profile'],
+                $userData['parent_profile'],
+                $userData['fan_profile'],
+                $userData['evaluator_profile']
+            );
+
+            $profileRelation = $user->role . 'Profile';
+            $userData['profile'] = $user->{$profileRelation};
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile updated successfully',
+                'user' => $userData,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Profile update failed.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
@@ -1819,7 +2155,9 @@ class ProfileController extends Controller
                         'weight' => $player->playerProfile->weight ?? null,
                         'avatar' => $player->profile_photo,
                         'role' => $player->role,
-                        'status' => 'active',
+                        'status' => $player->is_suspended
+                            ? 'suspended'
+                            : ($player->is_banned ? 'banned' : 'active'),
                     ];
                 })
                 ->values();
@@ -1844,34 +2182,68 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
+                'academyProfile.academy.members.player' => function ($q) {
+                    $q->where('role', 'coach');
+                },
+                'academyProfile.academy.members.player.coachProfile',
                 'teamProfile.team.members.player' => function ($q) {
                     $q->where('role', 'coach');
                 },
-                'teamProfile.team.members.player.playerProfile'
+                'teamProfile.team.members.player.coachProfile'
             ])->findOrFail($id);
 
-            $members = $users->teamProfile->team->members;
+            if ($users->role == "team") {
+                $members = $users->teamProfile->team->members;
 
-            $players = $members
-                ->filter(fn($member) => $member->player !== null)
-                ->map(function ($member) {
-                    $player = $member->player;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
 
-                    return [
-                        'id' => $player->id,
-                        'name' => $player->name,
-                        'position' => $player->playerProfile->position ?? null,
-                        'age' => $player->age,
-                        'height' => $player->playerProfile->height ?? null,
-                        'weight' => $player->playerProfile->weight ?? null,
-                        'avatar' => $player->profile_photo,
-                        'role' => $player->role,
-                        'status' => 'active',
-                    ];
-                })
-                ->values();
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->coachProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->coachProfile->height ?? null,
+                            'weight' => $player->coachProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
 
-            return response()->json($players);
+                return response()->json($players);
+            } else {
+                $members = $users->academyProfile->academy->members;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
+
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->coachProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->coachProfile->height ?? null,
+                            'weight' => $player->coachProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
+
+                return response()->json(['coaches' => $players]);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1890,28 +2262,85 @@ class ProfileController extends Controller
     public function getUserTeamsDetailsById($id): JsonResponse
     {
         try {
-            $result = TeamMember::with([
-                'team'
-            ])->where('player_id', $id)->get();
+
+            $user = V4User::with([
+                'academyProfile.academy'
+            ])->findOrFail($id);
+
+            if ($user->role == 'academy') {
+                $result = V4Team::where('academy_id', $user->academyProfile->academy->id)
+                    ->get();
+
+                $teams = $result
+                    ->map(function ($member) {
+                        $player = $member;
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->team_name,
+                            'leagues' => $player->leagues ?? null,
+                            'startDate' => $player->created_at,
+                            'players' => $player->player_members_count,
+                            'logo' => $player->profile_photo,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
 
 
-            $teams = $result
-                ->map(function ($member) {
-                    $player = $member->team;
-                    return [
-                        'id' => $player->id,
-                        'name' => $player->team_name,
-                        'leagues' => $player->leagues ?? null,
-                        'startDate' => $player->created_at,
-                        'players' => $player->player_members_count,
-                        'logo' => $player->profile_photo,
-                        'status' => 'active',
-                    ];
-                })
-                ->values();
+                return response()->json(['teams' => $teams]);
+            } else {
+                $result = TeamMember::with([
+                    'team'
+                ])->where('player_id', $id)->get();
 
 
-            return response()->json(['teams' => $teams]);
+                $teams = $result
+                    ->map(function ($member) {
+                        $player = $member->team;
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->team_name,
+                            'leagues' => $player->leagues ?? null,
+                            'startDate' => $player->created_at,
+                            'players' => $player->player_members_count,
+                            'logo' => $player->profile_photo,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
+
+
+                return response()->json(['teams' => $teams]);
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function getUserReportsDetailsById($id): JsonResponse
+    {
+        try {
+            $result = V4UserReport::with([
+                'reportedUser',
+                'reportingUser',
+                'reason'
+            ])->where('reported_user_id', $id)->get();
+
+            return response()->json($result);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1931,34 +2360,68 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
+                'academyProfile.academy.members.player' => function ($q) {
+                    $q->where('role', 'scout');
+                },
+                'academyProfile.academy.members.player.scoutProfile',
                 'teamProfile.team.members.player' => function ($q) {
                     $q->where('role', 'scout');
                 },
-                'teamProfile.team.members.player.playerProfile'
+                'teamProfile.team.members.player.scoutProfile'
             ])->findOrFail($id);
 
-            $members = $users->teamProfile->team->members;
+            if ($users->role == "team") {
+                $members = $users->teamProfile->team->members;
 
-            $players = $members
-                ->filter(fn($member) => $member->player !== null)
-                ->map(function ($member) {
-                    $player = $member->player;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
 
-                    return [
-                        'id' => $player->id,
-                        'name' => $player->name,
-                        'position' => $player->playerProfile->position ?? null,
-                        'age' => $player->age,
-                        'height' => $player->playerProfile->height ?? null,
-                        'weight' => $player->playerProfile->weight ?? null,
-                        'avatar' => $player->profile_photo,
-                        'role' => $player->role,
-                        'status' => 'active',
-                    ];
-                })
-                ->values();
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->scoutProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->scoutProfile->height ?? null,
+                            'weight' => $player->scoutProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
 
-            return response()->json($players);
+                return response()->json($players);
+            } else {
+                $members = $users->academyProfile->academy->members;
+                $players = $members
+                    ->filter(fn($member) => $member->player !== null)
+                    ->map(function ($member) {
+                        $player = $member->player;
+
+                        return [
+                            'id' => $player->id,
+                            'name' => $player->name,
+                            'position' => $player->scoutProfile->position ?? null,
+                            'age' => $player->age,
+                            'height' => $player->scoutProfile->height ?? null,
+                            'weight' => $player->scoutProfile->weight ?? null,
+                            'avatar' => $player->profile_photo,
+                            'role' => $player->role,
+                            'experience' => null,
+                            'status' => $player->is_suspended
+                                ? 'suspended'
+                                : ($player->is_banned ? 'banned' : 'active'),
+                        ];
+                    })
+                    ->values();
+
+                return response()->json(['coaches' => $players]);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -1978,19 +2441,17 @@ class ProfileController extends Controller
     {
         try {
             $users = V4User::with([
-                'teamProfile.team.admins.admin.playerProfile'
+                'teamProfile.team.admins'
             ])->findOrFail($id);
 
             $admins = $users->teamProfile->team->admins;
-
             $players = $admins
-                ->filter(fn($admin) => $admin->admin !== null)
                 ->map(function ($admin) {
-                    $player = $admin->admin;
+                    $player = $admin;
                     return [
                         'id' => $player->id,
                         'name' => $player->name,
-                        'role' => $player->role,
+                        'role' => $player->designation,
                         'phone' => $player->phone,
                         'email' => $player->email,
                         'age' => $player->age,
@@ -2023,18 +2484,21 @@ class ProfileController extends Controller
                 'evaluation',
                 'submission.paymentRequest.inAppPurchase.marketplaceItem',
             ])->where('evaluator_id', $id)
-                ->whereIn('status', [EvaluatorAssignment::STATUS_COMPLETED])
+                // ->whereIn('status', [EvaluatorAssignment::STATUS_COMPLETED, ])
                 ->orderBy('assigned_at', 'desc')
                 ->get();
             $formattedEvaluations = collect();
 
             foreach ($assignments as $assignment) {
+                if ($assignment->evaluation != null) {
+                    $overallRating = $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating;
+                }
                 $baseData = [
                     'id' => $assignment->id,
                     'playerName' => $assignment->submission->player->name,
                     'playerPosition' => $assignment->submission->player->playerProfile->position,
-                    'evaluationDate' => \Carbon\Carbon::parse($assignment->created_at)->format('d-m-Y'),
-                    'overallRating' => $assignment->evaluation->computeAggregatedRating() ?? $assignment->evaluation->overall_rating,
+                    'evaluationDate' => Carbon::parse($assignment->created_at)->format('d-m-Y'),
+                    'overallRating' =>  $overallRating ?? null,
                     'status' => $assignment->status,
                     'category' => $assignment->submission->paymentRequest->inAppPurchase->marketplaceItem->title
                 ];
@@ -2941,9 +3405,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [$user->id, $favId],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [$user->id, $favId],
+                    ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
@@ -3016,6 +3480,124 @@ class ProfileController extends Controller
                 'success' => false,
                 'message' => 'Failed to retrieve favourite users.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error.',
+            ], 500);
+        }
+    }
+
+    public function updateSuperAdminProfile(Request $request): JsonResponse
+    {
+        try {
+            /** @var V4User $user */
+            $user = Auth::guard('v4api')->user();
+
+            if ($user->role !== 'super-admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Only super admin can update this profile.',
+                ], 403);
+            }
+
+            // Validation rules
+            $rules = [
+                'first_name' => 'nullable|string|max:255',
+                'last_name'  => 'nullable|string|max:255',
+                'email'      => 'nullable|email',
+                'phone'      => 'nullable|string|max:20',
+            ];
+
+            if ($request->hasFile('profile_photo')) {
+                $rules['profile_photo'] = 'file|image|max:5120'; // 5 MB
+            }
+
+            $validated = $request->validate($rules);
+
+            // Upload image if present
+            if ($request->hasFile('profile_photo')) {
+                $path = $request->file('profile_photo')->store(
+                    'profile_photos/' . $user->id,
+                    's3'
+                );
+                $validated['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            // Update Super Admin
+            $user->update($validated);
+            $user->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Super admin profile updated successfully',
+                'user' => [
+                    'id'         => $user->id,
+                    'firstName' => $user->first_name,
+                    'lastName'  => $user->last_name,
+                    'email'      => $user->email,
+                    'phone'      => $user->phone,
+                    'profilePhoto' => $user->profile_photo,
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profile update failed.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function updateSuperAdminPassword(Request $request): JsonResponse
+    {
+        try {
+            /** @var V4User $user */
+            $user = Auth::guard('v4api')->user();
+
+            if ($user->role !== 'super-admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Only super admin can update password.',
+                ], 403);
+            }
+
+            // Validate input
+            $validated = $request->validate([
+                'current_password'      => 'required|string',
+                'password'              => 'required|string|min:8|confirmed',
+            ]);
+
+            // Check current password
+            if (!Hash::check($validated['current_password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is incorrect.',
+                ], 422);
+            }
+
+            // Update password
+            $user->update([
+                'password' => Hash::make($validated['password']),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully.',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password update failed.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

@@ -12,10 +12,16 @@ class SuperAdminProfile extends Model
     protected $fillable = [
         'v4_user_id',
         'is_verified',
+        'super_admin_id',
     ];
 
     public function user()
     {
         return $this->belongsTo(V4User::class, 'v4_user_id');
+    }
+
+    public function superAdmin()
+    {
+        return $this->belongsTo(V4User::class, 'super_admin_id');
     }
 }
