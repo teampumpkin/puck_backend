@@ -4,7 +4,9 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\V4Post;
+use App\Models\V4PostLike;
 use App\Models\V4PostMedia;
+use App\Models\V4User;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +38,7 @@ class V4PostController extends Controller
             // ✅ Validation
             // --------------------------
             $validated = $request->validate([
+                'status' => 'nullable|string|in:draft,published,archived',
                 'caption'      => 'nullable|string|max:2000',
                 'media'        => 'required|array|min:1|max:10', // max 10 uploads
                 'media.*.type' => 'required|in:image,video',
@@ -83,6 +86,7 @@ class V4PostController extends Controller
             $post = V4Post::create([
                 'user_id' => $postUserId,
                 'caption' => $validated['caption'] ?? null,
+                'status'  => $validated['status'] ?? 'published',
             ]);
 
             // --------------------------
@@ -151,6 +155,47 @@ class V4PostController extends Controller
         }
     }
 
+    public function getPostStats(Request $request): JsonResponse
+
+    {
+        $user = Auth::guard('v4api')->user();
+
+        // Determine which user's posts to count
+        $filterUserId = $user->role === 'super-admin'
+            ? optional($user->superAdminProfile)->super_admin_id ?? $user->id
+            : $user->id;
+
+        // Count posts by status
+        $published = V4Post::
+            // where('user_id', $filterUserId)->
+            where('status', 'published')
+            ->count();
+
+        $draft = V4Post::
+            // where('user_id', $filterUserId)->
+            where('status', 'draft')
+            ->count();
+
+        $scheduled = V4Post::
+            // where('user_id', $filterUserId)->
+            where('status', 'scheduled')
+            ->count();
+
+        // Sum likes_count for all posts by this user
+        $totalLikes = V4Post::
+            // where('user_id', $filterUserId)->
+            sum('likes_count');
+
+        return response()->json([
+            'success'      => true,
+            'message'      => 'Post stats retrieved successfully',
+            'published'    => $published,
+            'draft'        => $draft,
+            'scheduled'    => $scheduled,
+            'totalLikes'   => $totalLikes,
+        ]);
+    }
+
     public function getMyPosts(Request $request): JsonResponse
     {
         $user = Auth::guard('v4api')->user();
@@ -207,6 +252,41 @@ class V4PostController extends Controller
                 'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    public function getPlayersForPost(Request $request): JsonResponse
+    {
+        $result = V4User::where('role', 'player')->get()
+            ->filter(fn($player) => !is_null($player->name))
+            ->map(function ($player) {
+                return [
+                    'id'   => (string) $player->id,
+                    'name' => $player->name,
+                    'team' => $player->team ?? null,
+                ];
+            });
+
+        return response()->json(
+            $result
+        );
+    }
+
+
+    public function getTeamsForPost(Request $request): JsonResponse
+    {
+        $result = V4User::with(['teamProfile.team'])
+            ->where('role', 'team')->get()
+            ->filter(fn($player) => !is_null($player->name))
+            ->map(function ($player) {
+                return [
+                    'id'   => (string) $player->id,
+                    'name' => $player->teamProfile->team->team_name,
+                ];
+            });
+
+        return response()->json(
+            $result
+        );
     }
 
     public function getMyPost($postId): JsonResponse
@@ -314,6 +394,7 @@ class V4PostController extends Controller
         try {
             // Validation
             $validated = $request->validate([
+                'status' => 'nullable|string|in:draft,published,archived',
                 'caption' => ['nullable', 'string', 'max:2000'],
             ]);
 
@@ -331,6 +412,7 @@ class V4PostController extends Controller
             // Update
             $post->update([
                 'caption' => $validated['caption'] ?? $post->caption,
+                'status'  => $validated['status'] ?? $post->status,
             ]);
 
             return response()->json([

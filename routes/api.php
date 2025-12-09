@@ -409,8 +409,11 @@ Route::prefix('v4')->group(function () {
 
 
             Route::prefix('posts')->group(function () {
-                Route::get('/my', [V4PostController::class, 'getMyPosts']);
-                Route::post('/upload', [V4PostController::class, 'uploadPost']);
+                Route::get('stats', [V4PostController::class, 'getPostStats']);
+                Route::get('/', [V4PostController::class, 'getMyPosts']);
+                Route::get('/players', [V4PostController::class, 'getPlayersForPost']);
+                Route::get('/teams', [V4PostController::class, 'getTeamsForPost']);
+                Route::post('/', [V4PostController::class, 'uploadPost']);
             });
 
             Route::prefix('evaluation')->group(function () {
