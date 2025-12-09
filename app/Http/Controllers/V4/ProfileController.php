@@ -3483,4 +3483,122 @@ class ProfileController extends Controller
             ], 500);
         }
     }
+
+    public function updateSuperAdminProfile(Request $request): JsonResponse
+    {
+        try {
+            /** @var V4User $user */
+            $user = Auth::guard('v4api')->user();
+
+            if ($user->role !== 'super-admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Only super admin can update this profile.',
+                ], 403);
+            }
+
+            // Validation rules
+            $rules = [
+                'first_name' => 'nullable|string|max:255',
+                'last_name'  => 'nullable|string|max:255',
+                'email'      => 'nullable|email',
+                'phone'      => 'nullable|string|max:20',
+            ];
+
+            if ($request->hasFile('profile_photo')) {
+                $rules['profile_photo'] = 'file|image|max:5120'; // 5 MB
+            }
+
+            $validated = $request->validate($rules);
+
+            // Upload image if present
+            if ($request->hasFile('profile_photo')) {
+                $path = $request->file('profile_photo')->store(
+                    'profile_photos/' . $user->id,
+                    's3'
+                );
+                $validated['profile_photo'] = Storage::disk('s3')->url($path);
+            }
+
+            // Update Super Admin
+            $user->update($validated);
+            $user->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Super admin profile updated successfully',
+                'user' => [
+                    'id'         => $user->id,
+                    'firstName' => $user->first_name,
+                    'lastName'  => $user->last_name,
+                    'email'      => $user->email,
+                    'phone'      => $user->phone,
+                    'profilePhoto' => $user->profile_photo,
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profile update failed.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function updateSuperAdminPassword(Request $request): JsonResponse
+    {
+        try {
+            /** @var V4User $user */
+            $user = Auth::guard('v4api')->user();
+
+            if ($user->role !== 'super-admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Only super admin can update password.',
+                ], 403);
+            }
+
+            // Validate input
+            $validated = $request->validate([
+                'current_password'      => 'required|string',
+                'password'              => 'required|string|min:8|confirmed',
+            ]);
+
+            // Check current password
+            if (!Hash::check($validated['current_password'], $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is incorrect.',
+                ], 422);
+            }
+
+            // Update password
+            $user->update([
+                'password' => Hash::make($validated['password']),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully.',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password update failed.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
 }

@@ -293,7 +293,19 @@ Route::prefix('v4')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
 
+
+
         Route::middleware('auth:v4api')->group(function () {
+
+            Route::prefix('profile')->group(function () {
+                Route::put('/', [ProfileController::class, 'updateSuperAdminProfile']);
+            });
+
+            Route::prefix('security')->group(function () {
+                Route::put('/password', [ProfileController::class, 'updateSuperAdminPassword']);
+            });
+
+
             Route::prefix('dashboard')->group(function () {
                 Route::get('user-distribution', [V4DashboardController::class, 'getUserDistribution']);
                 Route::get('total-users', [V4DashboardController::class, 'getTotalUsers']);
