@@ -246,6 +246,8 @@ class V4TeamController extends Controller
                         $validated['profile_photo'] = $profilePhotoUrl;
                     }
                 }
+            } elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
+                $validated['profile_photo'] = null;
             }
 
             // Update team
@@ -429,10 +431,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $team->conversation_id,
-                            'type' => 'group',
-                            'removeParticipants' => $removeIds,
-                        ]);
+                    'conversationId' => $team->conversation_id,
+                    'type' => 'group',
+                    'removeParticipants' => $removeIds,
+                ]);
             }
 
             // Insert addIds
@@ -455,10 +457,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $team->conversation_id,
-                            'type' => 'group',
-                            'addParticipants' => $addIds,
-                        ]);
+                    'conversationId' => $team->conversation_id,
+                    'type' => 'group',
+                    'addParticipants' => $addIds,
+                ]);
             }
 
             DB::commit();
@@ -579,7 +581,7 @@ class V4TeamController extends Controller
     public function getTeamsForProfileById(Request $request, int $userId): JsonResponse
     {
         try {
-            Validator::make(['id' => (int) $userId], [
+            Validator::make(['id' => (int)$userId], [
                 'user_id' => 'required|integer|exists:v4_users,id',
             ]);
 
