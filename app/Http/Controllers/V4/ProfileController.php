@@ -213,7 +213,7 @@ class ProfileController extends Controller
                 );
                 $photoUrl = Storage::disk('s3')->url($path);
                 $validated['profile_photo'] = $photoUrl;
-            }elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '' || $request->input('profile_photo') === ' ')) {
+            }elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
                 $validated['profile_photo'] = null;
             }
 
