@@ -213,7 +213,7 @@ class ProfileController extends Controller
                 );
                 $photoUrl = Storage::disk('s3')->url($path);
                 $validated['profile_photo'] = $photoUrl;
-            }elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
+            } elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
                 $validated['profile_photo'] = null;
             }
 
@@ -1082,8 +1082,7 @@ class ProfileController extends Controller
             'city' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
             'roles' => 'nullable|array',
-            'roles.*' => 'string|max:255'
-
+            'roles.*' => 'string|in:player,team,coach,scout,organizer,parent,fan,academy,adviser,evaluator'
         ]);
 
 
