@@ -213,7 +213,7 @@ class ProfileController extends Controller
                 );
                 $photoUrl = Storage::disk('s3')->url($path);
                 $validated['profile_photo'] = $photoUrl;
-            }elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
+            } elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
                 $validated['profile_photo'] = null;
             }
 
@@ -275,10 +275,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'group',
-                            'participants' => [$user->id],
-                            'name' => $v4Academy->academy_name
-                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name
+                                ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -294,10 +294,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4Academy->academy_name
-                                ]);
+                                            'type' => 'group',
+                                            'participants' => [$user->id],
+                                            'name' => $v4Academy->academy_name
+                                        ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -313,10 +313,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'group',
-                                'participants' => [$user->id],
-                                'name' => $v4Academy->academy_name
-                            ]);
+                                        'type' => 'group',
+                                        'participants' => [$user->id],
+                                        'name' => $v4Academy->academy_name
+                                    ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -357,10 +357,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'group',
-                            'participants' => [$user->id],
-                            'name' => $v4team->team_name
-                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name
+                                ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -375,10 +375,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4team->team_name
-                                ]);
+                                            'type' => 'group',
+                                            'participants' => [$user->id],
+                                            'name' => $v4team->team_name
+                                        ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -395,10 +395,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'group',
-                                'participants' => [$user->id],
-                                'name' => $v4team->team_name
-                            ]);
+                                        'type' => 'group',
+                                        'participants' => [$user->id],
+                                        'name' => $v4team->team_name
+                                    ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
@@ -758,7 +758,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1081,7 +1081,10 @@ class ProfileController extends Controller
             'state' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
+            'roles' => 'nullable|array',
+            'roles.*' => 'string|in:player,team,coach,scout,organizer,parent,fan,academy,adviser,evaluator'
         ]);
+
 
         // Get search parameters
         $searchTerm = $request->input('q', '');
@@ -1090,6 +1093,7 @@ class ProfileController extends Controller
         $state = $request->input('state', null);
         $city = $request->input('city', null);
         $country = $request->input('country', null);
+        $roles = $request->input('roles', []);
 
         // Get current authenticated user
         $currentUser = Auth::guard('v4api')->user();
@@ -1120,6 +1124,10 @@ class ProfileController extends Controller
 
         if (!empty($country)) {
             $query->where('country', 'ilike', "%{$country}%");
+        }
+
+        if (!empty($roles)) {
+            $query->whereIn('role', $roles);
         }
 
         // Execute the query with pagination
@@ -1642,7 +1650,7 @@ class ProfileController extends Controller
                 $parts = explode(' ', $request->fullName, 2);
                 $request->merge([
                     'first_name' => $parts[0] ?? null,
-                    'last_name'  => $parts[1] ?? null,
+                    'last_name' => $parts[1] ?? null,
                 ]);
             }
 
@@ -1651,19 +1659,19 @@ class ProfileController extends Controller
                 $basic = $request->basicInfo;
 
                 $request->merge([
-                    'email'         => $basic['email'] ?? null,
-                    'phone'         => $basic['phone'] ?? null,
-                    'country'       => $basic['country'] ?? null,
-                    'state'         => $basic['province'] ?? null,
-                    'city'          => $basic['city'] ?? null,
+                    'email' => $basic['email'] ?? null,
+                    'phone' => $basic['phone'] ?? null,
+                    'country' => $basic['country'] ?? null,
+                    'state' => $basic['province'] ?? null,
+                    'city' => $basic['city'] ?? null,
                     'date_of_birth' => $basic['dateOfBirth'] ?? null,
 
                     'handedness' => $basic['handedness'] ?? null,
-                    'weight'     => $basic['weight'] ?? null,
-                    'height'     => $basic['height'] ?? null,
-                    'position'   => $basic['position'] ?? null,
+                    'weight' => $basic['weight'] ?? null,
+                    'height' => $basic['height'] ?? null,
+                    'position' => $basic['position'] ?? null,
 
-                    'teams'   => isset($basic['team']) ? [$basic['team']] : null,
+                    'teams' => isset($basic['team']) ? [$basic['team']] : null,
                     'leagues' => isset($basic['league']) ? [$basic['league']] : null,
                 ]);
 
@@ -1672,21 +1680,21 @@ class ProfileController extends Controller
                     $adminParts = explode(' ', $basic['administratorFullName'] ?? '', 2);
 
                     $request->merge([
-                        'phone'   => $basic['organizationPhone'] ?? null,
+                        'phone' => $basic['organizationPhone'] ?? null,
                         'country' => $basic['teamCountry'] ?? null,
-                        'state'   => $basic['state'] ?? $basic['province'] ?? null,
-                        'city'    => $basic['teamCity'] ?? null,
-                        'zip'     => $basic['teamZipPostalCode'] ?? null,
+                        'state' => $basic['state'] ?? $basic['province'] ?? null,
+                        'city' => $basic['teamCity'] ?? null,
+                        'zip' => $basic['teamZipPostalCode'] ?? null,
 
-                        'team_name'                => $basic['teamName'] ?? null,
+                        'team_name' => $basic['teamName'] ?? null,
                         'administrator_first_name' => $adminParts[0] ?? null,
-                        'administrator_last_name'  => $adminParts[1] ?? null,
-                        'website'                  => $basic['teamWebsite'] ?? null,
-                        'address'                  => $basic['teamAddress'] ?? null,
-                        'team_years_running'       => isset($basic['yearsRunning'])
-                            ? (int)$basic['yearsRunning']
+                        'administrator_last_name' => $adminParts[1] ?? null,
+                        'website' => $basic['teamWebsite'] ?? null,
+                        'address' => $basic['teamAddress'] ?? null,
+                        'team_years_running' => isset($basic['yearsRunning'])
+                            ? (int) $basic['yearsRunning']
                             : null,
-                        'leagues'                  => [$basic['league'] ?? null],
+                        'leagues' => [$basic['league'] ?? null],
                     ]);
                 }
                 if ($user->role === 'academy') {
@@ -1694,42 +1702,42 @@ class ProfileController extends Controller
                     // Administrator full name (academy owner/director)
 
                     $request->merge([
-                        'academy_name'             => $basic['academyName'] ?? null,
+                        'academy_name' => $basic['academyName'] ?? null,
                         'administrator_first_name' => $adminParts[0] ?? null,
-                        'administrator_last_name'  => $adminParts[1] ?? null,
+                        'administrator_last_name' => $adminParts[1] ?? null,
 
                         // academy contact
-                        'phone'        => $basic['phone'] ?? null,
-                        'address'      => $basic['address'] ?? null,
-                        'city'         => $basic['city'] ?? null,
-                        'state'        => $basic['province'] ?? null,
-                        'country'      => $basic['country'] ?? null,
+                        'phone' => $basic['phone'] ?? null,
+                        'address' => $basic['address'] ?? null,
+                        'city' => $basic['city'] ?? null,
+                        'state' => $basic['province'] ?? null,
+                        'country' => $basic['country'] ?? null,
 
                         // leagues array
-                        'leagues'      => !empty($basic['leagues']) ? $basic['leagues'] : [],
+                        'leagues' => !empty($basic['leagues']) ? $basic['leagues'] : [],
 
                         // founded → academy_years_running
                         'academy_years_running' =>
-                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                            !empty($basic['founded']) ? (int) $basic['founded'] : null,
                     ]);
                 }
             }
 
             $rules = [
-                'team_id'    => 'nullable|exists:v4_teams,id',
+                'team_id' => 'nullable|exists:v4_teams,id',
                 'academy_id' => 'nullable|exists:v4_academies,id',
                 'first_name' => 'nullable|string|max:255',
-                'last_name'  => 'nullable|string|max:255',
-                'email'      => 'nullable|email',
-                'phone'      => 'nullable|string|max:20',
-                'country'    => 'nullable|string|max:100',
-                'state'      => 'nullable|string|max:100',
-                'city'       => 'nullable|string|max:100',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email',
+                'phone' => 'nullable|string|max:20',
+                'country' => 'nullable|string|max:100',
+                'state' => 'nullable|string|max:100',
+                'city' => 'nullable|string|max:100',
                 'date_of_birth' => 'nullable|date',
-                'zip'        => 'nullable|string|max:20',
+                'zip' => 'nullable|string|max:20',
 
                 'enable_private_account' => 'nullable|boolean',
-                'receive_news_offers'    => 'nullable|boolean',
+                'receive_news_offers' => 'nullable|boolean',
             ];
 
             if ($request->hasFile('profile_photo')) {
@@ -1750,13 +1758,13 @@ class ProfileController extends Controller
 
                 case 'player':
                     $playerValidated = $request->validate([
-                        'teams'      => 'nullable|array',
-                        'leagues'    => 'nullable|array',
+                        'teams' => 'nullable|array',
+                        'leagues' => 'nullable|array',
                         'handedness' => 'nullable|in:left,right,ambidextrous',
-                        'weight'     => 'nullable|numeric',
-                        'height'     => 'nullable|numeric',
-                        'position'   => 'nullable|string|max:100',
-                        'gender'     => 'nullable|in:male,female,other',
+                        'weight' => 'nullable|numeric',
+                        'height' => 'nullable|numeric',
+                        'position' => 'nullable|string|max:100',
+                        'gender' => 'nullable|in:male,female,other',
                     ]);
 
                     $user->playerProfile()->updateOrCreate(
@@ -1770,7 +1778,7 @@ class ProfileController extends Controller
                 case 'coach':
                     $coachValidated = $request->validate([
                         'leagues' => 'nullable|array',
-                        'teams'   => 'nullable|array',
+                        'teams' => 'nullable|array',
                     ]);
                     $user->coachProfile()->updateOrCreate([], $coachValidated);
                     $user->load('coachProfile');
@@ -1778,13 +1786,13 @@ class ProfileController extends Controller
 
                 case 'team':
                     $teamData = $request->validate([
-                        'team_name'                => 'nullable|string|max:255',
+                        'team_name' => 'nullable|string|max:255',
                         'administrator_first_name' => 'nullable|string|max:255',
-                        'administrator_last_name'  => 'nullable|string|max:255',
-                        'leagues'                  => 'nullable|array',
-                        'website'                  => 'nullable|string|max:255',
-                        'address'                  => 'nullable|string|max:255',
-                        'team_years_running'       => 'nullable|integer',
+                        'administrator_last_name' => 'nullable|string|max:255',
+                        'leagues' => 'nullable|array',
+                        'website' => 'nullable|string|max:255',
+                        'address' => 'nullable|string|max:255',
+                        'team_years_running' => 'nullable|integer',
                     ]);
 
                     if (!empty($validated['phone'])) {
@@ -2500,7 +2508,7 @@ class ProfileController extends Controller
                     'playerName' => $assignment->submission->player->name,
                     'playerPosition' => $assignment->submission->player->playerProfile->position,
                     'evaluationDate' => Carbon::parse($assignment->created_at)->format('d-m-Y'),
-                    'overallRating' =>  $overallRating ?? null,
+                    'overallRating' => $overallRating ?? null,
                     'status' => $assignment->status,
                     'category' => $assignment->submission->paymentRequest->inAppPurchase->marketplaceItem->title
                 ];
@@ -3407,9 +3415,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$user->id, $favId],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$user->id, $favId],
+                            ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
@@ -3502,9 +3510,9 @@ class ProfileController extends Controller
             // Validation rules
             $rules = [
                 'first_name' => 'nullable|string|max:255',
-                'last_name'  => 'nullable|string|max:255',
-                'email'      => 'nullable|email',
-                'phone'      => 'nullable|string|max:20',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email',
+                'phone' => 'nullable|string|max:20',
             ];
 
             if ($request->hasFile('profile_photo')) {
@@ -3530,11 +3538,11 @@ class ProfileController extends Controller
                 'success' => true,
                 'message' => 'Super admin profile updated successfully',
                 'user' => [
-                    'id'         => $user->id,
+                    'id' => $user->id,
                     'firstName' => $user->first_name,
-                    'lastName'  => $user->last_name,
-                    'email'      => $user->email,
-                    'phone'      => $user->phone,
+                    'lastName' => $user->last_name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
                     'profilePhoto' => $user->profile_photo,
                 ],
             ]);
@@ -3548,7 +3556,7 @@ class ProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Profile update failed.',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -3568,8 +3576,8 @@ class ProfileController extends Controller
 
             // Validate input
             $validated = $request->validate([
-                'current_password'      => 'required|string',
-                'password'              => 'required|string|min:8|confirmed',
+                'current_password' => 'required|string',
+                'password' => 'required|string|min:8|confirmed',
             ]);
 
             // Check current password
