@@ -2998,9 +2998,7 @@ class V4EvaluationController extends Controller
                     } else {
                         $result['status'] = $submission['status'];
                     }
-                }
-
-                if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                     if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
                         $result['status'] =  $submission['status'];
                     }
@@ -3012,6 +3010,17 @@ class V4EvaluationController extends Controller
                     }
                 } else if ($result['type'] == MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO) {
                     $result['status'] = $submission['status'];
+                } else if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                    if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
+                        $result['status'] = 'pending_assignment';
+                    } else {
+                        $result['status'] =  $submission['status'];
+                    }
+                }
+
+                // Add completed date if the status is 'completed'
+                if ($submission->status === 'completed') {
+                    $result['completedDate'] = $submission->updated_at;
                 }
 
                 return $result;
@@ -3164,10 +3173,7 @@ class V4EvaluationController extends Controller
                 } else {
                     $result['status'] = $submission['status'];
                 }
-            }
-
-            // Add completed date if the status is 'completed'
-            if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+            } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                 if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
                     $result['status'] =  $submission['status'];
                 }
@@ -3179,6 +3185,17 @@ class V4EvaluationController extends Controller
                 }
             } else if ($result['type'] == MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO) {
                 $result['status'] = $submission['status'];
+            } else if ($result['type'] == MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION) {
+                if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
+                    $result['status'] = 'pending_assignment';
+                } else {
+                    $result['status'] =  $submission['status'];
+                }
+            }
+
+            // Add completed date if the status is 'completed'
+            if ($submission->status === 'completed') {
+                $result['completedDate'] = $submission->updated_at;
             }
 
             return response()->json([
