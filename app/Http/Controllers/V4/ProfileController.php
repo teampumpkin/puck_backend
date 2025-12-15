@@ -1102,6 +1102,7 @@ class ProfileController extends Controller
         $query = V4User::query()
             ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo', 'email', 'phone'])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
+            ->where('is_onboarded', true)
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
 
         // Apply search filter if search term is provided
