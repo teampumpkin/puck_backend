@@ -10,7 +10,6 @@ class V4Follow extends Model
 {
     use HasFactory, SoftDeletes;
 
-
     protected $fillable = [
         'follower_id',
         'following_id',
@@ -28,21 +27,22 @@ class V4Follow extends Model
         'deleted_at',
     ];
 
-
     /**
      * User who sent the follow request.
      */
     public function follower()
     {
-        return $this->belongsTo(V4User::class, 'follower_id');
+        return $this->belongsTo(V4User::class, 'follower_id')
+            ->withTrashed();
     }
 
     /**
-     * User who is being following.
+     * User who is being followed.
      */
     public function following()
     {
-        return $this->belongsTo(V4User::class, 'following_id');
+        return $this->belongsTo(V4User::class, 'following_id')
+            ->withTrashed();
     }
 
     public function notifications()
