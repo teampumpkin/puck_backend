@@ -585,10 +585,10 @@ class V4TeamController extends Controller
                 'user_id' => 'required|integer|exists:v4_users,id',
             ]);
 
-            $user = V4User::findOrFail($userId);
+            $user = V4User::with(['academyProfile'])->findOrFail($userId);
             if ($user->role == 'player' || $user->role == 'scout' || $user->role == 'coach' || $user->role == 'adviser') {
 
-                $teams = V4Team::with(['members', 'academy.members', 'academy.admins'])
+                $teams = V4Team::with(['members', 'academy.members'])
                     ->whereHas('members', function ($query) use ($user) {
                         $query->where('player_id', $user->id);
                     })
@@ -603,10 +603,8 @@ class V4TeamController extends Controller
                     'data' => $teams
                 ]);
             } else if ($user->role == 'academy') {
-                $teams = V4Team::with(['members', 'academy.members', 'academy.admins'])
-                    ->whereHas('academy.admins', function ($query) use ($user) {
-                        $query->where('admin_id', $user->id);
-                    })
+                $teams = V4Team::with(['members', 'academy.members'])
+                    ->where('academy_id', $user->academyProfile->academy->id)
                     ->get();
 
                 return response()->json([
@@ -660,7 +658,6 @@ class V4TeamController extends Controller
                 'message' => 'Fetched team admins successfully',
                 'data' => $admins,
             ]);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -695,7 +692,6 @@ class V4TeamController extends Controller
                 'message' => 'Fetched team admin successfully',
                 'data' => $admin
             ], 200);
-
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
@@ -754,7 +750,6 @@ class V4TeamController extends Controller
                 'message' => 'Team admin created successfully',
                 'data' => $admin
             ], 201);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -807,7 +802,6 @@ class V4TeamController extends Controller
                 'message' => 'Team admin updated successfully',
                 'data' => $admin
             ], 200);
-
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
@@ -848,7 +842,6 @@ class V4TeamController extends Controller
                 'success' => true,
                 'message' => 'Team admin deleted successfully',
             ], 200);
-
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
