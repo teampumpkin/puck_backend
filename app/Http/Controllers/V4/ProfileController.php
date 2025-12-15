@@ -2034,10 +2034,10 @@ class ProfileController extends Controller
             }
 
             if ($authUser->role === 'academy') {
-                $userData['academy_teams_member'] = V4Academy::adminAcademiesTeamsWithMember($authUser->id, $user->id);
-                $userData['academy_members'] = V4Academy::adminAcademiesMembers($authUser->id, $user->id);
+                $authUser->load('academyProfile.academy.teams');
+                $userData['academy_teams_member'] = $authUser->academyProfile->academy->adminAcademiesTeamsWithMember($user->id);
+                $userData['academy_members'] = $authUser->academyProfile->academy->adminAcademiesMembers($user->id);
             }
-
 
             return response()->json([
                 'success' => true,
