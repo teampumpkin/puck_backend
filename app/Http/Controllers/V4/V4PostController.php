@@ -44,7 +44,7 @@ class V4PostController extends Controller
                 'media.*.file' => [
                     'required',
                     'file',
-                    'max:10240', // 10MB
+                    'max:102400', // 100MB
                     function ($attribute, $value, $fail) use ($request) {
                         $index = explode('.', $attribute)[1];
                         $type  = $request->input("media.$index.type");
