@@ -46,6 +46,11 @@ class V4Academy extends Model
         return $this->hasMany(V4AcademyAdmin::class, 'academy_id');
     }
 
+    public function teams()
+    {
+        return $this->hasMany(V4Team::class, 'academy_id');
+    }
+
     public function isMember($userId): bool
     {
         return $this->members()

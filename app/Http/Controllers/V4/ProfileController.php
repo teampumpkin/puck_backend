@@ -275,10 +275,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4Academy->academy_name
-                                ]);
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4Academy->academy_name
+                        ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -294,10 +294,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                            'type' => 'group',
-                                            'participants' => [$user->id],
-                                            'name' => $v4Academy->academy_name
-                                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name
+                                ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -313,10 +313,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                        'type' => 'group',
-                                        'participants' => [$user->id],
-                                        'name' => $v4Academy->academy_name
-                                    ]);
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4Academy->academy_name
+                            ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -357,10 +357,10 @@ class ProfileController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4team->team_name
-                                ]);
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4team->team_name
+                        ]);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -375,10 +375,10 @@ class ProfileController extends Controller
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
                                 ])->post($baseUrl . '/conversation/create', [
-                                            'type' => 'group',
-                                            'participants' => [$user->id],
-                                            'name' => $v4team->team_name
-                                        ]);
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name
+                                ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -395,10 +395,10 @@ class ProfileController extends Controller
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
                             ])->post($baseUrl . '/conversation/create', [
-                                        'type' => 'group',
-                                        'participants' => [$user->id],
-                                        'name' => $v4team->team_name
-                                    ]);
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4team->team_name
+                            ]);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
@@ -758,7 +758,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1718,7 +1718,7 @@ class ProfileController extends Controller
 
                         // founded → academy_years_running
                         'academy_years_running' =>
-                            !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
                     ]);
                 }
             }
@@ -1972,7 +1972,7 @@ class ProfileController extends Controller
                     $profileData = $user->scoutProfile;
                     break;
                 case 'academy':
-                    $user->load('academyProfile.academy');
+                    $user->load('academyProfile.academy.teams');
                     $profileData = $user->academyProfile;
                     break;
                 case 'organizer':
@@ -3415,9 +3415,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [$user->id, $favId],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [$user->id, $favId],
+                    ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
