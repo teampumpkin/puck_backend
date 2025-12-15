@@ -2954,6 +2954,12 @@ class V4EvaluationController extends Controller
                                 'consultationTime' => $version->consultation_time ?? '',
                                 'mentorshipWeekday' => $version->mentorship_weekday ?? '',
                             ];
+                        } else if ($result['type'] == MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO) {
+                            $fileMeta = $version->file_meta;
+                            return [
+                                'type' => 'portfolio',
+                                'id' => $version->id,
+                            ];
                         } else {
                             $fileMeta = $version->file_meta;
                             return [
@@ -2984,16 +2990,28 @@ class V4EvaluationController extends Controller
                         ];
                         $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
                         $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
-                        $result['status'] = $latestConsultationRequest->status;
+                        if ($latestConsultationRequest->status == V4ConsultationRequest::STATUS_PENDING) {
+                            $result['status'] =  'request_' . $latestConsultationRequest->status;
+                        } else {
+                            $result['status'] = $latestConsultationRequest->status;
+                        }
                     } else {
-                        $result['status'] = 'pending_assignment';
+                        $result['status'] = $submission['status'];
                     }
-                } else {
-                    $result['status'] = 'pending_assignment';
                 }
 
-                if ($submission['status'] === 'completed') {
-                    $result['completedDate'] = $submission->updated_at;
+                if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                    if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
+                        $result['status'] =  $submission['status'];
+                    }
+                } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                    if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
+                        $result['status'] =  $submission['status'];
+                    } else if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
+                        $result['status'] = 'pending_assignment';
+                    }
+                } else if ($result['type'] == MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO) {
+                    $result['status'] = $submission['status'];
                 }
 
                 return $result;
@@ -3101,6 +3119,12 @@ class V4EvaluationController extends Controller
                             'consultationTime' => $version->consultation_time ?? '',
                             'mentorshipWeekday' => $version->mentorship_weekday ?? '',
                         ];
+                    } else if ($result['type'] == MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO) {
+                        $fileMeta = $version->file_meta;
+                        return [
+                            'type' => 'portfolio',
+                            'id' => $version->id,
+                        ];
                     } else {
                         $fileMeta = $version->file_meta;
                         return [
@@ -3132,18 +3156,29 @@ class V4EvaluationController extends Controller
                     ];
                     $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
                     $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
-                    $result['status'] = $latestConsultationRequest->status;
+                    if ($latestConsultationRequest->status == V4ConsultationRequest::STATUS_PENDING) {
+                        $result['status'] =  'request_' . $latestConsultationRequest->status;
+                    } else {
+                        $result['status'] = $latestConsultationRequest->status;
+                    }
                 } else {
-                    $result['status'] = 'pending_assignment';
+                    $result['status'] = $submission['status'];
                 }
-            } else {
-                $result['status'] = 'pending_assignment';
             }
 
-
             // Add completed date if the status is 'completed'
-            if ($submission->status === 'completed') {
-                $result['completedDate'] = $submission->updated_at;
+            if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
+                if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
+                    $result['status'] =  $submission['status'];
+                }
+            } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
+                if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
+                    $result['status'] =  $submission['status'];
+                } else if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
+                    $result['status'] = 'pending_assignment';
+                }
+            } else if ($result['type'] == MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO) {
+                $result['status'] = $submission['status'];
             }
 
             return response()->json([
@@ -3403,12 +3438,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    $authUser->id,
-                                    $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            $authUser->id,
+                            $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -4131,12 +4166,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        $consultationRequest->submission->player_id,
-                                        $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                $consultationRequest->submission->player_id,
+                                $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4412,12 +4447,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        $mentorshipRequest->submission->player_id,
-                                        $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                $mentorshipRequest->submission->player_id,
+                                $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -7032,7 +7067,6 @@ class V4EvaluationController extends Controller
                     'videos' => $media,
                 ],
             ], 200);
-
         } catch (Exception $e) {
             Log::error('Error fetching player hockey portfolio: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Failed to fetch portfolio'], 500);
