@@ -30,7 +30,6 @@ class V4TeamController extends Controller
     public function createTeam(Request $request)
     {
         try {
-
             $user = Auth::guard('v4api')->user();
 
             $validated = $request->validate([
@@ -53,84 +52,98 @@ class V4TeamController extends Controller
 
             $academyId = $validated['academy_id'] ?? null;
 
-            $academy = null;
-
             if ($academyId) {
-                $academy = V4Academy::where('id', $academyId)->first();
-
+                $academy = V4Academy::find($academyId);
                 if (!$academy) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Academy not found',
                     ], 400);
                 }
-            }
-
-            if ($academy) {
                 $validated['academy_id'] = $academy->id;
             }
 
             $profilePhotoUrl = null;
-
             if ($request->hasFile('profile_photo')) {
                 $file = $request->file('profile_photo');
-
                 if ($file->isValid()) {
-
                     $mimeType = $file->getClientMimeType();
-
-                    // Only allow images
                     if (str_starts_with($mimeType, 'image/')) {
-
                         $filename = 'team_profile_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-                        // Store in S3 -> folder teams/{teamId}/
                         $path = $file->storeAs(
                             'teams/' . ($teamId ?? 'temp'),
                             $filename,
                             's3'
                         );
-
-                        // URL to save in DB
                         $profilePhotoUrl = Storage::disk('s3')->url($path);
                     }
                 }
             }
+
             $validated['profile_photo'] = $profilePhotoUrl;
 
             DB::beginTransaction();
+
             try {
                 // Create team
                 $team = V4Team::create($validated);
+
+                $conversationId = null;
+                if ($team) {
+                    $requestData = [
+                        'type' => 'group',
+                        'participants' => [$user->id],
+                        'name' => $team->team_name,
+                    ];
+                    if ($profilePhotoUrl) {
+                        $requestData['groupImage'] = $profilePhotoUrl;
+                    }
+
+                    $response = Http::withHeaders(['Authorization' => 'Bearer ' . $request->bearerToken()])
+                        ->post(config('CHAT_APP_HOST') . '/conversation/create', $requestData);
+
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    }
+                }
+
+                $team->update(['conversation_id' => $conversationId]);
+
                 V4TeamAdmin::create([
                     'team_id' => $team->id,
                     'admin_id' => $user->id,
                 ]);
 
                 DB::commit();
+                $team->refresh();
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Team created successfully',
-                    'team' => $team
+                    'team' => $team,
                 ]);
             } catch (Exception $e) {
                 DB::rollBack();
-                // Optionally delete uploaded file from S3 if DB transaction fails
-                Storage::disk('s3')->delete($profilePhotoUrl);
-                throw $e;
+                if ($profilePhotoUrl) {
+                    Storage::disk('s3')->delete($profilePhotoUrl);
+                }
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Team creation failed',
+                    'error' => config('app.debug') ? $e->getMessage() : null,
+                ], 500);
             }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Team creation failed',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -145,7 +158,7 @@ class V4TeamController extends Controller
         if (!$team) {
             return response()->json([
                 'success' => false,
-                'message' => 'Team not found'
+                'message' => 'Team not found',
             ], 404);
         }
 
@@ -201,74 +214,77 @@ class V4TeamController extends Controller
             }
 
             $academyId = $validated['academy_id'] ?? null;
-
-            $academy = null;
-
             if ($academyId) {
-                $academy = V4User::where('id', $academyId)
-                    ->where('role', 'academy')
-                    ->first();
-
+                $academy = V4Academy::find($academyId);
                 if (!$academy) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Academy not found',
-                    ], 400);
+                    return response()->json(['success' => false, 'message' => 'Academy not found'], 400);
                 }
-            }
-
-
-            if ($academy) {
                 $validated['academy_id'] = $academy->id;
             }
 
             if ($request->hasFile('profile_photo')) {
                 $file = $request->file('profile_photo');
-
                 if ($file->isValid()) {
-
                     $mimeType = $file->getClientMimeType();
-
-                    // Only allow images
                     if (str_starts_with($mimeType, 'image/')) {
-
                         $filename = 'team_profile_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-                        // Store in S3 -> folder teams/{teamId}/
                         $path = $file->storeAs(
-                            'teams/' . ($teamId ?? 'temp'),
+                            'teams/' . $teamId,
                             $filename,
                             's3'
                         );
-
-                        // URL to save in DB
-                        $profilePhotoUrl = Storage::disk('s3')->url($path);
-                        $validated['profile_photo'] = $profilePhotoUrl;
+                        $validated['profile_photo'] = Storage::disk('s3')->url($path);
                     }
                 }
-            } elseif ($request->has('profile_photo') && ($request->input('profile_photo') === null || $request->input('profile_photo') === '')) {
-                $validated['profile_photo'] = null;
             }
 
             // Update team
-            $team->update($validated);
+            DB::beginTransaction();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Team updated successfully',
-                'team' => $team
-            ]);
+            try {
+                // Update team record
+                $team->update($validated);
+
+                // Update conversation image if profile photo is updated
+                if ($team->conversation_id && isset($validated['profile_photo'])) {
+                    $requestData = [
+                        'conversationId' => $team->conversation_id,
+                        'type' => 'group',
+                        'name' => $team->team_name,
+                        'groupImage' => $validated['profile_photo'],
+                    ];
+
+                    $response = Http::withHeaders(['Authorization' => 'Bearer ' . $request->bearerToken()])
+                        ->post(config('CHAT_APP_HOST') . '/conversation/update', $requestData);
+                }
+
+                DB::commit();
+                $team->refresh();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Team updated successfully',
+                    'team' => $team,
+                ]);
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update team',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Team update failed',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
