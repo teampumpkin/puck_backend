@@ -271,14 +271,19 @@ class ProfileController extends Controller
                         $v4Academy = V4Academy::create($academyValidated);
                         $token = $request->bearerToken();
                         $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $requestData = [
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4Academy->academy_name,
+                        ];
+
+                        if (!empty($validated['profile_photo'])) {
+                            $requestData['groupImage'] = $validated['profile_photo'];
+                        }
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
-                        ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'group',
-                            'participants' => [$user->id],
-                            'name' => $v4Academy->academy_name
-                        ]);
+                        ])->post($baseUrl . '/conversation/create', $requestData);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4Academy->update(['conversation_id' => $conversationId]);
@@ -286,20 +291,45 @@ class ProfileController extends Controller
                     } else {
                         $v4Academy = V4Academy::find($validated['academy_id']);
                         if ($v4Academy) {
+                            $token = $request->bearerToken();
+                            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                             if ($v4Academy->conversation_id == null) {
-                                $token = $request->bearerToken();
-                                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                                $requestData = [
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4Academy->academy_name,
+                                ];
+
+                                if (!empty($validated['profile_photo'])) {
+                                    $requestData['groupImage'] = $validated['profile_photo'];
+                                }
+
                                 $response = Http::withHeaders([
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
-                                ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4Academy->academy_name
-                                ]);
+                                ])->post($baseUrl . '/conversation/create', $requestData);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $academyValidated['conversation_id'] = $conversationId;
+                                }
+                            } else {
+                                $conversationId =  $v4Academy->conversation_id;
+                                $requestData = [
+                                    'conversationId' => $conversationId,
+                                    'type' => 'group',
+                                    'name' => $v4Academy->academy_name,
+                                ];
+                                if (!empty($validated['profile_photo'])) {
+                                    $requestData['groupImage'] = $validated['profile_photo'];
+                                }
+                                $response = Http::withHeaders([
+                                    'Authorization' => 'Bearer ' . $token,
+                                    'Content-Type' => 'application/json',
+                                ])->put($baseUrl . '/conversation/update',  $requestData);
+                                // Check if the update was successful
+                                if ($response->successful() && isset($response->json()['_id'])) {
+                                    $updatedConversationId = $response->json()['_id'];  // Assuming the updated conversation ID is returned
+                                    $academyValidated['conversation_id'] = $updatedConversationId;
                                 }
                             }
                             $v4Academy->update($academyValidated);
@@ -308,14 +338,18 @@ class ProfileController extends Controller
                             $v4Academy = V4Academy::create($academyValidated);
                             $token = $request->bearerToken();
                             $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                            $requestData = [
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4Academy->academy_name,
+                            ];
+                            if (!empty($validated['profile_photo'])) {
+                                $requestData['groupImage'] = $validated['profile_photo'];
+                            }
                             $response = Http::withHeaders([
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
-                            ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'group',
-                                'participants' => [$user->id],
-                                'name' => $v4Academy->academy_name
-                            ]);
+                            ])->post($baseUrl . '/conversation/create', $requestData);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4Academy->update(['conversation_id' => $conversationId]);
@@ -352,14 +386,18 @@ class ProfileController extends Controller
                         $v4team = V4Team::create($teamValidated);
                         $token = $request->bearerToken();
                         $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $requestData = [
+                            'type' => 'group',
+                            'participants' => [$user->id],
+                            'name' => $v4team->team_name,
+                        ];
+                        if (!empty($validated['profile_photo'])) {
+                            $requestData['groupImage'] = $validated['profile_photo'];
+                        }
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
-                        ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'group',
-                            'participants' => [$user->id],
-                            'name' => $v4team->team_name
-                        ]);
+                        ])->post($baseUrl . '/conversation/create', $requestData);
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
                             $v4team->update(['conversation_id' => $conversationId]);
@@ -367,17 +405,40 @@ class ProfileController extends Controller
                     } else {
                         $v4team = V4Team::find($teamId);
                         if ($v4team) {
+                            $token = $request->bearerToken();
+                            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+
                             if ($v4team->conversation_id == null) {
-                                $token = $request->bearerToken();
-                                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                                $requestData = [
+                                    'type' => 'group',
+                                    'participants' => [$user->id],
+                                    'name' => $v4team->team_name,
+                                ];
+                                if (!empty($validated['profile_photo'])) {
+                                    $requestData['groupImage'] = $validated['profile_photo'];
+                                }
                                 $response = Http::withHeaders([
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
-                                ])->post($baseUrl . '/conversation/create', [
+                                ])->post($baseUrl . '/conversation/create', $requestData);
+                                if ($response->successful() && isset($response->json()['_id'])) {
+                                    $conversationId = $response->json()['_id'];
+                                    $teamValidated['conversation_id'] = $conversationId;
+                                }
+                            } else {
+                                $conversationId = $v4team->conversation_id;
+                                $requestData = [
+                                    'conversationId' => $conversationId,
                                     'type' => 'group',
-                                    'participants' => [$user->id],
-                                    'name' => $v4team->team_name
-                                ]);
+                                    'name' => $v4team->team_name,
+                                ];
+                                if (!empty($validated['profile_photo'])) {
+                                    $requestData['groupImage'] = $validated['profile_photo'];
+                                }
+                                $response = Http::withHeaders([
+                                    'Authorization' => 'Bearer ' . $token,
+                                    'Content-Type' => 'application/json',
+                                ])->post($baseUrl . '/conversation/update', $requestData);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
                                     $teamValidated['conversation_id'] = $conversationId;
@@ -390,14 +451,18 @@ class ProfileController extends Controller
 
                             $token = $request->bearerToken();
                             $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                            $requestData = [
+                                'type' => 'group',
+                                'participants' => [$user->id],
+                                'name' => $v4team->team_name,
+                            ];
+                            if (!empty($validated['profile_photo'])) {
+                                $requestData['groupImage'] = $validated['profile_photo'];
+                            }
                             $response = Http::withHeaders([
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type' => 'application/json',
-                            ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'group',
-                                'participants' => [$user->id],
-                                'name' => $v4team->team_name
-                            ]);
+                            ])->post($baseUrl . '/conversation/create', $requestData);
                             if ($response->successful() && isset($response->json()['_id'])) {
                                 $conversationId = $response->json()['_id'];
                                 $v4team->update(['conversation_id' => $conversationId]);
