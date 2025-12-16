@@ -285,9 +285,8 @@ class ProfileController extends Controller
                         }
                     } else {
                         $v4Academy = V4Academy::find($validated['academy_id']);
-
                         if ($v4Academy) {
-                            if ($v4Academy->conversation_id != null) {
+                            if ($v4Academy->conversation_id == null) {
                                 $token = $request->bearerToken();
                                 $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                                 $response = Http::withHeaders([
@@ -300,7 +299,7 @@ class ProfileController extends Controller
                                 ]);
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $conversationId = $response->json()['_id'];
-                                    $teamValidated['conversation_id'] = $conversationId;
+                                    $academyValidated['conversation_id'] = $conversationId;
                                 }
                             }
                             $v4Academy->update($academyValidated);
@@ -368,7 +367,7 @@ class ProfileController extends Controller
                     } else {
                         $v4team = V4Team::find($teamId);
                         if ($v4team) {
-                            if ($v4team->conversation_id != null) {
+                            if ($v4team->conversation_id == null) {
                                 $token = $request->bearerToken();
                                 $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
                                 $response = Http::withHeaders([
