@@ -1149,7 +1149,6 @@ class ProfileController extends Controller
             'roles.*' => 'string|in:player,team,coach,scout,organizer,parent,fan,academy,adviser,evaluator'
         ]);
 
-
         // Get search parameters
         $searchTerm = $request->input('q', '');
         $page = $request->input('page', 1);
@@ -1181,7 +1180,21 @@ class ProfileController extends Controller
                 $q->where('first_name', 'ilike', "%{$searchTerm}%")
                     ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
                     ->orWhere('email', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('phone', 'ilike', "%{$searchTerm}%");
+                    ->orWhere('phone', 'ilike', "%{$searchTerm}%")
+                    ->orWhereHas('teamProfile.team', function ($teamQuery) use ($searchTerm) {
+                        $teamQuery->where('team_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('administrator_first_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('administrator_last_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('phone', 'ilike', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('academyProfile.academy', function ($academyQuery) use ($searchTerm) {
+                        $academyQuery->where('academy_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('administrator_first_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('administrator_last_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('phone', 'ilike', "%{$searchTerm}%");
+                    });
             });
         }
 
@@ -1218,6 +1231,7 @@ class ProfileController extends Controller
             ],
         ]);
     }
+
 
     public function getProfileBatchData(Request $request)
     {
