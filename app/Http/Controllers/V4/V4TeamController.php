@@ -98,10 +98,12 @@ class V4TeamController extends Controller
                     if ($profilePhotoUrl) {
                         $requestData['groupImage'] = $profilePhotoUrl;
                     }
-
-                    $response = Http::withHeaders(['Authorization' => 'Bearer ' . $request->bearerToken()])
-                        ->post(config('CHAT_APP_HOST') . '/conversation/create', $requestData);
-
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $request->bearerToken(),
+                        'Content-Type' => 'application/json',
+                    ])
+                        ->post($baseUrl . '/conversation/create', $requestData);
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
                     }
@@ -153,6 +155,7 @@ class V4TeamController extends Controller
      */
     public function updateTeam(Request $request, $teamId)
     {
+        $user = Auth::guard('v4api')->user();
         $team = V4Team::find($teamId);
 
         if (!$team) {
@@ -246,16 +249,44 @@ class V4TeamController extends Controller
                 $team->update($validated);
 
                 // Update conversation image if profile photo is updated
-                if ($team->conversation_id && isset($validated['profile_photo'])) {
+                if ($team->conversation_id) {
                     $requestData = [
                         'conversationId' => $team->conversation_id,
                         'type' => 'group',
                         'name' => $team->team_name,
-                        'groupImage' => $validated['profile_photo'],
                     ];
+                    if (!empty($validated['profile_photo'])) {
+                        $requestData['groupImage'] = $validated['profile_photo'];
+                    }
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $request->bearerToken(),
+                        'Content-Type' => 'application/json',
+                    ])
+                        ->post($baseUrl . '/conversation/update', $requestData);
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    }
+                } else {
+                    $requestData = [
+                        'type' => 'group',
+                        'participants' => [$user->id],
+                        'name' => $team->team_name,
+                    ];
+                    if (!empty($validated['profile_photo'])) {
+                        $requestData['groupImage'] = $validated['profile_photo'];
+                    }
+                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $request->bearerToken(),
+                        'Content-Type' => 'application/json',
+                    ])
+                        ->post($baseUrl . '/conversation/create', $requestData);
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        $conversationId = $response->json()['_id'];
+                    }
 
-                    $response = Http::withHeaders(['Authorization' => 'Bearer ' . $request->bearerToken()])
-                        ->post(config('CHAT_APP_HOST') . '/conversation/update', $requestData);
+                    $team->update(['conversation_id' => $conversationId]);
                 }
 
                 DB::commit();
@@ -267,6 +298,10 @@ class V4TeamController extends Controller
                     'team' => $team,
                 ]);
             } catch (Exception $e) {
+
+                Log::error('Failed to update team', [
+                    'error' => $e->getMessage(),
+                ]);
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
