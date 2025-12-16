@@ -1101,6 +1101,12 @@ class ProfileController extends Controller
         // Build the query
         $query = V4User::query()
             ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo', 'email', 'phone'])
+            ->with([
+                'teamProfile:id,v4_user_id,team_id',
+                'teamProfile.team:id,team_name,profile_photo,administrator_first_name,administrator_last_name,email,phone',
+                'academyProfile:id,v4_user_id,academy_id',
+                'academyProfile.academy:id,academy_name,profile_photo,administrator_first_name,administrator_last_name,email,phone',
+            ])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('is_onboarded', true)
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
