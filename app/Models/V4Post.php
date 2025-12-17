@@ -24,7 +24,7 @@ class V4Post extends Model
 
     public function user()
     {
-        return $this->belongsTo(V4User::class, 'user_id');
+        return $this->belongsTo(V4User::class, 'user_id')->withTrashed();
     }
 
     public function media()

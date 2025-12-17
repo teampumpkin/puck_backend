@@ -61,6 +61,9 @@ class V4FeedController extends Controller
                 // 'comments.user:id,username,profile_photo,role',
             ])
                 ->whereIn('user_id', $userIds)
+                ->orWhereHas('user.superAdminProfile', function ($query) {
+                    $query->whereNull('super_admin_id');
+                })
                 ->whereNull('deleted_at')
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
