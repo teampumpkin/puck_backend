@@ -413,7 +413,7 @@ class V4TeamController extends Controller
 
         if (!empty($userIdsToCheck)) {
             $validPlayers = V4User::whereIn('id', $userIdsToCheck)
-                ->whereIn('role', ['player', 'coach', 'scout'])
+                ->whereIn('role', ['player', 'coach', 'scout', 'adviser'])
                 ->pluck('id')
                 ->toArray();
 
@@ -421,7 +421,7 @@ class V4TeamController extends Controller
             if (!empty($invalidUsers)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Some user IDs are not valid player, coach, scout',
+                    'message' => 'Some user IDs are not valid player, coach, scout, advisor',
                     'invalid_user_ids' => array_values($invalidUsers)
                 ], 400);
             }
@@ -482,10 +482,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type' => 'group',
-                    'removeParticipants' => $removeIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'removeParticipants' => $removeIds,
+                        ]);
             }
 
             // Insert addIds
@@ -508,10 +508,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $team->conversation_id,
-                    'type' => 'group',
-                    'addParticipants' => $addIds,
-                ]);
+                            'conversationId' => $team->conversation_id,
+                            'type' => 'group',
+                            'addParticipants' => $addIds,
+                        ]);
             }
 
             DB::commit();
@@ -632,7 +632,7 @@ class V4TeamController extends Controller
     public function getTeamsForProfileById(Request $request, int $userId): JsonResponse
     {
         try {
-            Validator::make(['id' => (int)$userId], [
+            Validator::make(['id' => (int) $userId], [
                 'user_id' => 'required|integer|exists:v4_users,id',
             ]);
 
