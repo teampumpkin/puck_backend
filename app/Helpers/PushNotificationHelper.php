@@ -29,23 +29,13 @@ class PushNotificationHelper
                 ->withAndroidConfig([
                     'priority' => 'high',
                 ])
+                ->withDefaultSounds()
                 ->withApnsConfig(
-                    ApnsConfig::fromArray([
-                        'headers' => [
-                            'apns-priority' => '10',
-                            'apns-push-type' => 'alert',
-                        ],
-                        'payload' => [
-                            'aps' => [
-                                'alert' => [
-                                    'title' => $title,
-                                    'body' => $body,
-                                ],
-                                'sound' => 'default',
-                                'badge' => $this->getBadgeCount($data),
-                            ],
-                        ],
-                    ])
+                    ApnsConfig::new()
+                        ->withImmediatePriority()
+
+                        ->withBadge($this->getBadgeCount($data))
+
                 );
 
             $this->messaging->send($message);
