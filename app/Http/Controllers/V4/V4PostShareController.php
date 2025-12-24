@@ -5,7 +5,6 @@ namespace App\Http\Controllers\V4;
 
 use App\Http\Controllers\Controller;
 use App\Models\V4PostShare;
-use App\Services\NotificationService;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -18,12 +17,6 @@ use Illuminate\Support\Facades\Validator;
 class V4PostShareController extends Controller
 {
 
-    protected $notificationService;
-
-    public function __construct(NotificationService $notificationService)
-    {
-        $this->notificationService = $notificationService;
-    }
 
 
     public function store(Request $request, $postId): JsonResponse

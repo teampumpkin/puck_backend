@@ -89,6 +89,16 @@ class NotificationService
                 'image_url' => $notification->image_url,
             ]);
 
+            Log::info(
+                "sendToToken",
+                [
+                    $user->fcm_token,
+                    $title,
+                    $message,
+                    $pushData
+                ]
+            );
+
             // Send push notification if user has FCM token
             if ($user->fcm_token) {
                 $this->pushNotificationHelper->sendToToken(

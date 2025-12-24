@@ -78,7 +78,7 @@ class V4UserFcmTokenController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong while uploading post.',
+                'message' => 'Something went wrong while saving the token.',
                 'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
@@ -123,7 +123,7 @@ class V4UserFcmTokenController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong while uploading post.',
+                'message' => 'Something went wrong while deleting the token.',
                 'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }

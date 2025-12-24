@@ -61,6 +61,7 @@ class V4User extends Authenticatable implements JWTSubject
         'name',
         'is_suspended',
         'is_banned',
+        'fcm_token',
         // 'age'
     ];
 
@@ -445,5 +446,13 @@ class V4User extends Authenticatable implements JWTSubject
     public function otps()
     {
         return $this->hasMany(V4Otp::class, 'user_id');
+    }
+
+    public function getFcmTokenAttribute()
+    {
+        return $this->fcmTokens()
+            ->whereNull('deleted_at')
+            ->latest()
+            ->value('fcm_token') ?? null;
     }
 }

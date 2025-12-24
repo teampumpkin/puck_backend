@@ -994,7 +994,7 @@ class V4FollowController extends Controller
         $message = "$fromUser->name started following you.";
 
         $data = [
-            'type' => 'follow',
+            'type' => 'user_follow',
             'action_required' => false,
             'status' => $follow->status,
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
@@ -1024,7 +1024,7 @@ class V4FollowController extends Controller
         $message = "$fromUser->name requested to connect with you";
 
         $data = [
-            'type' => 'follow_request',
+            'type' => 'user_follow_request',
             'quick_actions' => ['accept', 'reject'],
             'action_required' => true,
             'status' => $follow->status,
@@ -1055,7 +1055,7 @@ class V4FollowController extends Controller
         $message = "$fromUser->name accepted your follow request.";
 
         $data = [
-            'type' => 'follow_accepted',
+            'type' => 'user_follow_accepted',
             'action_required' => false,
             'status' => $follow->status,
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
@@ -1083,7 +1083,7 @@ class V4FollowController extends Controller
         $message = "$fromUser->name rejected your follow request.";
 
         $data = [
-            'type' => 'follow_rejected',
+            'type' => 'user_follow_rejected',
             'action_required' => false,
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
