@@ -7792,6 +7792,7 @@ class V4EvaluationController extends Controller
         $message = "Your Personalized Video Evaluation is Completed";
 
         $data = [
+            'type' => 'video_evaluation_completed',
             'marketplace_item_type' => 'Personalized Video Evaluation',
             'evaluation_id' => $evaluation->id,
             'submission_id' => $assignment->submission_id,

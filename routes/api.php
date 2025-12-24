@@ -35,6 +35,7 @@ use App\Http\Controllers\V4\V4UserReportController;
 use App\Http\Controllers\V4\V4AuthController;
 use App\Http\Controllers\V4\V4EvaluationController;
 use App\Http\Controllers\V4\V4FaqController;
+use App\Http\Controllers\V4\V4FcmTestController;
 use App\Http\Controllers\V4\V4FeedController;
 use App\Http\Controllers\V4\V4ChatMuteSettingController;
 use App\Http\Controllers\V4\V4MediaController;
@@ -536,7 +537,12 @@ Route::prefix('v4')->group(function () {
         Route::prefix('fcm')->group(function () {
             Route::post('/store', [V4UserFcmTokenController::class, 'store']);
             Route::delete('/remove', [V4UserFcmTokenController::class, 'destroy']);
+
+
+            Route::get('/fcm-test', [V4FcmTestController::class, 'sendTestNotification']);
+            Route::get('/fcm-config-test', [V4FcmTestController::class, 'testConfig']);
         });
+
 
         Route::prefix('users')->group(function () {
 

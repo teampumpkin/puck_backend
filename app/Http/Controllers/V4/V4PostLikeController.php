@@ -65,16 +65,20 @@ class V4PostLikeController extends Controller
                     if ($existingLike->trashed()) {
                         $existingLike->restore();
 
-                        // Remove any old "unlike" cleanup (safety)
+                        // Delete old notifications for same like
                         $post->user->v4Notifications()
                             ->where('type', 'user_post_liked')
-                            ->where('data->post->id', $post->id)
-                            ->where('data->from_user.id', $authUser->id)
+                            ->where('data->postLike->id', $existingLike->id)
                             ->delete();
 
-                        // Send notification again
+                        // Send new notification
                         if ($post->user_id !== $authUser->id) {
-                            $this->sendToLikeNotification($authUser, $post->user, $post, $existingLike);
+                            $this->sendToLikeNotification(
+                                $authUser,
+                                $post->user,
+                                $post,
+                                $existingLike
+                            );
                         }
                         return response()->json([
                             'success' => true,
@@ -83,20 +87,22 @@ class V4PostLikeController extends Controller
                         ]);
                     }
 
-                    // 🔴 Already liked and active
+                    // Already liked & active
                     return response()->json([
                         'success' => false,
                         'message' => 'You already liked this post.',
                     ], 409);
                 }
 
-                // 🆕 Create a new like
+                /* ----------------------------------------
+             * NEW LIKE
+             * ---------------------------------------- */
                 $like = V4PostLike::create([
                     'user_id' => $authUser->id,
                     'post_id' => $post->id,
                 ]);
 
-                // Send notification to post owner
+                // Send notification
                 if ($post->user_id !== $authUser->id) {
                     $this->sendToLikeNotification($authUser, $post->user, $post, $like);
                 }
@@ -108,11 +114,13 @@ class V4PostLikeController extends Controller
                 ]);
             });
         } catch (ModelNotFoundException $e) {
+
             return response()->json([
                 'success' => false,
                 'message' => 'Post not found.',
             ], 404);
         } catch (Exception $e) {
+
             Log::error('Like failed', [
                 'error'   => $e->getMessage(),
                 'user_id' => $authUser->id ?? null,
@@ -154,11 +162,12 @@ class V4PostLikeController extends Controller
         }
 
         try {
-            // ✅ Transaction ensures like + notification delete are atomic
             return DB::transaction(function () use ($authUser, $postId) {
+
                 $post = V4Post::findOrFail($postId);
 
-                $like = V4PostLike::where('user_id', $authUser->id)
+                $like = V4PostLike::withTrashed()
+                    ->where('user_id', $authUser->id)
                     ->where('post_id', $post->id)
                     ->first();
 
@@ -169,17 +178,14 @@ class V4PostLikeController extends Controller
                     ], 404);
                 }
 
+                // Soft delete like
                 $like->delete();
 
-                $postOwner = $post->user;
-
-                if ($postOwner) {
-                    $postOwner->v4Notifications()
-                        ->where('type', 'user_post_liked')
-                        ->where('data->post->id', $post->id)
-                        ->where('data->from_user.id', $authUser->id)
-                        ->delete(); // Or ->update(['deleted_at' => now()]) for soft delete
-                }
+                // Remove notification using JSON lookup
+                $post->user->v4Notifications()
+                    ->where('type', 'user_post_liked')
+                    ->where('data->postLike->id', $like->id)
+                    ->delete();
 
                 return response()->json([
                     'success' => true,
@@ -259,7 +265,7 @@ class V4PostLikeController extends Controller
         $message = "{$fromUser->name} Liked your post";
 
         $data = [
-            'type'            => 'post_liked',
+            'type'            => 'user_post_liked',
             'action_required' => false,
             'post'            => $post,
             'postLike'        => $postLike,

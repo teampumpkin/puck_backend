@@ -482,10 +482,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $team->conversation_id,
-                            'type' => 'group',
-                            'removeParticipants' => $removeIds,
-                        ]);
+                    'conversationId' => $team->conversation_id,
+                    'type' => 'group',
+                    'removeParticipants' => $removeIds,
+                ]);
             }
 
             // Insert addIds
@@ -508,10 +508,10 @@ class V4TeamController extends Controller
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $team->conversation_id,
-                            'type' => 'group',
-                            'addParticipants' => $addIds,
-                        ]);
+                    'conversationId' => $team->conversation_id,
+                    'type' => 'group',
+                    'addParticipants' => $addIds,
+                ]);
             }
 
             DB::commit();
