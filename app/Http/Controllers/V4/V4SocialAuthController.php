@@ -38,7 +38,7 @@ class V4SocialAuthController extends Controller
     public function handleGoogleCallback(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'access_token'  => 'required|string',
+            'id_token'      => 'required|string',
             'role'          => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
             'first_name'    => 'nullable|string|max:255',
             'last_name'     => 'nullable|string|max:255',
@@ -51,16 +51,33 @@ class V4SocialAuthController extends Controller
         }
 
         try {
-            $googleUser = Socialite::driver('google')->userFromToken($request->access_token);
+            $googleResponse = Http::get(
+                'https://oauth2.googleapis.com/tokeninfo',
+                ['id_token' => $request->id_token]
+            );
 
-            $googleUser->first_name    = $request->first_name ?? ($googleUser->user['given_name'] ?? explode(' ', $googleUser->name ?? '')[0] ?? '');
-            $googleUser->last_name     = $request->last_name ?? ($googleUser->user['family_name'] ?? implode(' ', array_slice(explode(' ', $googleUser->name ?? ''), 1)) ?? '');
-            $googleUser->profile_photo = $request->profile_photo ?? $googleUser->avatar;
-            $googleUser->role          = $request->role;
+            if (! $googleResponse->ok()) {
+                throw new Exception('Invalid Google ID token');
+            }
+
+            $payload = $googleResponse->json();
+
+            if (! in_array($payload['iss'], ['accounts.google.com', 'https://accounts.google.com'])) {
+                throw new Exception('Invalid token issuer');
+            }
+
+            $googleUser = (object) [
+                'id'            => $payload['sub'],
+                'email'         => $request->email ?? $payload['email'] ?? null,
+                'first_name'    => $request->first_name ?? $payload['given_name'] ?? null,
+                'last_name'     => $request->last_name ?? $payload['family_name'] ?? null,
+                'profile_photo' => $request->profile_photo ?? $payload['picture'] ?? null,
+                'role'          => $request->role,
+            ];
 
             return $this->findOrCreateUser($googleUser, 'google');
         } catch (Exception $e) {
-            Log::error("Google OAuth Error: {$e->getMessage()}");
+            Log::error("Google OAuth Error: {$e->getMessage()}", ['' => $request->id_token]);
             return $this->response(false, 'Invalid Google Token', null, $e->getMessage(), 400);
         }
     }
@@ -172,7 +189,7 @@ class V4SocialAuthController extends Controller
         try {
             // Get Android configuration
             $androidPackageId = config('services.apple.android_package_id', env('APPLE_ANDROID_PACKAGE_ID', 'com.puck.recruiter'));
-            $androidScheme = config('services.apple.android_scheme') ?: 'signinwithapple';
+            $androidScheme    = config('services.apple.android_scheme') ?: 'signinwithapple';
 
             // Check if this is an Android request
             $isAndroid = $request->query('platform') === 'android'
@@ -182,20 +199,20 @@ class V4SocialAuthController extends Controller
             // Log for debugging
             if ($request->has('error')) {
                 Log::error("Apple OAuth Error", [
-                    'error' => $request->query('error'),
+                    'error'             => $request->query('error'),
                     'error_description' => $request->query('error_description'),
-                    'is_android' => $isAndroid,
+                    'is_android'        => $isAndroid,
                 ]);
             } else {
                 Log::info("Apple Redirect Callback", [
-                    'has_code' => $request->has('code'),
-                    'has_state' => $request->has('state'),
+                    'has_code'   => $request->has('code'),
+                    'has_state'  => $request->has('state'),
                     'is_android' => $isAndroid,
                 ]);
             }
 
             // Only pass through safe parameters from Apple
-            $safeParams = $request->only(['code', 'state', 'error', 'error_description']);
+            $safeParams     = $request->only(['code', 'state', 'error', 'error_description']);
             $redirectParams = http_build_query(array_filter($safeParams));
 
             if ($isAndroid && $androidPackageId) {
@@ -227,11 +244,11 @@ class V4SocialAuthController extends Controller
 
             // Try to redirect with error
             $androidPackageId = config('services.apple.android_package_id', env('APPLE_ANDROID_PACKAGE_ID', 'com.puck.recruiter'));
-            $androidScheme = config('services.apple.android_scheme') ?: 'signinwithapple';
-            $isAndroid = strpos($request->userAgent() ?? '', 'Android') !== false;
+            $androidScheme    = config('services.apple.android_scheme') ?: 'signinwithapple';
+            $isAndroid        = strpos($request->userAgent() ?? '', 'Android') !== false;
 
             if ($isAndroid && $androidPackageId) {
-                $params = http_build_query(['error' => 'server_error', 'error_description' => $e->getMessage()]);
+                $params    = http_build_query(['error' => 'server_error', 'error_description' => $e->getMessage()]);
                 $intentUrl = "intent://callback?{$params}#Intent;package={$androidPackageId};scheme={$androidScheme};end";
                 return redirect($intentUrl, 307);
             }
@@ -284,11 +301,11 @@ class V4SocialAuthController extends Controller
      */
     private function generateAppleClientSecret(): string
     {
-        $teamId     = config('services.apple.team_id');                        // Apple Team ID
-        $clientId   = config('services.apple.client_id');                      // Service ID
-        $keyPath    = config('services.apple.private_key');                    // .p8 path
-        $privateKey = file_get_contents(storage_path($keyPath));               // Read from storage directory
-        $keyId      = config('services.apple.key_id');                         // Key ID
+        $teamId     = config('services.apple.team_id');          // Apple Team ID
+        $clientId   = config('services.apple.client_id');        // Service ID
+        $keyPath    = config('services.apple.private_key');      // .p8 path
+        $privateKey = file_get_contents(storage_path($keyPath)); // Read from storage directory
+        $keyId      = config('services.apple.key_id');           // Key ID
 
         $payload = [
             'iss' => $teamId,
