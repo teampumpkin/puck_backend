@@ -1061,6 +1061,10 @@ class V4FollowController extends Controller
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
+        if ($toUser->fcm_token) {
+            unset($toUser->fcm_token);
+        }
+
         return $this->notificationService->sendToUserWithImage(
             $toUser,
             $title,
@@ -1087,6 +1091,10 @@ class V4FollowController extends Controller
             'action_required' => false,
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
+
+        if ($toUser->fcm_token) {
+            unset($toUser->fcm_token);
+        }
 
         return $this->notificationService->sendToUserWithImage(
             $toUser,
