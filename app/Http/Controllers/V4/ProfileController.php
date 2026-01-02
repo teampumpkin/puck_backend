@@ -1324,29 +1324,69 @@ class ProfileController extends Controller
             $validated = $request->validate([
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
-                'per_page' => 'nullable|integer|min:1|max:100',
-                'sort_by' => 'nullable|string|in:first_name,last_name,role',
+                'role' => 'nullable|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator',
+                'per_page' => 'nullable|integer|min:1|max:9999999999',
+                'sort_by' => 'nullable|string|in:first_name,last_name,role,created_at',
                 'sort_order' => 'nullable|string|in:asc,desc',
             ]);
 
-            $searchTerm = $validated['q'] ?? '';
+            $searchTerm = $validated['q'] ?? null;
+            $role = $validated['role'] ?? null;
+
             $page = $validated['page'] ?? 1;
             $perPage = $validated['per_page'] ?? 15;
             $sortBy = $validated['sort_by'] ?? 'first_name';
             $sortOrder = $validated['sort_order'] ?? 'asc';
 
-            $cacheKey = 'users_search_' . md5(json_encode([
+            $cacheKey = 'admin_users_search_' . md5(json_encode([
                 'q' => $searchTerm,
+                'role' => $role,
                 'page' => $page,
                 'per_page' => $perPage,
                 'sort_by' => $sortBy,
                 'sort_order' => $sortOrder,
             ]));
 
-            $users = Cache::remember($cacheKey, 600, function () use ($searchTerm, $page, $perPage, $sortBy, $sortOrder) {
+            $users = Cache::remember($cacheKey, now()->addMinutes(5), function () use (
+                $searchTerm,
+                $role,
+                $page,
+                $perPage,
+                $sortBy,
+                $sortOrder
+            ) {
                 $query = V4User::query()
-                    ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
-                    ->with([
+                    ->whereNotIn('role', ['super-admin', 'admin', 'manager']);
+
+                if ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('first_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('email', 'ilike', "%{$searchTerm}%")
+                            ->orWhere('phone', 'ilike', "%{$searchTerm}%");
+                    });
+                }
+
+                if ($role) {
+                    $query->where('role', $role);
+                }
+
+                if ($role) {
+                    $query->with(match ($role) {
+                        'player'    => 'playerProfile:id,v4_user_id,teams,leagues,position,gender',
+                        'coach'     => 'coachProfile:id,v4_user_id,leagues,teams',
+                        'team'      => 'teamProfile:id,v4_user_id,team_name,leagues',
+                        'scout'     => 'scoutProfile:id,v4_user_id,scouting_years',
+                        'parent'    => 'parentProfile:id,v4_user_id',
+                        'academy'   => 'academyProfile:id,v4_user_id',
+                        'organizer' => 'organizerProfile:id,v4_user_id',
+                        'adviser'   => 'adviserProfile:id,v4_user_id',
+                        'fan'       => 'fanProfile:id,v4_user_id',
+                        'evaluator' => 'evaluatorProfile:id,v4_user_id,is_verified',
+                        default     => null,
+                    });
+                } else {
+                    $query->with([
                         'playerProfile:id,v4_user_id,teams,leagues,handedness,weight,height,position,gender,permissions',
                         'coachProfile:id,v4_user_id,leagues,teams',
                         'teamProfile:id,v4_user_id,team_name,administrator_first_name,administrator_last_name,leagues,website,address,team_years_running',
@@ -1358,40 +1398,34 @@ class ProfileController extends Controller
                         'evaluatorProfile:id,v4_user_id,is_verified,references,resume,number_of_years_experience,current_sport_role,leagues,current_involvement_level,level_hockey_played',
                         'fanProfile:id,v4_user_id',
                     ]);
-
-                if (!empty($searchTerm)) {
-                    $query->where(function ($q) use ($searchTerm) {
-                        $q->where('first_name', 'ilike', "%{$searchTerm}%")
-                            ->orWhere('last_name', 'ilike', "%{$searchTerm}%")
-                            ->orWhere('email', 'ilike', "%{$searchTerm}%")
-                            ->orWhere('phone', 'ilike', "%{$searchTerm}%");
-                    });
                 }
 
-                $query->orderBy($sortBy, $sortOrder);
-
-                return $query->paginate($perPage, ['*'], 'page', $page);
+                return $query
+                    ->orderBy($sortBy, $sortOrder)
+                    ->paginate($perPage, ['*'], 'page', $page);
             });
 
-            $data = $users->map(function ($user) {
-                return [
-                    'parentId' => $user->parent_id ?? null,
-                    'parentName' => $user->parent->name ?? null,
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'status' => $user->is_suspended
-                        ? 'suspended'
-                        : ($user->is_banned ? 'banned' : 'active'),
-                    'role' => $user->role,
-                    'country' => $user->country,
-                    'createdAt' => $user->created_at,
-                    'age' => $user->age,
-                    'phone' => $user->phone,
-                    'avatar' => $user->profile_picture,
-                    'profileData' => $user->profile_data,
-                ];
-            });
+            $data = $users->map(
+                function ($user) {
+                    return [
+                        'parentId' => $user->parent_id ?? null,
+                        'parentName' => $user->parent->name ?? null,
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'status' => $user->is_suspended
+                            ? 'suspended'
+                            : ($user->is_banned ? 'banned' : 'active'),
+                        'role' => $user->role,
+                        'country' => $user->country,
+                        'createdAt' => $user->created_at,
+                        'age' => $user->age,
+                        'phone' => $user->phone,
+                        'avatar' => $user->profile_photo,
+                        'profileData' => $user->profile_data,
+                    ];
+                }
+            );
 
             return response()->json([
                 'data' => $data,
