@@ -56,6 +56,18 @@ class Evaluation extends Model
         return $this->belongsTo(V4User::class, 'evaluator_id');
     }
 
+    public function evaluatorProfile()
+    {
+        return $this->hasOneThrough(
+            EvaluatorProfile::class,
+            V4User::class,
+            'id',
+            'v4_user_id',
+            'evaluator_id',
+            'id'
+        );
+    }
+
     public function answers()
     {
         return $this->hasMany(EvaluationAnswer::class, 'evaluation_id');
