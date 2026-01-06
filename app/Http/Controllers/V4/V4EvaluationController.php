@@ -2991,7 +2991,7 @@ class V4EvaluationController extends Controller
                         $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
                         $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
                         if ($latestConsultationRequest->status == V4ConsultationRequest::STATUS_PENDING) {
-                            $result['status'] =  'request_' . $latestConsultationRequest->status;
+                            $result['status'] = 'request_' . $latestConsultationRequest->status;
                         } else {
                             $result['status'] = $latestConsultationRequest->status;
                         }
@@ -3000,11 +3000,11 @@ class V4EvaluationController extends Controller
                     }
                 } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                     if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
-                        $result['status'] =  $submission['status'];
+                        $result['status'] = $submission['status'];
                     }
                 } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                     if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
-                        $result['status'] =  $submission['status'];
+                        $result['status'] = $submission['status'];
                     } else if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
                         $result['status'] = 'pending_assignment';
                     }
@@ -3014,7 +3014,7 @@ class V4EvaluationController extends Controller
                     if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
                         $result['status'] = 'pending_assignment';
                     } else {
-                        $result['status'] =  $submission['status'];
+                        $result['status'] = $submission['status'];
                     }
                 }
 
@@ -3166,7 +3166,7 @@ class V4EvaluationController extends Controller
                     $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
                     $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
                     if ($latestConsultationRequest->status == V4ConsultationRequest::STATUS_PENDING) {
-                        $result['status'] =  'request_' . $latestConsultationRequest->status;
+                        $result['status'] = 'request_' . $latestConsultationRequest->status;
                     } else {
                         $result['status'] = $latestConsultationRequest->status;
                     }
@@ -3175,11 +3175,11 @@ class V4EvaluationController extends Controller
                 }
             } else if ($result['type'] == MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                 if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
-                    $result['status'] =  $submission['status'];
+                    $result['status'] = $submission['status'];
                 }
             } else if ($result['type'] == MarketplaceTypes::MENTORSHIP_PROGRAM) {
                 if ($submission['status'] == EvaluationSubmission::STATUS_PENDING) {
-                    $result['status'] =  $submission['status'];
+                    $result['status'] = $submission['status'];
                 } else if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
                     $result['status'] = 'pending_assignment';
                 }
@@ -3189,7 +3189,7 @@ class V4EvaluationController extends Controller
                 if ($submission['status'] == EvaluationSubmission::STATUS_UPLOADED) {
                     $result['status'] = 'pending_assignment';
                 } else {
-                    $result['status'] =  $submission['status'];
+                    $result['status'] = $submission['status'];
                 }
             }
 
@@ -3455,12 +3455,12 @@ class V4EvaluationController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [
-                            $authUser->id,
-                            $submission->player_id
-                        ],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [
+                                    $authUser->id,
+                                    $submission->player_id
+                                ],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -4183,12 +4183,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                $consultationRequest->submission->player_id,
-                                $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        $consultationRequest->submission->player_id,
+                                        $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4464,12 +4464,12 @@ class V4EvaluationController extends Controller
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type' => 'single',
-                            'participants' => [
-                                $mentorshipRequest->submission->player_id,
-                                $user->id
-                            ],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [
+                                        $mentorshipRequest->submission->player_id,
+                                        $user->id
+                                    ],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -7499,6 +7499,7 @@ class V4EvaluationController extends Controller
                 'submission.player.playerProfile',
                 'submission.currentVersion',
                 'evaluator',
+                'evaluatorProfile',
                 'answers.question.category',
                 'answers.option'
             ])->find((int) $evaluationId);
@@ -7607,7 +7608,7 @@ class V4EvaluationController extends Controller
                         ]
                     ],
                     'evaluator' => [
-                        'evaluator_id' => $evaluation->evaluator->id,
+                        'id' => $evaluation->evaluator->id,
                         'first_name' => $evaluation->evaluator->first_name,
                         'last_name' => $evaluation->evaluator->last_name,
                         'profile_photo' => $evaluation->evaluator->profile_photo,
@@ -7617,6 +7618,7 @@ class V4EvaluationController extends Controller
                         'zip' => $evaluation->evaluator->zip,
                         'email' => $evaluation->evaluator->email,
                         'phone' => $evaluation->evaluator->phone,
+                        'leagues' => $evaluation->evaluatorProfile->leagues ?? null,
                     ],
                     'categories' => $categories,
                 ],
