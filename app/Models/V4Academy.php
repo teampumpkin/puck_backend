@@ -34,6 +34,7 @@ class V4Academy extends Model
 
     protected $casts = [
         'teams' => 'array',
+        'leagues' => 'array',
     ];
 
     public function members()
@@ -75,7 +76,7 @@ class V4Academy extends Model
     public function adminAcademiesTeamsWithMember($playerId)
     {
         return $this->teams()->get()->map(fn($team) => [
-            'team'      => $team,
+            'team' => $team,
             'is_member' => TeamMember::where('player_id', $playerId)
                 ->where('team_id', $team->id)
                 ->exists(),
@@ -85,7 +86,7 @@ class V4Academy extends Model
     public function adminAcademiesMembers($playerId)
     {
         return $this->teams()->get()->map(fn($academy) => [
-            'academy'   => $academy,
+            'academy' => $academy,
             'is_member' => AcademyMember::where('academy_id', $academy->id)
                 ->where('player_id', $playerId)
                 ->exists(),
