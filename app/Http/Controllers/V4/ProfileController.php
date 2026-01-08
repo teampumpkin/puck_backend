@@ -313,7 +313,7 @@ class ProfileController extends Controller
                                     $academyValidated['conversation_id'] = $conversationId;
                                 }
                             } else {
-                                $conversationId =  $v4Academy->conversation_id;
+                                $conversationId = $v4Academy->conversation_id;
                                 $requestData = [
                                     'conversationId' => $conversationId,
                                     'type' => 'group',
@@ -325,7 +325,7 @@ class ProfileController extends Controller
                                 $response = Http::withHeaders([
                                     'Authorization' => 'Bearer ' . $token,
                                     'Content-Type' => 'application/json',
-                                ])->put($baseUrl . '/conversation/update',  $requestData);
+                                ])->put($baseUrl . '/conversation/update', $requestData);
                                 // Check if the update was successful
                                 if ($response->successful() && isset($response->json()['_id'])) {
                                     $updatedConversationId = $response->json()['_id'];  // Assuming the updated conversation ID is returned
@@ -822,7 +822,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1347,14 +1347,7 @@ class ProfileController extends Controller
                 'sort_order' => $sortOrder,
             ]));
 
-            $users = Cache::remember($cacheKey, now()->addMinutes(5), function () use (
-                $searchTerm,
-                $role,
-                $page,
-                $perPage,
-                $sortBy,
-                $sortOrder
-            ) {
+            $users = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($searchTerm, $role, $page, $perPage, $sortBy, $sortOrder) {
                 $query = V4User::query()
                     ->whereNotIn('role', ['super-admin', 'admin', 'manager']);
 
@@ -1373,17 +1366,17 @@ class ProfileController extends Controller
 
                 if ($role) {
                     $query->with(match ($role) {
-                        'player'    => 'playerProfile:id,v4_user_id,teams,leagues,position,gender',
-                        'coach'     => 'coachProfile:id,v4_user_id,leagues,teams',
-                        'team'      => 'teamProfile:id,v4_user_id,team_name,leagues',
-                        'scout'     => 'scoutProfile:id,v4_user_id,scouting_years',
-                        'parent'    => 'parentProfile:id,v4_user_id',
-                        'academy'   => 'academyProfile:id,v4_user_id',
+                        'player' => 'playerProfile:id,v4_user_id,teams,leagues,position,gender',
+                        'coach' => 'coachProfile:id,v4_user_id,leagues,teams',
+                        'team' => 'teamProfile:id,v4_user_id,team_name,leagues',
+                        'scout' => 'scoutProfile:id,v4_user_id,scouting_years',
+                        'parent' => 'parentProfile:id,v4_user_id',
+                        'academy' => 'academyProfile:id,v4_user_id',
                         'organizer' => 'organizerProfile:id,v4_user_id',
-                        'adviser'   => 'adviserProfile:id,v4_user_id',
-                        'fan'       => 'fanProfile:id,v4_user_id',
+                        'adviser' => 'adviserProfile:id,v4_user_id',
+                        'fan' => 'fanProfile:id,v4_user_id',
                         'evaluator' => 'evaluatorProfile:id,v4_user_id,is_verified',
-                        default     => null,
+                        default => null,
                     });
                 } else {
                     $query->with([
@@ -1837,7 +1830,7 @@ class ProfileController extends Controller
 
                         // founded → academy_years_running
                         'academy_years_running' =>
-                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                            !empty($basic['founded']) ? (int) $basic['founded'] : null,
                     ]);
                 }
             }
@@ -3441,7 +3434,7 @@ class ProfileController extends Controller
         $user = Auth::guard('v4api')->user();
 
         // 1️⃣ Check role permissions
-        $allowedRoles = ['scout', 'coach', 'adviser'];
+        $allowedRoles = ['scout', 'coach', 'adviser', 'fan'];
 
         if (!in_array($user->role, $allowedRoles)) {
             return response()->json([
@@ -3534,9 +3527,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$user->id, $favId],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$user->id, $favId],
+                            ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
@@ -3580,7 +3573,7 @@ class ProfileController extends Controller
     {
         try {
             $user = V4User::find($userId);
-            if (!$user || !in_array($user->role, ['scout', 'coach', 'adviser'])) {
+            if (!$user || !in_array($user->role, ['scout', 'coach', 'adviser', 'fan'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
