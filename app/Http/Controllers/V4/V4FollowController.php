@@ -74,11 +74,11 @@ class V4FollowController extends Controller
 
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
-                            'Content-Type'  => 'application/json',
+                            'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                            'type'         => 'single',
-                            'participants' => [$authUser->id, $user->id],
-                        ]);
+                                    'type' => 'single',
+                                    'participants' => [$authUser->id, $user->id],
+                                ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -87,7 +87,7 @@ class V4FollowController extends Controller
                         } else {
                             Log::warning('Conversation API failed', [
                                 'status' => $response->status(),
-                                'body'   => $response->body(),
+                                'body' => $response->body(),
                             ]);
                         }
                     } catch (\Throwable $e) {
@@ -114,9 +114,9 @@ class V4FollowController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$authUser->id,  $user->id],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$authUser->id, $user->id],
+                            ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -532,7 +532,7 @@ class V4FollowController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (! $authUser) {
+        if (!$authUser) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized.',
@@ -551,12 +551,12 @@ class V4FollowController extends Controller
 
             // Find pending follow request sent by the auth user to this user
             $follow = V4Follow::where([
-                'follower_id'  => $authUser->id,
+                'follower_id' => $authUser->id,
                 'following_id' => $user->id,
-                'status'       => 'pending',
+                'status' => 'pending',
             ])->first();
 
-            if (! $follow) {
+            if (!$follow) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No pending follow request found to cancel.',
@@ -588,29 +588,29 @@ class V4FollowController extends Controller
             DB::rollBack();
 
             Log::error('Database error while canceling follow request.', [
-                'user_id'        => $authUser->id,
+                'user_id' => $authUser->id,
                 'target_user_id' => $userId,
-                'error'          => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Database error occurred.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         } catch (Exception $e) {
             DB::rollBack();
 
             Log::error('Unexpected error while canceling follow request.', [
-                'user_id'        => $authUser->id,
+                'user_id' => $authUser->id,
                 'target_user_id' => $userId,
-                'error'          => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while canceling the follow request.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -619,7 +619,7 @@ class V4FollowController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (! $authUser) {
+        if (!$authUser) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized.',
@@ -653,8 +653,6 @@ class V4FollowController extends Controller
             DB::beginTransaction();
 
             $followerRelation->delete();
-            $currentUser->decrement('followers_count');
-            $targetUser->decrement('followings_count');
 
             DB::commit();
 
@@ -671,15 +669,15 @@ class V4FollowController extends Controller
             DB::rollBack();
 
             Log::error('Failed to remove follower: ' . $e->getMessage(), [
-                'auth_user_id'   => $authUser->id ?? null,
+                'auth_user_id' => $authUser->id ?? null,
                 'target_user_id' => $userId,
-                'trace'          => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to remove follower.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -692,8 +690,8 @@ class V4FollowController extends Controller
         $authUser = Auth::guard('v4api')->user();
         // Validate query parameters
         $request->validate([
-            'q'        => 'nullable|string|max:255',
-            'page'     => 'nullable|integer|min:1',
+            'q' => 'nullable|string|max:255',
+            'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
@@ -728,8 +726,8 @@ class V4FollowController extends Controller
                 if ($item->follower) {
                     $target = $item->follower;
 
-                    $target->is_following     = $currentUser->isFollowing($target->id);
-                    $target->is_follower      = $currentUser->isFollowedBy($target->id);
+                    $target->is_following = $currentUser->isFollowing($target->id);
+                    $target->is_follower = $currentUser->isFollowedBy($target->id);
                     $target->has_sent_request = $currentUser->hasPendingRequest($target->id);
                     $target->has_received_request = $currentUser->hasSendPendingRequest($target->id);
                 }
@@ -832,8 +830,8 @@ class V4FollowController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
         $request->validate([
-            'q'        => 'nullable|string|max:255',
-            'page'     => 'nullable|integer|min:1',
+            'q' => 'nullable|string|max:255',
+            'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
@@ -868,8 +866,8 @@ class V4FollowController extends Controller
                 if ($item->following) {
                     $target = $item->following;
 
-                    $target->is_following     = $currentUser->isFollowing($target->id);
-                    $target->is_follower      = $currentUser->isFollowedBy($target->id);
+                    $target->is_following = $currentUser->isFollowing($target->id);
+                    $target->is_follower = $currentUser->isFollowedBy($target->id);
                     $target->has_sent_request = $currentUser->hasPendingRequest($target->id);
                     $target->has_received_request = $currentUser->hasSendPendingRequest($target->id);
                 }
