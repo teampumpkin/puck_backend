@@ -1165,11 +1165,11 @@ class ProfileController extends Controller
         $query = V4User::query()
             ->select(['id', 'first_name', 'last_name', 'role', 'profile_photo', 'email', 'phone'])
             ->with([
-                    'teamProfile:id,v4_user_id,team_id',
-                    'teamProfile.team:id,team_name,profile_photo,administrator_first_name,administrator_last_name,email,phone',
-                    'academyProfile:id,v4_user_id,academy_id',
-                    'academyProfile.academy:id,academy_name,profile_photo,administrator_first_name,administrator_last_name,email,phone',
-                ])
+                'teamProfile:id,v4_user_id,team_id',
+                'teamProfile.team:id,team_name,profile_photo,administrator_first_name,administrator_last_name,email,phone',
+                'academyProfile:id,v4_user_id,academy_id',
+                'academyProfile.academy:id,academy_name,profile_photo,administrator_first_name,administrator_last_name,email,phone',
+            ])
             ->whereNotIn('role', ['super-admin', 'admin', 'manager'])
             ->where('is_onboarded', true)
             ->where('id', '!=', $currentUser->id); // Exclude current user from search results
@@ -1324,7 +1324,7 @@ class ProfileController extends Controller
             $validated = $request->validate([
                 'q' => 'nullable|string|max:255',
                 'page' => 'nullable|integer|min:1',
-                'role' => 'nullable|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator',
+                'role' => 'nullable|string|in:player,child,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator',
                 'per_page' => 'nullable|integer|min:1|max:9999999999',
                 'sort_by' => 'nullable|string|in:first_name,last_name,role,created_at',
                 'sort_order' => 'nullable|string|in:asc,desc',
@@ -1361,12 +1361,26 @@ class ProfileController extends Controller
                 }
 
                 if ($role) {
-                    $query->where('role', $role);
+                    // Handle player role - show only non-child players
+                    if ($role === 'player') {
+                        $query->where('role', 'player')
+                            ->where('is_child', false);
+                    }
+                    // Handle child role - show only child players
+                    elseif ($role === 'child') {
+                        $query->where('role', 'player')
+                            ->where('is_child', true);
+                    }
+                    // Handle all other roles normally
+                    else {
+                        $query->where('role', $role);
+                    }
                 }
 
                 if ($role) {
                     $query->with(match ($role) {
                         'player' => 'playerProfile:id,v4_user_id,teams,leagues,position,gender',
+                        'child' => 'playerProfile:id,v4_user_id,teams,leagues,position,gender',
                         'coach' => 'coachProfile:id,v4_user_id,leagues,teams',
                         'team' => 'teamProfile:id,v4_user_id,team_name,leagues',
                         'scout' => 'scoutProfile:id,v4_user_id,scouting_years',
@@ -1478,8 +1492,8 @@ class ProfileController extends Controller
                 $query = V4User::query()
                     ->whereIn('role', ['super-admin', 'admin', 'manager'])
                     ->with([
-                            'superAdminProfile:id,v4_user_id,is_verified',
-                        ]);
+                        'superAdminProfile:id,v4_user_id,is_verified',
+                    ]);
 
                 if (!empty($searchTerm)) {
                     $query->where(function ($q) use ($searchTerm) {
@@ -2659,8 +2673,8 @@ class ProfileController extends Controller
             ])
                 ->where('player_id', $id)
                 ->whereIn('status', [
-                        EvaluationSubmission::STATUS_COMPLETED
-                    ])
+                    EvaluationSubmission::STATUS_COMPLETED
+                ])
                 ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
                     $q->where('type', MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION);
                 })
@@ -2854,9 +2868,9 @@ class ProfileController extends Controller
             $query = V4User::query()
                 ->where('role', 'evaluator')
                 ->with([
-                        'evaluatorProfile',
-                        'evaluatorAssignments'
-                    ])
+                    'evaluatorProfile',
+                    'evaluatorAssignments'
+                ])
                 ->whereHas('evaluatorProfile', function ($q) {
                     $q->where('is_verified', true); // Ensure only verified evaluators are included
                 });
@@ -3004,9 +3018,9 @@ class ProfileController extends Controller
                 })
                     ->where('id', '!=', $evaluation->id)
                     ->update([
-                            'is_selected' => false,
-                            'is_public' => false,
-                        ]);
+                        'is_selected' => false,
+                        'is_public' => false,
+                    ]);
 
 
                 // Update selected evaluation
@@ -3075,8 +3089,8 @@ class ProfileController extends Controller
             ])
                 ->where('player_id', $playerId)
                 ->whereIn('status', [
-                        EvaluationSubmission::STATUS_COMPLETED
-                    ])
+                    EvaluationSubmission::STATUS_COMPLETED
+                ])
                 ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
                     $q->where('type', MarketplaceTypes::PERSONALIZED_VIDEO_EVALUATION);
                 })
