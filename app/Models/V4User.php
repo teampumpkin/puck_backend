@@ -360,6 +360,11 @@ class V4User extends Authenticatable implements JWTSubject
         return V4Follow::where('follower_id', $userId)->where('following_id', $this->id)->where('status', 'accepted')->exists();
     }
 
+    public function getFollowNote($userId): ?string
+    {
+        return V4Follow::where('follower_id', $this->id)->where('following_id', $userId)->first()->notes ?? null;
+    }
+
     /**
      * Check if user has pending request to follow another user.
      */

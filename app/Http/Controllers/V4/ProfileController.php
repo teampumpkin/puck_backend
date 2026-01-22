@@ -2146,12 +2146,14 @@ class ProfileController extends Controller
 
             $userData['is_following'] = $user->isFollowedBy($authUser->id);
             $userData['has_received_request'] = $user->hasSendPendingRequest($authUser->id);
-            $userData['notes'] = V4Follow::where('follower_id', $authUser->id)->where('following_id', $user->id)->first()->notes ?? null;
+            $userData['note'] = $user->getFollowNote($authUser->id);
             $userData['has_sent_request'] = $user->hasPendingRequest($authUser->id);
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
             $userData['is_favourite'] = FavouriteUser::isFavourite($authUser->id, $user->id);
+
+            Log::info('********* notes: ' . $userData['note']);
 
 
             if ($authUser->role == 'team') {
