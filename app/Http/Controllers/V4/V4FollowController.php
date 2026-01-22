@@ -41,6 +41,11 @@ class V4FollowController extends Controller
             ], 401);
         }
 
+        // Validate request
+        $validated = $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
         // Prevent following self
         if ($authUser->id == $userId) {
             return response()->json([
@@ -63,7 +68,10 @@ class V4FollowController extends Controller
             if ($existing) {
                 if ($existing->trashed()) {
                     $existing->restore();
-                    $existing->update(['status' => $status]);
+                    $existing->update([
+                        'status' => $status,
+                        'notes' => $validated['notes'] ?? null,
+                    ]);
                     $follow = $existing;
 
 
@@ -136,6 +144,7 @@ class V4FollowController extends Controller
                     'following_id' => $user->id,
                     'status' => $status,
                     'conversation_id' => $conversationId,
+                    'notes' => $validated['notes'] ?? null,
                 ]);
             }
 
@@ -143,7 +152,7 @@ class V4FollowController extends Controller
 
             // Send notification
             if ($status === 'pending') {
-                $this->sendRequestFollowingNotification($authUser, $user, $follow);
+                $this->sendRequestFollowingNotification($authUser, $user, $follow, $validated['notes']);
             } else {
                 $this->sendFollowAcceptedNotification($authUser, $user, $follow);
             }
@@ -1016,7 +1025,7 @@ class V4FollowController extends Controller
      * Private user - send follow request notification
      */
 
-    protected function sendRequestFollowingNotification(V4User $fromUser, V4User $toUser, V4Follow $follow)
+    protected function sendRequestFollowingNotification(V4User $fromUser, V4User $toUser, V4Follow $follow, string $notes = null)
     {
         $title = "Follow Request";
         $message = "$fromUser->name requested to connect with you";
@@ -1027,6 +1036,7 @@ class V4FollowController extends Controller
             'action_required' => true,
             'status' => $follow->status,
             'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
+            'notes' => $notes,
         ];
 
         $notification = $this->notificationService->sendToUserWithImage(

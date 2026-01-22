@@ -17,6 +17,7 @@ class V4Follow extends Model
         'accepted_at',
         'rejected_at',
         'conversation_id',
+        'notes',
     ];
 
     protected $dates = [
