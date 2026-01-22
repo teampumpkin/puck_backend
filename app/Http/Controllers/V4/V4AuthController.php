@@ -75,14 +75,14 @@ class V4AuthController extends Controller
             ]);
 
 
-            if ($user->email) {
-                Mail::to($user->email)->send(new SendOtpMail($otp));
-                //SendXOtpController::sendOtp($user->email, $otp);
-            } else {
-                $TwilioSmsService = new TwilioSmsService();
-                $message = "Your Puck Recruiter OTP is: $otp. It will expire in 10 minutes.";
-                $TwilioSmsService->sendSms($user->phone, $message);
-            }
+            // if ($user->email) {
+            //     Mail::to($user->email)->send(new SendOtpMail($otp));
+            //     //SendXOtpController::sendOtp($user->email, $otp);
+            // } else {
+            //     $TwilioSmsService = new TwilioSmsService();
+            //     $message = "Your Puck Recruiter OTP is: $otp. It will expire in 10 minutes.";
+            //     $TwilioSmsService->sendSms($user->phone, $message);
+            // }
 
             return response()->json([
                 'success' => true,
@@ -324,4 +324,5 @@ class V4AuthController extends Controller
             'message' => 'Login successful'
         ]);
     }
-};
+}
+;

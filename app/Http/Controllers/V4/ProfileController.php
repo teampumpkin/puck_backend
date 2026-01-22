@@ -3117,6 +3117,7 @@ class ProfileController extends Controller
 
                         if (!isset($categoryRatings[$slug])) {
                             $categoryRatings[$slug] = [
+                                'name' => $category->name,
                                 'total' => 0,
                                 'count' => 0,
                             ];
@@ -3128,7 +3129,7 @@ class ProfileController extends Controller
 
                     foreach ($categoryRatings as $slug => $data) {
                         $ratings[] = [
-                            'title' => $slug,
+                            'title' => $data['name'],
                             'value' => round($data['total'] / max(1, $data['count']), 1),
                         ];
                     }
