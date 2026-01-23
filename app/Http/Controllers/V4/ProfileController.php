@@ -10,6 +10,7 @@ use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
 use App\Models\TeamMember;
 use App\Models\V4Academy;
+use App\Models\V4Follow;
 use App\Models\V4UserReport;
 use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
@@ -2145,11 +2146,14 @@ class ProfileController extends Controller
 
             $userData['is_following'] = $user->isFollowedBy($authUser->id);
             $userData['has_received_request'] = $user->hasSendPendingRequest($authUser->id);
+            $userData['note'] = $user->getFollowNote($authUser->id);
             $userData['has_sent_request'] = $user->hasPendingRequest($authUser->id);
 
             $userData['conversation_id'] = $user->getConversationWith($authUser->id);
 
             $userData['is_favourite'] = FavouriteUser::isFavourite($authUser->id, $user->id);
+
+            Log::info('********* notes: ' . $userData['note']);
 
 
             if ($authUser->role == 'team') {
@@ -3117,6 +3121,7 @@ class ProfileController extends Controller
 
                         if (!isset($categoryRatings[$slug])) {
                             $categoryRatings[$slug] = [
+                                'name' => $category->name,
                                 'total' => 0,
                                 'count' => 0,
                             ];
@@ -3128,7 +3133,7 @@ class ProfileController extends Controller
 
                     foreach ($categoryRatings as $slug => $data) {
                         $ratings[] = [
-                            'title' => $slug,
+                            'title' => $data['name'],
                             'value' => round($data['total'] / max(1, $data['count']), 1),
                         ];
                     }
