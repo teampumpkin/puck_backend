@@ -113,7 +113,7 @@ class V4AuthController extends Controller
         try {
             $validated = $request->validate([
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^[0-9]{10,15}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
                 'otp' => 'required|string|size:6',
             ]);
 
