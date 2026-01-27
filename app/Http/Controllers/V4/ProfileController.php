@@ -2153,8 +2153,6 @@ class ProfileController extends Controller
 
             $userData['is_favourite'] = FavouriteUser::isFavourite($authUser->id, $user->id);
 
-            Log::info('********* notes: ' . $userData['note']);
-
 
             if ($authUser->role == 'team') {
                 $authUser->load('teamProfile.team');
