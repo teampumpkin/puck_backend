@@ -17,9 +17,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4AcademyController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     /**
      * Add / Remove Academy Members
      */
@@ -165,6 +173,13 @@ class V4AcademyController extends Controller
 
             DB::rollBack();
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update academy members',
@@ -214,6 +229,13 @@ class V4AcademyController extends Controller
                 'data' => $members
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -225,6 +247,13 @@ class V4AcademyController extends Controller
                 'message' => 'Not found',
             ], 404);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch members',
@@ -258,6 +287,13 @@ class V4AcademyController extends Controller
             ]);
 
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch academy admins',
@@ -293,6 +329,13 @@ class V4AcademyController extends Controller
             ], 200);
 
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Academy admin not found',
@@ -349,6 +392,13 @@ class V4AcademyController extends Controller
             ], 201);
 
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create academy admin',
@@ -400,6 +450,13 @@ class V4AcademyController extends Controller
             ], 200);
 
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Academy admin not found',
@@ -440,6 +497,13 @@ class V4AcademyController extends Controller
             ]);
 
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Academy admin not found',

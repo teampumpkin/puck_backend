@@ -16,10 +16,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 
 class V4MarketplaceController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     /**
      * Get all marketplace items (with pagination + filters)
@@ -87,6 +95,13 @@ class V4MarketplaceController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid query parameters.',
@@ -226,6 +241,13 @@ class V4MarketplaceController extends Controller
             ], 201);
         } catch (ValidationException $e) {
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -273,6 +295,13 @@ class V4MarketplaceController extends Controller
                 'data' => $marketplace,
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid marketplace ID.',
@@ -296,6 +325,13 @@ class V4MarketplaceController extends Controller
                 'marketplace_id' => $v4MarketplaceId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -344,6 +380,13 @@ class V4MarketplaceController extends Controller
                 'data' => $marketplace,
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid marketplace ID.',
@@ -365,6 +408,13 @@ class V4MarketplaceController extends Controller
                 'user_id' => $authUser->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -517,6 +567,13 @@ class V4MarketplaceController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Marketplace item not found.',
@@ -535,6 +592,13 @@ class V4MarketplaceController extends Controller
                 'marketplace_id' => $v4MarketplaceId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -580,6 +644,13 @@ class V4MarketplaceController extends Controller
             ]);
 
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Marketplace item not found.',

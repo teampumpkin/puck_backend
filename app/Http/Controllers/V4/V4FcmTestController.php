@@ -14,9 +14,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use App\Helpers\PushNotificationHelper;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4FcmTestController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     /**
      * Send a test notification to a token
      */

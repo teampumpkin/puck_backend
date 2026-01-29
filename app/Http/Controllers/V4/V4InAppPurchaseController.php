@@ -18,10 +18,18 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 
 class V4InAppPurchaseController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     // ✅ GET all (already exists)
     public function getInAppPurchases(Request $request): JsonResponse
     {
@@ -80,6 +88,13 @@ class V4InAppPurchaseController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Invalid query parameters.', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Failed to fetch in-app purchases.', [
@@ -112,6 +127,13 @@ class V4InAppPurchaseController extends Controller
                 'data' => $purchase,
             ]);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'In-app purchase not found.',
@@ -156,6 +178,13 @@ class V4InAppPurchaseController extends Controller
                 'data' => $purchase,
             ]);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'In-app purchase not found.'], 404);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Invalid input.', 'errors' => $e->errors()], 422);
@@ -164,6 +193,13 @@ class V4InAppPurchaseController extends Controller
                 'user_id' => $authUser->id,
                 'purchase_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json(['success' => false, 'message' => 'Error updating in-app purchase.'], 500);
@@ -187,6 +223,13 @@ class V4InAppPurchaseController extends Controller
                 'message' => 'In-app purchase deleted successfully.',
             ]);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'In-app purchase not found.',
@@ -219,6 +262,13 @@ class V4InAppPurchaseController extends Controller
                 'data' => $purchase,
             ]);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'In-app purchase not found or not deleted.'], 404);
         } catch (Exception $e) {
             Log::error('Failed to restore in-app purchase.', [
@@ -263,6 +313,13 @@ class V4InAppPurchaseController extends Controller
                 'data' => $purchase,
             ], 201);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid input.',

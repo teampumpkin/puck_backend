@@ -13,9 +13,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4SuspendedUserController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public function index(): JsonResponse
     {
         try {
@@ -28,6 +36,11 @@ class V4SuspendedUserController extends Controller
             ]);
         } catch (Exception $e) {
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -43,6 +56,11 @@ class V4SuspendedUserController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->handleNotFound($e, 'Suspended user not found');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->handleException($e);
         }
@@ -71,6 +89,11 @@ class V4SuspendedUserController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
             return $this->handleValidationException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             DB::rollBack();
             return $this->handleException($e);
@@ -101,12 +124,22 @@ class V4SuspendedUserController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
             return $this->handleValidationException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return $this->handleNotFound($e, 'Suspended user not found');
         } catch (Exception $e) {
             DB::rollBack();
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -139,12 +172,22 @@ class V4SuspendedUserController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
             return $this->handleValidationException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return $this->handleNotFound($e, 'User not found');
         } catch (Exception $e) {
             DB::rollBack();
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -171,6 +214,11 @@ class V4SuspendedUserController extends Controller
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return $this->handleNotFound($e, 'Active suspension not found for this user');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             DB::rollBack();
             return $this->handleException($e);
@@ -189,6 +237,11 @@ class V4SuspendedUserController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->handleNotFound($e, 'Suspended user not found');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->handleException($e);
         }
@@ -207,6 +260,11 @@ class V4SuspendedUserController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->handleNotFound($e, 'Suspended user not found');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->handleException($e);
         }

@@ -10,9 +10,17 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4UserReportReasonController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     public function getActiveReasons(Request $request): JsonResponse
     {
@@ -26,6 +34,11 @@ class V4UserReportReasonController extends Controller
             ]);
         } catch (Exception $e) {
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -41,6 +54,11 @@ class V4UserReportReasonController extends Controller
             ]);
         } catch (Exception $e) {
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -76,6 +94,13 @@ class V4UserReportReasonController extends Controller
                 'data'    => $rejectionReason,
             ], 201);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -112,6 +137,13 @@ class V4UserReportReasonController extends Controller
                 'data'    => $rejectionReason,
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -125,6 +157,11 @@ class V4UserReportReasonController extends Controller
             ], 404);
         } catch (Exception $e) {
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -143,6 +180,13 @@ class V4UserReportReasonController extends Controller
                 'message' => 'User report reason deleted successfully',
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -156,6 +200,11 @@ class V4UserReportReasonController extends Controller
             ], 404);
         } catch (Exception $e) {
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -170,6 +219,13 @@ class V4UserReportReasonController extends Controller
                 'data'    => $rejectionReason,
             ]);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'User report reason not found',

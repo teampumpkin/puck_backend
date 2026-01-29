@@ -13,9 +13,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4ChatMuteSettingController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public function mute(Request $request, $chatId): JsonResponse
     {
         try {
@@ -53,6 +61,13 @@ class V4ChatMuteSettingController extends Controller
                 'data'    => $muteSetting,
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -64,6 +79,13 @@ class V4ChatMuteSettingController extends Controller
                 'message' => 'User or chat not found',
             ], 404);
         } catch (QueryException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Database error occurred',
@@ -104,6 +126,13 @@ class V4ChatMuteSettingController extends Controller
                 'message' => 'Unmuted successfully',
             ], 200);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Mute setting not found',
@@ -115,6 +144,13 @@ class V4ChatMuteSettingController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'An unexpected error occurred',
@@ -149,6 +185,13 @@ class V4ChatMuteSettingController extends Controller
                 'data'    => $muteSettings,
             ], 200);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'User not found',

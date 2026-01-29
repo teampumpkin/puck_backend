@@ -20,14 +20,18 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4PaymentController extends Controller
 {
+    protected $errorTracker;
+
 
     protected $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(ErrorTrackerInterface $errorTracker, NotificationService $notificationService)
     {
+        $this->errorTracker = $errorTracker;
         $this->notificationService = $notificationService;
     }
 
@@ -175,7 +179,14 @@ class V4PaymentController extends Controller
                             'error' => $submissionError->getMessage(),
                         ]);
 
-                        return response()->json([
+                        
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($submissionError, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
                             'success' => true,
                             'message' => 'Payment processed successfully',
                             'data' => [
@@ -190,6 +201,11 @@ class V4PaymentController extends Controller
                 } catch (Exception $e) {
                     DB::rollBack();
                     throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
             }
 
@@ -260,7 +276,14 @@ class V4PaymentController extends Controller
                             'error' => $submissionError->getMessage(),
                         ]);
 
-                        return response()->json([
+                        
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($submissionError, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
                             'success' => true,
                             'message' => 'Payment approved successfully',
                             'data' => [
@@ -275,6 +298,11 @@ class V4PaymentController extends Controller
                 } catch (Exception $e) {
                     DB::rollBack();
                     throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
             } else {
                 // Create new payment request - wrapped in transaction
@@ -346,7 +374,14 @@ class V4PaymentController extends Controller
                             'error' => $submissionError->getMessage(),
                         ]);
 
-                        return response()->json([
+                        
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($submissionError, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
                             'success' => true,
                             'message' => 'Payment processed successfully but submission creation failed',
                             'data' => [
@@ -361,9 +396,21 @@ class V4PaymentController extends Controller
                 } catch (Exception $e) {
                     DB::rollBack();
                     throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error processing payment: ' . $e->getMessage(), [
@@ -434,6 +481,13 @@ class V4PaymentController extends Controller
                 ], 404);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -515,10 +569,24 @@ class V4PaymentController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 Log::error('Error processing payment Rollback: ' . $e->getMessage(), ['user_id' => Auth::id(), 'trace' => $e->getTraceAsString()]);
-                return response()->json(['success' => false, 'message' => 'Failed to process payment', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+                
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'Failed to process payment', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
             }
         } catch (ValidationException $e) {
             Log::error('Error processing payment validation: ' . $e->getMessage(), ['user_id' => Auth::id(), 'trace' => $e->getTraceAsString()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error processing payment: ' . $e->getMessage(), ['user_id' => Auth::id(), 'trace' => $e->getTraceAsString()]);
@@ -608,6 +676,13 @@ class V4PaymentController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -620,6 +695,13 @@ class V4PaymentController extends Controller
             ], 404);
         } catch (QueryException $e) {
             Log::error('Database query error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Database error occurred.',
@@ -679,7 +761,10 @@ class V4PaymentController extends Controller
 
             return $notification;
         } catch (Exception $e) {
-
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('errorSendPaymentRequestNotification ' . $e->getMessage(), [
                 $parent,
                 $title,
@@ -739,6 +824,11 @@ class V4PaymentController extends Controller
             Log::error('Error sending payment success notification', [
                 'payment_request_id' => $paymentRequest->id,
                 'error' => $e->getMessage(),
+            ]);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
         }
     }

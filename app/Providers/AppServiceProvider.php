@@ -15,7 +15,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // Bind ErrorTracker interface to Sentry implementation
+        $this->app->bind(
+            \App\Contracts\ErrorTrackerInterface::class,
+            \App\Services\SentryErrorTracker::class
+        );
     }
 
     /**

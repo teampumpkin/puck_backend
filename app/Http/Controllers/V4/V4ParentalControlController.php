@@ -12,13 +12,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4ParentalControlController extends Controller
 {
+    protected $errorTracker;
+
     protected $parentalControlService;
 
-    public function __construct(ParentalControlService $parentalControlService)
+    public function __construct(ErrorTrackerInterface $errorTracker, ParentalControlService $parentalControlService)
     {
+        $this->errorTracker = $errorTracker;
         $this->parentalControlService = $parentalControlService;
     }
 
@@ -68,6 +72,11 @@ class V4ParentalControlController extends Controller
             Log::error('Error fetching parental control: ' . $e->getMessage());
 
             return $this->sendResponse('error', 'Parental control or child not found', null, Response::HTTP_NOT_FOUND);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (QueryException $e) {
             Log::error('Database query error: ' . $e->getMessage());
 
@@ -76,6 +85,11 @@ class V4ParentalControlController extends Controller
             Log::error('Unexpected error fetching parental control: ' . $e->getMessage());
 
             return $this->sendResponse('error', 'An error occurred while fetching the parental control', null, Response::HTTP_INTERNAL_SERVER_ERROR);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -95,6 +109,11 @@ class V4ParentalControlController extends Controller
             Log::error('Child not found: ' . $e->getMessage());
 
             return $this->sendResponse('error', 'Child not found', null, Response::HTTP_NOT_FOUND);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (QueryException $e) {
             Log::error('Database query error: ' . $e->getMessage());
 
@@ -103,6 +122,11 @@ class V4ParentalControlController extends Controller
             Log::error('Error toggling parental control: ' . $e->getMessage());
 
             return $this->sendResponse('error', 'An error occurred while toggling the parental control', null, Response::HTTP_INTERNAL_SERVER_ERROR);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -120,6 +144,11 @@ class V4ParentalControlController extends Controller
             Log::error('Parental control or child not found: ' . $e->getMessage());
 
             return $this->sendResponse('error', 'Parental control or child not found', null, Response::HTTP_NOT_FOUND);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (QueryException $e) {
             Log::error('Database query error: ' . $e->getMessage());
 
@@ -128,6 +157,11 @@ class V4ParentalControlController extends Controller
             Log::error('Error deleting parental control: ' . $e->getMessage());
 
             return $this->sendResponse('error', 'An error occurred while deleting the parental control', null, Response::HTTP_INTERNAL_SERVER_ERROR);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 }

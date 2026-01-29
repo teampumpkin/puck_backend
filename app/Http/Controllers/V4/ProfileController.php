@@ -22,6 +22,7 @@ use App\Models\V4Post;
 use App\Models\V4User;
 use Carbon\Carbon;
 use Exception;
+use App\Contracts\ErrorTrackerInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,13 @@ use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public function getProfileData(Request $request)
     {
         try {
@@ -143,6 +151,10 @@ class ProfileController extends Controller
                     ]);
                 }
             } catch (\Throwable $e) {
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => 'unknown_method',
+                ]);
                 Log::error('Update User Profile API error', ['error' => $e->getMessage()]);
             }
 
@@ -154,6 +166,10 @@ class ProfileController extends Controller
                 'user' => $userData,
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve profile data',
@@ -642,6 +658,10 @@ class ProfileController extends Controller
                 'user' => $userData,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -687,6 +707,10 @@ class ProfileController extends Controller
                 'message' => 'User account deleted successfully'
             ], 200);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
@@ -714,6 +738,10 @@ class ProfileController extends Controller
                 'message' => 'User account deleted successfully'
             ], 200);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
@@ -859,6 +887,10 @@ class ProfileController extends Controller
                 'child' => $result['child'],
             ], 201);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => $e->errors()['username'][0] ?? 'Validation failed',
@@ -934,6 +966,10 @@ class ProfileController extends Controller
                 'child' => $childData,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1012,6 +1048,10 @@ class ProfileController extends Controller
                 'child' => $childData,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1116,6 +1156,10 @@ class ProfileController extends Controller
                 'child' => $childData,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1299,6 +1343,10 @@ class ProfileController extends Controller
                 'users' => $result,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::warning('Validation failed', ['errors' => $e->errors()]);
             return response()->json([
                 'success' => false,
@@ -1448,6 +1496,10 @@ class ProfileController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1541,6 +1593,10 @@ class ProfileController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1592,6 +1648,10 @@ class ProfileController extends Controller
                 'data' => $user,
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.',
@@ -1612,6 +1672,10 @@ class ProfileController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error(
                 'An unexpected error occurred.' . $e->getMessage(),
                 [
@@ -1645,6 +1709,10 @@ class ProfileController extends Controller
 
             return response()->json($user);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1754,6 +1822,10 @@ class ProfileController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2059,6 +2131,10 @@ class ProfileController extends Controller
                 'user' => $userData,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2174,6 +2250,10 @@ class ProfileController extends Controller
                 'user' => $userData,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2218,6 +2298,10 @@ class ProfileController extends Controller
                 'videos' => $videos,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2254,6 +2338,10 @@ class ProfileController extends Controller
                 'children' => $children
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2303,6 +2391,10 @@ class ProfileController extends Controller
 
             return response()->json($players);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2384,6 +2476,10 @@ class ProfileController extends Controller
                 return response()->json(['coaches' => $players]);
             }
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2456,6 +2552,10 @@ class ProfileController extends Controller
                 return response()->json(['teams' => $teams]);
             }
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2481,6 +2581,10 @@ class ProfileController extends Controller
 
             return response()->json($result);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2562,6 +2666,10 @@ class ProfileController extends Controller
                 return response()->json(['coaches' => $players]);
             }
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2601,6 +2709,10 @@ class ProfileController extends Controller
 
             return response()->json($players);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2652,6 +2764,10 @@ class ProfileController extends Controller
                 ]
             );
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2736,6 +2852,10 @@ class ProfileController extends Controller
                 $result
             );
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2762,6 +2882,10 @@ class ProfileController extends Controller
                 $achievements
             );
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2833,6 +2957,10 @@ class ProfileController extends Controller
                 'videos' => $allVideos,
             ], 200);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2930,6 +3058,10 @@ class ProfileController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             // Return validation error response
             return response()->json([
                 'success' => false,
@@ -3032,6 +3164,10 @@ class ProfileController extends Controller
 
                 DB::commit();
             } catch (\Throwable $e) {
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => 'unknown_method',
+                ]);
                 DB::rollBack();
                 throw $e;
             }
@@ -3046,6 +3182,10 @@ class ProfileController extends Controller
                 ],
             ], 200);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Error updating evaluation visibility: ' . $e->getMessage());
 
             return response()->json([
@@ -3164,6 +3304,10 @@ class ProfileController extends Controller
                 ],
             ], 200);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Error getting achievements/evaluations: ' . $e->getMessage(), [
                 'user_id' => Auth::guard('v4api')->id(),
                 'trace' => $e->getTraceAsString(),
@@ -3237,6 +3381,10 @@ class ProfileController extends Controller
                 ],
             ], 201);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -3333,6 +3481,10 @@ class ProfileController extends Controller
                     try {
                         Storage::disk('s3')->delete($oldPath);
                     } catch (Exception $e) {
+                        // Track error in Sentry
+                        $this->errorTracker->captureException($e, [
+                            'action' => 'unknown_method',
+                        ]);
                         Log::warning('Failed to delete old achievement image', [
                             'achievement_id' => $achievementId,
                             'old_path' => $oldPath,
@@ -3362,6 +3514,10 @@ class ProfileController extends Controller
                 ],
             ], 200);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -3432,6 +3588,10 @@ class ProfileController extends Controller
                 ],
             ], 200);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Error deleting achievement: ' . $e->getMessage(), [
                 'achievement_id' => $achievementId,
                 'user_id' => Auth::guard('v4api')->id(),
@@ -3577,6 +3737,10 @@ class ProfileController extends Controller
                 'message' => 'Favourite users updated successfully.',
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
             return response()->json([
                 'success' => false,
@@ -3610,6 +3774,10 @@ class ProfileController extends Controller
                 'data' => $favouriteUsers
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Failed to fetch favourite users.', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -3677,6 +3845,10 @@ class ProfileController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -3728,6 +3900,10 @@ class ProfileController extends Controller
                 'message' => 'Password updated successfully.',
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',

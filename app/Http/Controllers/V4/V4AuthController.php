@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V4;
 
 use App\Constants\OtpProvider;
 use App\Constants\OtpType;
+use App\Contracts\ErrorTrackerInterface;
 use App\Http\Controllers\Controller;
 use App\Mail\SendOtpMail;
 use App\Models\V4Otp;
@@ -24,6 +25,12 @@ use Illuminate\Validation\ValidationException;
 
 class V4AuthController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
     public function sendLoginOtp(Request $request)
     {
         try {
@@ -33,7 +40,6 @@ class V4AuthController extends Controller
                 'email' => 'required_without:phone|email',
                 'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
             ]);
-
             $identifier = $validated['email'] ?? $validated['phone'];
             $field = isset($validated['email']) ? 'email' : 'phone';
 
@@ -99,6 +105,13 @@ class V4AuthController extends Controller
             ], 422);
         } catch (Exception $e) {
             Log::error('Send OTP error: ' . $e->getMessage());
+
+            // Track error in Sentry with context
+            $this->errorTracker->captureException($e, [
+                'action' => 'send_login_otp',
+                'role' => $validated['role'] ?? null,
+                'field' => $field ?? null,
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -179,6 +192,12 @@ class V4AuthController extends Controller
         } catch (Exception $e) {
             Log::error('OTP verification failed: ' . $e->getMessage());
 
+            // Track error in Sentry with context
+            $this->errorTracker->captureException($e, [
+                'action' => 'verify_login_otp',
+                'field' => $field ?? null,
+            ]);
+
             return response()->json([
                 'message' => 'OTP verification failed.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
@@ -229,6 +248,12 @@ class V4AuthController extends Controller
             ], 422);
         } catch (Exception $e) {
             Log::error('Admin Register Error: ' . $e->getMessage());
+
+            // Track error in Sentry with context
+            $this->errorTracker->captureException($e, [
+                'action' => 'admin_register',
+                'email' => $validated['email'] ?? null,
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -285,6 +310,12 @@ class V4AuthController extends Controller
             ], 422);
         } catch (Exception $e) {
             Log::error('Admin Login Error: ' . $e->getMessage());
+
+            // Track error in Sentry with context
+            $this->errorTracker->captureException($e, [
+                'action' => 'admin_login',
+                'email' => $validated['email'] ?? null,
+            ]);
 
             return response()->json([
                 'success' => false,

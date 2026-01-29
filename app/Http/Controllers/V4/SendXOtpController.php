@@ -8,9 +8,17 @@ use sendx\Configuration;
 use sendx\api\EmailSendingApi;
 use sendx\model\XEmailMessage;
 use sendx\model\XFrom;
+use App\Contracts\ErrorTrackerInterface;
 
 class SendXOtpController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public static function sendOtp(string $email, string $otp)
     {
         // configure API key
@@ -37,6 +45,11 @@ class SendXOtpController extends Controller
         } catch (\Exception $e) {
             Log::error('SendX OTP error: ' . $e->getMessage());
             return "Error: " . $e->getMessage();
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 }

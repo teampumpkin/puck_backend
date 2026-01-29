@@ -15,14 +15,18 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4PostLikeController extends Controller
 {
+    protected $errorTracker;
+
 
     protected $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(ErrorTrackerInterface $errorTracker, NotificationService $notificationService)
     {
+        $this->errorTracker = $errorTracker;
         $this->notificationService = $notificationService;
     }
 
@@ -115,6 +119,13 @@ class V4PostLikeController extends Controller
             });
         } catch (ModelNotFoundException $e) {
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Post not found.',
@@ -193,6 +204,13 @@ class V4PostLikeController extends Controller
                 ]);
             });
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Post not found.',
@@ -248,6 +266,13 @@ class V4PostLikeController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Fetch likes failed', ['error' => $e->getMessage()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch likes.',

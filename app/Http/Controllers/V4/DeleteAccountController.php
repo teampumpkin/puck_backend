@@ -20,9 +20,17 @@ use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
+use App\Contracts\ErrorTrackerInterface;
 
 class DeleteAccountController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     /**
      * Get authenticated user from token (query parameter or Authorization header)
      */
@@ -54,6 +62,11 @@ class DeleteAccountController extends Controller
                 'ip' => $request->ip(),
             ]);
             return null;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             Log::error('Error authenticating user for account deletion.', [
                 'error' => $e->getMessage(),
@@ -139,6 +152,11 @@ class DeleteAccountController extends Controller
                     'error' => $e->getMessage(),
                     'user_id' => $user->id,
                 ]);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
 
             // Redirect to home or a different page after deletion
@@ -152,6 +170,11 @@ class DeleteAccountController extends Controller
                 'ip' => $request->ip(),
             ]);
             return back()->withErrors(['error' => 'Account deletion failed. Please try again later.']);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (QueryException $e) {
             // Handle database query exception (e.g., issues with deleting records)
             DB::rollBack(); // Rollback transaction
@@ -169,6 +192,11 @@ class DeleteAccountController extends Controller
                 'ip' => $request->ip(),
             ]);
             return back()->withErrors($e->errors());
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             // Handle any other general exception
             DB::rollBack(); // Rollback transaction
@@ -312,7 +340,14 @@ class DeleteAccountController extends Controller
                 ]);
 
                 // Still return success to Facebook (they expect 200 status)
-                return response()->json([
+                
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
                     'url' => route('account.delete.form'),
                     'confirmation_code' => 'DELETION_FAILED',
                 ], 200);
@@ -326,6 +361,13 @@ class DeleteAccountController extends Controller
             ]);
 
             // Always return 200 to Facebook
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'url' => route('account.delete.form'),
                 'confirmation_code' => 'ERROR',
@@ -376,6 +418,11 @@ class DeleteAccountController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return null;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 }

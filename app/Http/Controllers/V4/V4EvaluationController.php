@@ -39,14 +39,18 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4EvaluationController extends Controller
 {
+    protected $errorTracker;
+
 
     protected $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(ErrorTrackerInterface $errorTracker, NotificationService $notificationService)
     {
+        $this->errorTracker = $errorTracker;
         $this->notificationService = $notificationService;
     }
 
@@ -120,6 +124,13 @@ class V4EvaluationController extends Controller
             Log::error('Error fetching evaluation questions: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -204,6 +215,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve category questions',
@@ -249,6 +267,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve evaluation categories',
@@ -286,6 +311,13 @@ class V4EvaluationController extends Controller
             Log::error('Error fetching all evaluation categories: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -366,6 +398,13 @@ class V4EvaluationController extends Controller
                 'data' => $category,
             ], 201);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -398,6 +437,13 @@ class V4EvaluationController extends Controller
                 'message' => 'Category deleted successfully',
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -556,6 +602,13 @@ class V4EvaluationController extends Controller
                 'data' => $category->fresh(),
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -720,6 +773,13 @@ class V4EvaluationController extends Controller
                 'data' => $category->fresh(),
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -745,6 +805,13 @@ class V4EvaluationController extends Controller
                 'data' => $category,
             ], 200);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Category not found',
@@ -772,6 +839,13 @@ class V4EvaluationController extends Controller
                 'message' => 'Categories reordered successfully.',
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -836,6 +910,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve question',
@@ -890,6 +971,13 @@ class V4EvaluationController extends Controller
             Log::error('Error fetching active questions: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -947,6 +1035,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve all questions',
@@ -1000,6 +1095,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve all questions',
@@ -1025,6 +1127,13 @@ class V4EvaluationController extends Controller
                 'message' => 'Question deleted successfully',
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1130,6 +1239,13 @@ class V4EvaluationController extends Controller
             Log::error('Error Validation failed  creating question: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1323,6 +1439,13 @@ class V4EvaluationController extends Controller
                 ],
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1367,6 +1490,13 @@ class V4EvaluationController extends Controller
                 'question_id' => $request->input('id'),
                 'trace' => $e->getTraceAsString(),
             ]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1444,6 +1574,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve question options',
@@ -1514,6 +1651,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve question option',
@@ -1581,6 +1725,13 @@ class V4EvaluationController extends Controller
                 'user_id' => Auth::id(),
                 'option_id' => $id,
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1706,6 +1857,13 @@ class V4EvaluationController extends Controller
                 ],
             ], 201);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1926,6 +2084,13 @@ class V4EvaluationController extends Controller
                 'errors' => $e->errors(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -1964,6 +2129,13 @@ class V4EvaluationController extends Controller
                 'message' => 'Question option deleted successfully',
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2010,6 +2182,13 @@ class V4EvaluationController extends Controller
                 'question_id' => $request->input('id'),
                 'trace' => $e->getTraceAsString(),
             ]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -2218,6 +2397,11 @@ class V4EvaluationController extends Controller
                         // Optionally delete uploaded file from S3 if DB transaction fails
                         Storage::disk('s3')->delete($path);
                         throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                     }
                 } else if ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                     // === ONE-ON-ONE CONSULTATION LOGIC ===
@@ -2304,6 +2488,11 @@ class V4EvaluationController extends Controller
                     } catch (Exception $e) {
                         DB::rollBack();
                         throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                     }
                 } else if ($marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
                     // === MENTORSHIP PROGRAM LOGIC ===
@@ -2400,6 +2589,11 @@ class V4EvaluationController extends Controller
                         } catch (Exception $e) {
                             DB::rollBack();
                             throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                         }
                     }
 
@@ -2501,6 +2695,11 @@ class V4EvaluationController extends Controller
                             // Delete uploaded file from S3 if DB transaction fails
                             Storage::disk('s3')->delete($path);
                             throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                         }
                     }
 
@@ -2764,6 +2963,11 @@ class V4EvaluationController extends Controller
                             $filename = 'portfolio_video_' . time() . '_' . uniqid() . '.' . $videoData['file']->getClientOriginalExtension();
                             $path = 'portfolio-videos/' . $playerId . '/' . $filename;
                             Storage::disk('s3')->delete($path);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                         }
                         throw $e;
                     }
@@ -2772,6 +2976,13 @@ class V4EvaluationController extends Controller
 
             return response()->json(['success' => false, 'message' => 'Marketplace type not supported'], 400);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error processing evaluation submission: ' . $e->getMessage(), [
@@ -2843,6 +3054,13 @@ class V4EvaluationController extends Controller
             Log::error('Error fetching evaluation videos: ' . $e->getMessage(), [
                 'user_id' => $userId ?? Auth::id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -3039,6 +3257,13 @@ class V4EvaluationController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -3207,6 +3432,13 @@ class V4EvaluationController extends Controller
                 'submission_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Evaluation submission not found',
@@ -3354,6 +3586,13 @@ class V4EvaluationController extends Controller
                 'submission_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Evaluation submission not found',
@@ -3472,6 +3711,11 @@ class V4EvaluationController extends Controller
                     }
                 } catch (\Throwable $e) {
                     Log::error('Conversation API error', ['error' => $e->getMessage()]);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
 
                 // Create evaluator assignment
@@ -3641,6 +3885,13 @@ class V4EvaluationController extends Controller
                 ], 400);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -3779,6 +4030,13 @@ class V4EvaluationController extends Controller
             ], 200);
         } catch (Exception $e) {
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve evaluator assignments',
@@ -3855,6 +4113,13 @@ class V4EvaluationController extends Controller
                 ],
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -4052,6 +4317,13 @@ class V4EvaluationController extends Controller
                 'message' => 'Unable to determine evaluation status',
             ], 500);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Video evaluation status check failed', ['error' => $e->getMessage(), 'sku' => $request->input('sku'), 'user_id' => $request->input('user_id')]);
@@ -4200,6 +4472,11 @@ class V4EvaluationController extends Controller
                         }
                     } catch (\Throwable $e) {
                         Log::error('Conversation API error', ['error' => $e->getMessage()]);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                     }
 
                     // Create evaluator assignment
@@ -4245,8 +4522,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -4325,6 +4614,13 @@ class V4EvaluationController extends Controller
                 'data' => $data,
             ]);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Consultation request not found or not assigned to you.',
@@ -4340,6 +4636,13 @@ class V4EvaluationController extends Controller
                 'user_id' => Auth::guard('v4api')->id(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -4481,6 +4784,11 @@ class V4EvaluationController extends Controller
                         }
                     } catch (\Throwable $e) {
                         Log::error('Conversation API error', ['error' => $e->getMessage()]);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                     }
 
                     // Create evaluator assignment
@@ -4525,8 +4833,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -4630,6 +4950,13 @@ class V4EvaluationController extends Controller
                 'data' => $assignment,
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -4782,8 +5109,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error submitting evaluator assignment: ' . $e->getMessage(), [
@@ -4894,8 +5233,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error rejecting evaluator assignment: ' . $e->getMessage(), [
@@ -5072,8 +5423,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -5248,8 +5611,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -5491,8 +5866,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -5738,8 +6125,20 @@ class V4EvaluationController extends Controller
                 // Delete uploaded file from S3 if DB transaction fails
                 Storage::disk('s3')->delete($path);
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -5899,6 +6298,13 @@ class V4EvaluationController extends Controller
                 'assignment_id' => $assignment_id,
                 'user_id' => Auth::guard('v4api')->id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -6069,8 +6475,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -6258,6 +6676,11 @@ class V4EvaluationController extends Controller
                 } catch (Exception $e) {
                     DB::rollBack();
                     throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
             } else if ($mentorshipUploadType == EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO) {
 
@@ -6340,6 +6763,11 @@ class V4EvaluationController extends Controller
                 } catch (Exception $e) {
                     DB::rollBack();
                     throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
             } else {
                 return response()->json([
@@ -6349,6 +6777,13 @@ class V4EvaluationController extends Controller
                 ], 400);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -6498,8 +6933,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -6677,6 +7124,13 @@ class V4EvaluationController extends Controller
             Log::error('Error fetching consultation report: ' . $e->getMessage(), [
                 'evaluation_id' => $evaluation_id,
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -6932,6 +7386,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve mentorship report',
@@ -6979,8 +7440,20 @@ class V4EvaluationController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 throw $e;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Error deleting portfolio: ' . $e->getMessage(), [
@@ -7086,6 +7559,13 @@ class V4EvaluationController extends Controller
             ], 200);
         } catch (Exception $e) {
             Log::error('Error fetching player hockey portfolio: ' . $e->getMessage());
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json(['success' => false, 'message' => 'Failed to fetch portfolio'], 500);
         }
     }
@@ -7198,6 +7678,13 @@ class V4EvaluationController extends Controller
             Log::error('Error fetching all hockey portfolios: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json(['success' => false, 'message' => 'Failed to fetch portfolios', 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
@@ -7474,6 +7961,13 @@ class V4EvaluationController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -7629,6 +8123,13 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve submission result',
@@ -7745,6 +8246,13 @@ class V4EvaluationController extends Controller
                 'user_id' => Auth::guard('v4api')->id(),
                 'status' => $status,
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -7948,6 +8456,11 @@ class V4EvaluationController extends Controller
             Log::warning('Failed to delete evaluation rejection notifications', [
                 'submission_id' => $submission->id,
                 'error' => $e->getMessage(),
+            ]);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
         }
     }

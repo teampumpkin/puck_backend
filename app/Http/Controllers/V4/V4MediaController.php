@@ -9,9 +9,17 @@ use App\Models\V4User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Contracts\ErrorTrackerInterface;
 
 class   V4MediaController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     /**
      * Upload media file (photo or video)
      *
@@ -59,6 +67,13 @@ class   V4MediaController extends Controller
             ], 400);
 
         } catch (\Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload media',
@@ -89,6 +104,13 @@ class   V4MediaController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve media',
@@ -172,6 +194,13 @@ class   V4MediaController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update media',
@@ -222,6 +251,13 @@ class   V4MediaController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete media',
