@@ -152,9 +152,9 @@ class V4FollowController extends Controller
 
             // Send notification
             if ($status === 'pending') {
-                $this->sendRequestFollowingNotification($authUser, $user, $follow, $validated['notes']);
+                $this->sendRequestFollowingNotification(V4User::findOrFail($authUser->id), $user, $follow, $validated['notes'] ?? null);
             } else {
-                $this->sendFollowAcceptedNotification($authUser, $user, $follow);
+                $this->sendFollowAcceptedNotification(V4User::findOrFail($authUser->id), $user, $follow);
             }
 
             return response()->json([
