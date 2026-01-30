@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Log;
 
 class MessageSendingListener
 {
@@ -24,18 +25,6 @@ class MessageSendingListener
      */
     public function handle(MessageSending $event)
     {
-        $domain = env('APP_DOMAIN');
-        $original_prefix = '';
-
-        switch ($domain) {
-            case 'production':
-                $original_prefix = '';
-                break;
-            default:
-                $original_prefix = '[DEV]';
-                break;
-        }
-
-        $event->message->setSubject($original_prefix . ' ' . $event->message->getSubject());
+        $event->message->setSubject($event->message->getSubject());
     }
 }

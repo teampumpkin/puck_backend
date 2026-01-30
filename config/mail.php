@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'smtp'),
+    'default' => env('ENVIRONMENT', 'production') === 'development' ? env('MAIL_MAILER', 'smtp') : 'brevo',
 
     /*
     |--------------------------------------------------------------------------
@@ -36,21 +36,32 @@ return [
 
     'mailers' => [
         'smtp' => [
-            'transport'  => 'smtp',
-            'host'       => env('MAIL_HOST', 'smtp.mailgun.org'),
-            'port'       => env('MAIL_PORT', 587),
+            'transport' => 'smtp',
+            'host' => env('MAIL_HOST', 'smtp.mailgun.org'),
+            'port' => env('MAIL_PORT', 587),
             'encryption' => env('MAIL_ENCRYPTION', 'tls'),
-            'username'   => env('MAIL_USERNAME'),
-            'password'   => env('MAIL_PASSWORD'),
-            'timeout'    => null,
-            'auth_mode'  => null,
-            'stream'     => [
+            'username' => env('MAIL_USERNAME'),
+            'password' => env('MAIL_PASSWORD'),
+            'timeout' => null,
+            'auth_mode' => null,
+            'stream' => [
                 'ssl' => [
                     'allow_self_signed' => true,
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
                 ],
             ],
+        ],
+
+        'brevo' => [
+            'transport' => 'smtp',
+            'host' => env('BREVO_SMTP_HOST', 'smtp-relay.brevo.com'),
+            'port' => env('BREVO_SMTP_PORT', 587),
+            'encryption' => env('BREVO_SMTP_ENCRYPTION', 'tls'),
+            'username' => env('BREVO_SMTP_USERNAME'),
+            'password' => env('BREVO_API_KEY'),
+            'timeout' => null,
+            'auth_mode' => null,
         ],
 
         'ses' => [
@@ -94,8 +105,10 @@ return [
 
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', 'Example'),
+        'address' => env('ENVIRONMENT') === 'development'
+            ? env('MAIL_FROM_ADDRESS', 'hello@example.com') : env('BREVO_FROM_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+        'name' => env('ENVIRONMENT') === 'development'
+            ? env('MAIL_FROM_NAME', 'Puck Recruiter') : env('BREVO_FROM_NAME', env('MAIL_FROM_NAME', 'Example')),
     ],
 
     /*
