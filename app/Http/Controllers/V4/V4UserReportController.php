@@ -13,9 +13,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4UserReportController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     public function reportUser(Request $request): JsonResponse
     {
@@ -58,6 +66,13 @@ class V4UserReportController extends Controller
             ], 201);
         } catch (ValidationException $e) {
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -73,6 +88,13 @@ class V4UserReportController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to report user', ['error' => $e->getMessage(), 'user_id' => Auth::id()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to report user',

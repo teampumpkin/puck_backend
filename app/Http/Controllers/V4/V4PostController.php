@@ -16,9 +16,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4PostController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     /**
      * Store a newly created post with media upload to S3
@@ -132,6 +140,13 @@ class V4PostController extends Controller
             ], 201);
         } catch (ValidationException $e) {
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -232,6 +247,13 @@ class V4PostController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid input.',
@@ -315,6 +337,13 @@ class V4PostController extends Controller
                 'trace'   => $e->getTraceAsString(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Post not found.',
@@ -362,6 +391,13 @@ class V4PostController extends Controller
                 'post_id' => $postId,
                 'user_id' => $user->id,
                 'trace'   => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -423,6 +459,13 @@ class V4PostController extends Controller
             ], 200);
         } catch (ValidationException $e) {
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -449,6 +492,13 @@ class V4PostController extends Controller
                 'user_id' => $authUser->id,
                 'message' => $e->getMessage(),
                 'trace'   => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -499,6 +549,13 @@ class V4PostController extends Controller
                 'post_id' => $postId,
                 'user_id' => $authUser->id,
                 'trace'   => $e->getTraceAsString(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([

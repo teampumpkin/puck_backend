@@ -775,3 +775,53 @@ if (!function_exists('createReportDetailObject')) {
         return $report->toArray();
     }
 }
+
+if (!function_exists('getEnvironment')) {
+    /**
+     * Get the current environment (development, staging, production)
+     * Uses ENVIRONMENT variable with fallback to APP_ENV
+     *
+     * @param string $default Default environment if none is set
+     * @return string
+     */
+    function getEnvironment($default = 'production')
+    {
+        return env('ENVIRONMENT', env('APP_ENV', $default));
+    }
+}
+
+if (!function_exists('isDevelopment')) {
+    /**
+     * Check if current environment is development
+     *
+     * @return bool
+     */
+    function isDevelopment()
+    {
+        return getEnvironment() === 'development';
+    }
+}
+
+if (!function_exists('isStaging')) {
+    /**
+     * Check if current environment is staging
+     *
+     * @return bool
+     */
+    function isStaging()
+    {
+        return getEnvironment() === 'staging';
+    }
+}
+
+if (!function_exists('isProduction')) {
+    /**
+     * Check if current environment is production
+     *
+     * @return bool
+     */
+    function isProduction()
+    {
+        return getEnvironment() === 'production';
+    }
+}

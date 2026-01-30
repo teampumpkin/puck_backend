@@ -14,9 +14,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4NotificationPreferenceController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     public function getPreferences(Request $request, $userId = null): JsonResponse
     {
@@ -49,6 +57,13 @@ class V4NotificationPreferenceController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'status'  => false,
@@ -112,6 +127,13 @@ class V4NotificationPreferenceController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'status'  => false,
                 'message' => 'Validation failed.',
@@ -128,6 +150,13 @@ class V4NotificationPreferenceController extends Controller
             ], 500);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'status'  => false,
@@ -169,6 +198,13 @@ class V4NotificationPreferenceController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'status'  => false,
                 'message' => $e->getMessage(),
@@ -212,6 +248,13 @@ class V4NotificationPreferenceController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'status'  => false,

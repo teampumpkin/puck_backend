@@ -14,9 +14,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4FeedController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     public function getRecentFeeds(Request $request): JsonResponse
     {
@@ -86,6 +94,13 @@ class V4FeedController extends Controller
             ]);
         } catch (ValidationException $ve) {
             // ✅ Return validation errors in structured format
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($ve, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -160,6 +175,13 @@ class V4FeedController extends Controller
             ]);
         } catch (ValidationException $ve) {
             // ✅ Return validation errors in structured format
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($ve, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',

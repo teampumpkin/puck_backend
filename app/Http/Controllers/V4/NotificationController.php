@@ -20,16 +20,20 @@ use Illuminate\Database\QueryException;
 use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Support\Str;
+use App\Contracts\ErrorTrackerInterface;
 
 
 class NotificationController extends Controller
 {
+    protected $errorTracker;
+
 
 
     protected $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(ErrorTrackerInterface $errorTracker, NotificationService $notificationService)
     {
+        $this->errorTracker = $errorTracker;
         $this->notificationService = $notificationService;
     }
 
@@ -93,6 +97,13 @@ class NotificationController extends Controller
             ]);
         } catch (ValidationException $e) {
             // Handle validation exception
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -109,6 +120,13 @@ class NotificationController extends Controller
             Log::error('Database error during getUserNotifications operation.', [
                 'user_id' => $user->id,  // Logging the correct user ID
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -186,6 +204,13 @@ class NotificationController extends Controller
             ]);
         } catch (ValidationException $e) {
             // Handle validation exception
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -202,6 +227,13 @@ class NotificationController extends Controller
             Log::error('Database error during getChildNotifications operation.', [
                 'child_id' => $childId,  // Logging the correct child ID
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -255,6 +287,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Notification not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification not found.'
@@ -283,6 +322,13 @@ class NotificationController extends Controller
             ]);
 
             DB::rollBack();
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -329,6 +375,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where either the child or notification is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user or notification not found.',
@@ -359,6 +412,13 @@ class NotificationController extends Controller
 
             // Rollback transaction in case of error
             DB::rollBack();
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -410,6 +470,13 @@ class NotificationController extends Controller
             Log::error('Database error during getUserTrashedNotifications operation.', [
                 'user_id' => $user->id ?? null,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -472,6 +539,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.',
@@ -493,6 +567,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during getChildTrashedNotifications operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -542,6 +623,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where notification is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification not found.',
@@ -565,6 +653,13 @@ class NotificationController extends Controller
                 'notification_id' => $id,
                 'user_id' => Auth::guard('v4api')->user()->id ?? null,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -615,6 +710,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where notification or child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification or child user not found.',
@@ -638,6 +740,13 @@ class NotificationController extends Controller
                 'notification_id' => $id,
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -687,6 +796,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where notification is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification not found.',
@@ -710,6 +826,13 @@ class NotificationController extends Controller
                 'notification_id' => $id,
                 'user_id' => Auth::guard('v4api')->user()->id ?? null,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -760,6 +883,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where notification or child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification or child user not found.',
@@ -783,6 +913,13 @@ class NotificationController extends Controller
                 'notification_id' => $id,
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -814,6 +951,13 @@ class NotificationController extends Controller
             // Log any database query errors
             Log::error('Database error during markAllUserNotificationsAsRead operation.', [
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -855,6 +999,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.',
@@ -876,6 +1027,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during markAllChildNotificationsAsRead operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -910,6 +1068,13 @@ class NotificationController extends Controller
             Log::error('Database error during getUserUnreadCount operation.', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -953,6 +1118,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.',
@@ -974,6 +1146,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during getChildUnreadCount operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1013,6 +1192,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle notification not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification not found.'
@@ -1034,6 +1220,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during deleteUserNotification operation.', [
                 'notification_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1074,6 +1267,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where either the child user or notification is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user or notification not found.',
@@ -1097,6 +1297,13 @@ class NotificationController extends Controller
                 'child_id' => $childId,
                 'notification_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1137,6 +1344,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle the case where the notification doesn't exist
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification not found.'
@@ -1160,6 +1374,13 @@ class NotificationController extends Controller
                 'user_id' => $user->id,
                 'notification_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1200,6 +1421,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where the notification or user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user or notification not found.'
@@ -1223,6 +1451,13 @@ class NotificationController extends Controller
                 'child_id' => $childId,
                 'notification_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1262,6 +1497,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where notification does not exist
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Notification not found.'
@@ -1285,6 +1527,13 @@ class NotificationController extends Controller
                 'user_id' => $user->id,
                 'notification_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1325,6 +1574,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where notification or child user does not exist
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user or notification not found.'
@@ -1348,6 +1604,13 @@ class NotificationController extends Controller
                 'child_id' => $childId,
                 'notification_id' => $id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1376,6 +1639,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.'
@@ -1395,6 +1665,13 @@ class NotificationController extends Controller
             // Log any unexpected errors
             Log::error('Unexpected error during clearAllUserNotifications operation.', [
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1424,6 +1701,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.'
@@ -1445,6 +1729,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during clearAllChildNotifications operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1473,6 +1764,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.'
@@ -1492,6 +1790,13 @@ class NotificationController extends Controller
             // Log any unexpected errors
             Log::error('Unexpected error during restoreAllUserNotifications operation.', [
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1520,6 +1825,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.'
@@ -1541,6 +1853,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during restoreAllChildNotifications operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1569,6 +1888,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.'
@@ -1588,6 +1914,13 @@ class NotificationController extends Controller
             // Log any unexpected errors
             Log::error('Unexpected error during emptyUserTrash operation.', [
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1616,6 +1949,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.'
@@ -1637,6 +1977,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during emptyChildTrash operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1681,6 +2028,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.'
@@ -1702,6 +2056,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during getUserNotificationStatistics operation.', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -1746,6 +2107,13 @@ class NotificationController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             // Handle case where child user is not found
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Child user not found.'
@@ -1767,6 +2135,13 @@ class NotificationController extends Controller
             Log::error('Unexpected error during getChildNotificationStatistics operation.', [
                 'child_id' => $childId,
                 'error' => $e->getMessage(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([
@@ -2156,6 +2531,11 @@ class NotificationController extends Controller
                 $processed++;
             } catch (\Exception $e) {
                 $failed++;
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
             }
         }
 

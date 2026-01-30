@@ -10,9 +10,17 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4FaqController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     /**
      * GET /faqs
      */
@@ -63,6 +71,11 @@ class V4FaqController extends Controller
             ]);
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->serverErrorResponse($e, 'Failed to retrieve FAQs.');
         }
@@ -79,6 +92,11 @@ class V4FaqController extends Controller
             return $this->successResponse('FAQ retrieved successfully.', $faq);
         } catch (ModelNotFoundException $e) {
             return $this->notFoundResponse('FAQ not found.');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->serverErrorResponse($e, 'Failed to retrieve FAQ.');
         }
@@ -102,6 +120,11 @@ class V4FaqController extends Controller
             return $this->successResponse('FAQ created successfully.', $faq, 201);
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->serverErrorResponse($e, 'Failed to create FAQ.');
         }
@@ -126,10 +149,20 @@ class V4FaqController extends Controller
             return $this->successResponse('FAQ updated successfully.', $faq);
         } catch (ModelNotFoundException $e) {
             return $this->notFoundResponse('FAQ not found.');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (ValidationException $e) {
             return $this->validationErrorResponse($e);
         } catch (Exception $e) {
             return $this->serverErrorResponse($e, 'Failed to update FAQ.');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -158,6 +191,13 @@ class V4FaqController extends Controller
                 'message' => 'FAQs reordered successfully.',
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -185,6 +225,11 @@ class V4FaqController extends Controller
             return $this->successResponse('FAQ deleted successfully.');
         } catch (ModelNotFoundException $e) {
             return $this->notFoundResponse('FAQ not found.');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->serverErrorResponse($e, 'Failed to delete FAQ.');
         }

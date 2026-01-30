@@ -11,9 +11,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4BanReasonController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public function index(): JsonResponse
     {
         try {
@@ -26,6 +34,11 @@ class V4BanReasonController extends Controller
             ]);
         } catch (Exception $e) {
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -41,6 +54,11 @@ class V4BanReasonController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->handleNotFound($e, 'Ban reason not found');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->handleException($e);
         }
@@ -69,6 +87,11 @@ class V4BanReasonController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
             return $this->handleValidationException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             DB::rollBack();
             return $this->handleException($e);
@@ -99,12 +122,22 @@ class V4BanReasonController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
             return $this->handleValidationException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return $this->handleNotFound($e, 'Ban reason not found');
         } catch (Exception $e) {
             DB::rollBack();
             return $this->handleException($e);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         }
     }
 
@@ -120,6 +153,11 @@ class V4BanReasonController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->handleNotFound($e, 'Ban reason not found');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->handleException($e);
         }
@@ -138,6 +176,11 @@ class V4BanReasonController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->handleNotFound($e, 'Ban reason not found');
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
         } catch (Exception $e) {
             return $this->handleException($e);
         }

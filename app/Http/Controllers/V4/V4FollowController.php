@@ -8,6 +8,7 @@ use App\Models\V4Follow;
 use App\Models\V4User;
 use App\Services\NotificationService;
 use Exception;
+use App\Contracts\ErrorTrackerInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -20,10 +21,13 @@ use Illuminate\Validation\ValidationException;
 
 class V4FollowController extends Controller
 {
+    protected $errorTracker;
+
     protected $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(NotificationService $notificationService, ErrorTrackerInterface $errorTracker)
     {
+        $this->errorTracker = $errorTracker;
         $this->notificationService = $notificationService;
     }
 
@@ -99,6 +103,10 @@ class V4FollowController extends Controller
                             ]);
                         }
                     } catch (\Throwable $e) {
+                        // Track error in Sentry
+                        $this->errorTracker->captureException($e, [
+                            'action' => 'unknown_method',
+                        ]);
                         Log::error('Conversation API error', ['error' => $e->getMessage()]);
                     }
                 } else {
@@ -135,6 +143,10 @@ class V4FollowController extends Controller
                         ]);
                     }
                 } catch (\Throwable $e) {
+                    // Track error in Sentry
+                    $this->errorTracker->captureException($e, [
+                        'action' => 'unknown_method',
+                    ]);
                     Log::error('Conversation API error', ['error' => $e->getMessage()]);
                 }
 
@@ -165,6 +177,10 @@ class V4FollowController extends Controller
                 'data' => $follow,
             ]);
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
 
             return response()->json([
@@ -179,6 +195,10 @@ class V4FollowController extends Controller
                 'message' => 'User not found.',
             ], 404);
         } catch (QueryException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
 
             Log::error('Database error during follow operation.', [
@@ -258,6 +278,10 @@ class V4FollowController extends Controller
                 'message' => 'Unfollowed successfully.',
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.',
@@ -277,6 +301,10 @@ class V4FollowController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
 
             Log::error('Unexpected error during unfollow.', [
@@ -320,6 +348,10 @@ class V4FollowController extends Controller
             try {
                 $player = V4User::findOrFail($playerId);
             } catch (ModelNotFoundException $e) {
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => 'unknown_method',
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Player not found.',
@@ -368,6 +400,10 @@ class V4FollowController extends Controller
                 'data' => $follow,
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('User not found while accepting follow request: ' . $e->getMessage(), [
                 'user_id' => $authUser->id,
                 'follower_id' => $userId,
@@ -388,6 +424,10 @@ class V4FollowController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (QueryException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
 
             Log::error('Database error while accepting follow request.', [
@@ -448,6 +488,10 @@ class V4FollowController extends Controller
             try {
                 $player = V4User::findOrFail($playerId);
             } catch (ModelNotFoundException $e) {
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => 'unknown_method',
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Player not found.',
@@ -496,6 +540,10 @@ class V4FollowController extends Controller
                 'message' => 'Follow request rejected.',
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('User not found while rejecting follow request: ' . $e->getMessage(), [
                 'user_id' => $authUser->id,
                 'follower_id' => $userId,
@@ -521,6 +569,10 @@ class V4FollowController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
 
             Log::error('Unexpected error while rejecting follow request: ' . $e->getMessage(), [
@@ -589,6 +641,10 @@ class V4FollowController extends Controller
                 'message' => 'Follow request canceled successfully.',
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.',
@@ -608,6 +664,10 @@ class V4FollowController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             DB::rollBack();
 
             Log::error('Unexpected error while canceling follow request.', [
@@ -670,6 +730,10 @@ class V4FollowController extends Controller
                 'message' => 'Follower has been removed successfully.',
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.',
@@ -757,6 +821,10 @@ class V4FollowController extends Controller
                 ],
             ]);
         } catch (ModelNotFoundException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::warning('User not found when fetching followers: ' . $e->getMessage(), [
                 'user_id' => $userId,
                 'trace' => $e->getTraceAsString(),
@@ -819,6 +887,10 @@ class V4FollowController extends Controller
                 ],
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Fetching my followers failed: ' . $e->getMessage(), [
                 'user_id' => $authUser->id,
                 'trace' => $e->getTraceAsString(),
@@ -897,6 +969,10 @@ class V4FollowController extends Controller
                 ],
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Fetching following list failed: ' . $e->getMessage(), [
                 'user_id' => $userId,
                 'trace' => $e->getTraceAsString(),
@@ -931,6 +1007,10 @@ class V4FollowController extends Controller
                 'following' => $following,
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Fetching following list failed: ' . $e->getMessage(), [
                 'user_id' => $id,
                 'trace' => $e->getTraceAsString(),
@@ -980,6 +1060,10 @@ class V4FollowController extends Controller
                 ],
             ]);
         } catch (Exception $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'unknown_method',
+            ]);
             Log::error('Fetching following list failed: ' . $e->getMessage(), [
                 'user_id' => $authUser->id,
                 'trace' => $e->getTraceAsString(),

@@ -15,9 +15,17 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4SocialAuthController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public const JWK_URL = 'https://appleid.apple.com/auth/keys';
     /**
      * Standard JSON response helper.
@@ -78,6 +86,13 @@ class V4SocialAuthController extends Controller
             return $this->findOrCreateUser($googleUser, 'google');
         } catch (Exception $e) {
             Log::error("Google OAuth Error: {$e->getMessage()}", ['' => $request->id_token]);
+            
+            $this->errorTracker->captureException($e, [
+                'action' => 'google_oauth',
+                'role' => $request->role ?? null,
+                'email' => $request->email ?? null,
+            ]);
+            
             return $this->response(false, 'Invalid Google Token', null, $e->getMessage(), 400);
         }
     }
@@ -111,6 +126,12 @@ class V4SocialAuthController extends Controller
             return $this->findOrCreateUser($facebookUser, 'facebook');
         } catch (Exception $e) {
             Log::error("Facebook OAuth Error: {$e->getMessage()}");
+            
+            $this->errorTracker->captureException($e, [
+                'action' => 'facebook_oauth',
+                'role' => $request->role ?? null,
+            ]);
+            
             return $this->response(false, 'Invalid Facebook Token', null, $e->getMessage(), 400);
         }
     }
@@ -172,9 +193,21 @@ class V4SocialAuthController extends Controller
 
             return $this->findOrCreateUser($appleUser, 'apple');
         } catch (ValidationException $e) {
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => 'apple_oauth_validation',
+                'role' => $validated['role'] ?? null,
+            ]);
+            
             return $this->response(false, 'Validation failed', null, $e->errors(), 422);
         } catch (Exception $e) {
             Log::error("Apple Login Error: {$e->getMessage()}");
+            
+            $this->errorTracker->captureException($e, [
+                'action' => 'apple_oauth',
+                'role' => $validated['role'] ?? null,
+            ]);
+            
             return $this->response(false, 'Invalid Apple Token', null, $e->getMessage(), 400);
         }
     }
@@ -240,6 +273,11 @@ class V4SocialAuthController extends Controller
         } catch (Exception $e) {
             Log::error("Apple Redirect Error: {$e->getMessage()}", [
                 'trace' => $e->getTraceAsString(),
+            ]);
+            
+            $this->errorTracker->captureException($e, [
+                'action' => 'apple_redirect',
+                'platform' => $request->query('platform') ?? 'unknown',
             ]);
 
             // Try to redirect with error

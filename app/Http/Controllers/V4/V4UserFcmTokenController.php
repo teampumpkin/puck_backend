@@ -10,9 +10,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4UserFcmTokenController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     public function store(Request $request): JsonResponse
     {
         try {
@@ -64,6 +72,13 @@ class V4UserFcmTokenController extends Controller
                 'errors' => $e->errors(),
             ]);
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -107,6 +122,13 @@ class V4UserFcmTokenController extends Controller
 
             Log::warning("FCM token delete validation failed", [
                 'errors' => $e->errors(),
+            ]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
             ]);
 
             return response()->json([

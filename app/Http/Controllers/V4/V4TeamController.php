@@ -20,9 +20,17 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4TeamController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
 
     /**
      * CREATE TEAM
@@ -128,6 +136,11 @@ class V4TeamController extends Controller
                 DB::rollBack();
                 if ($profilePhotoUrl) {
                     Storage::disk('s3')->delete($profilePhotoUrl);
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
                 }
                 return response()->json([
                     'success' => false,
@@ -136,6 +149,13 @@ class V4TeamController extends Controller
                 ], 500);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -303,13 +323,27 @@ class V4TeamController extends Controller
                     'error' => $e->getMessage(),
                 ]);
                 DB::rollBack();
-                return response()->json([
+                
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
                     'success' => false,
                     'message' => 'Failed to update team',
                     'error' => $e->getMessage(),
                 ], 500);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -347,6 +381,13 @@ class V4TeamController extends Controller
                 'message' => 'Team deleted successfully'
             ]);
         } catch (Exception $e) {
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -524,6 +565,13 @@ class V4TeamController extends Controller
 
             DB::rollBack();
 
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update team members',
@@ -551,6 +599,13 @@ class V4TeamController extends Controller
                 'data' => $teamDetails
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -562,6 +617,13 @@ class V4TeamController extends Controller
                 'message' => 'Team not found',
             ], 404);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch team details',
@@ -610,6 +672,13 @@ class V4TeamController extends Controller
                 'data' => $members
             ]);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -621,6 +690,13 @@ class V4TeamController extends Controller
                 'message' => 'Not found',
             ], 404);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch members',
@@ -671,6 +747,13 @@ class V4TeamController extends Controller
                 ], 500);
             }
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -710,6 +793,13 @@ class V4TeamController extends Controller
                 'data' => $admins,
             ]);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch team admins',
@@ -744,6 +834,13 @@ class V4TeamController extends Controller
                 'data' => $admin
             ], 200);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Team admin not found',
@@ -802,6 +899,13 @@ class V4TeamController extends Controller
                 'data' => $admin
             ], 201);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create team admin',
@@ -854,6 +958,13 @@ class V4TeamController extends Controller
                 'data' => $admin
             ], 200);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Team admin not found',
@@ -894,6 +1005,13 @@ class V4TeamController extends Controller
                 'message' => 'Team admin deleted successfully',
             ], 200);
         } catch (ModelNotFoundException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Team admin not found',

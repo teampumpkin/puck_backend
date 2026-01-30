@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Contracts\ErrorTrackerInterface;
 
 /**
  * Class EvaluationRejectionReasonController
@@ -15,6 +16,13 @@ use Illuminate\Validation\ValidationException;
  */
 class EvaluationRejectionReasonController extends Controller
 {
+    protected $errorTracker;
+
+    public function __construct(ErrorTrackerInterface $errorTracker)
+    {
+        $this->errorTracker = $errorTracker;
+    }
+
     /**
      * @OA\Get(
      * path="/evaluation-rejection-reasons/active",
@@ -62,6 +70,13 @@ class EvaluationRejectionReasonController extends Controller
                 'data' => $activeReasons
             ]);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
@@ -109,6 +124,13 @@ class EvaluationRejectionReasonController extends Controller
                 'data' => $allReasons
             ]);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong',
@@ -168,6 +190,13 @@ class EvaluationRejectionReasonController extends Controller
                 'data' => $rejectionReason
             ], 201);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -296,6 +325,13 @@ class EvaluationRejectionReasonController extends Controller
                 'data' => $rejectionReason->fresh()
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -325,6 +361,13 @@ class EvaluationRejectionReasonController extends Controller
                 'message' => 'Rejection reason deleted successfully'
             ], 200);
         } catch (ValidationException $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -350,6 +393,13 @@ class EvaluationRejectionReasonController extends Controller
                 'data' => $rejectionReason
             ], 200);
         } catch (Exception $e) {
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Rejection reason not found',

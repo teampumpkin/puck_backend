@@ -13,13 +13,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use App\Contracts\ErrorTrackerInterface;
 
 class V4PostCommentController extends Controller
 {
+    protected $errorTracker;
+
     protected $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(ErrorTrackerInterface $errorTracker, NotificationService $notificationService)
     {
+        $this->errorTracker = $errorTracker;
         $this->notificationService = $notificationService;
     }
 
@@ -72,6 +76,13 @@ class V4PostCommentController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Comment store failed', ['error' => $e->getMessage()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to add comment.',
@@ -110,6 +121,13 @@ class V4PostCommentController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Comment delete failed', ['error' => $e->getMessage()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to delete comment.',
@@ -159,6 +177,13 @@ class V4PostCommentController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Fetch comments failed', ['error' => $e->getMessage()]);
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch comments.',
@@ -212,6 +237,13 @@ class V4PostCommentController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Comment update failed', ['error' => $e->getMessage()]);
+
+            
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
 
             return response()->json([
                 'success' => false,
