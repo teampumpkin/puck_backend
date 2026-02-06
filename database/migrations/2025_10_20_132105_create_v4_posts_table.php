@@ -17,7 +17,6 @@ class CreateV4PostsTable extends Migration
             $table->bigIncrements('id');
             $table->unsignedBigInteger('user_id')->index();
             $table->text('caption')->nullable();
-            $table->string('status');
             $table->enum('type', ['images', 'videos', 'mixed'])->default('images'); // convenience
             $table->boolean('is_private')->default(false); // if post visibility needs private per post
             $table->unsignedInteger('likes_count')->default(0);

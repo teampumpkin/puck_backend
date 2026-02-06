@@ -42,7 +42,16 @@ class V4SuperAdminSeeder extends Seeder
             'password'   => 'password123',
         ]);
 
-        // 2. admin26 connected to main
+        // 2. admin connected to main
+        $createSuperAdmin([
+            'first_name' => 'Super',
+            'last_name'  => 'Admin',
+            'email'      => 'admin@gmail.com',
+            'role'       => 'super-admin',
+            'password'   => 'password123',
+        ], $mainAdmin->id);
+
+        // 3. admin26 connected to main
         $createSuperAdmin([
             'first_name' => 'Super',
             'last_name'  => 'Admin',
@@ -51,7 +60,7 @@ class V4SuperAdminSeeder extends Seeder
             'password'   => 'password123',
         ], $mainAdmin->id);
 
-        // 3. core-admin connected to main
+        // 4. core-admin connected to main
         $createSuperAdmin([
             'first_name' => 'Co-Super',
             'last_name'  => 'Admin',
