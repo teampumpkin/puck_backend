@@ -82,15 +82,15 @@ class V4FollowController extends Controller
                     try {
                         $token = $request->bearerToken();
 
-                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $baseUrl = env('CHAT_APP_HOST');
 
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [$authUser->id, $user->id],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [$authUser->id, $user->id],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -124,15 +124,15 @@ class V4FollowController extends Controller
                 try {
                     $token = $request->bearerToken();
 
-                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $baseUrl = env('CHAT_APP_HOST');
 
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [$authUser->id, $user->id],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [$authUser->id, $user->id],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];

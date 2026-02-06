@@ -36,7 +36,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         if ($this->isProduction()) {
-            DB::prohibitDestructiveCommands();
+            // DB::prohibitDestructiveCommands();
         }
     }
 

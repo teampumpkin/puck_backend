@@ -106,7 +106,7 @@ class V4TeamController extends Controller
                     if ($profilePhotoUrl) {
                         $requestData['groupImage'] = $profilePhotoUrl;
                     }
-                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $baseUrl = env('CHAT_APP_HOST');
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $request->bearerToken(),
                         'Content-Type' => 'application/json',
@@ -137,10 +137,10 @@ class V4TeamController extends Controller
                 if ($profilePhotoUrl) {
                     Storage::disk('s3')->delete($profilePhotoUrl);
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                    // Track error in Sentry
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                 }
                 return response()->json([
                     'success' => false,
@@ -149,7 +149,7 @@ class V4TeamController extends Controller
                 ], 500);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -278,7 +278,7 @@ class V4TeamController extends Controller
                     if (!empty($validated['profile_photo'])) {
                         $requestData['groupImage'] = $validated['profile_photo'];
                     }
-                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $baseUrl = env('CHAT_APP_HOST');
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $request->bearerToken(),
                         'Content-Type' => 'application/json',
@@ -296,7 +296,7 @@ class V4TeamController extends Controller
                     if (!empty($validated['profile_photo'])) {
                         $requestData['groupImage'] = $validated['profile_photo'];
                     }
-                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $baseUrl = env('CHAT_APP_HOST');
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $request->bearerToken(),
                         'Content-Type' => 'application/json',
@@ -323,21 +323,21 @@ class V4TeamController extends Controller
                     'error' => $e->getMessage(),
                 ]);
                 DB::rollBack();
-                
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
 
-            return response()->json([
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
+
+                return response()->json([
                     'success' => false,
                     'message' => 'Failed to update team',
                     'error' => $e->getMessage(),
                 ], 500);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -382,7 +382,7 @@ class V4TeamController extends Controller
             ]);
         } catch (Exception $e) {
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -518,7 +518,7 @@ class V4TeamController extends Controller
                     ->delete();
 
                 $token = $request->bearerToken();
-                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                $baseUrl = env('CHAT_APP_HOST');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
@@ -544,7 +544,7 @@ class V4TeamController extends Controller
                 TeamMember::insert($insertData);
 
                 $token = $request->bearerToken();
-                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                $baseUrl = env('CHAT_APP_HOST');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
@@ -565,7 +565,7 @@ class V4TeamController extends Controller
 
             DB::rollBack();
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -599,7 +599,7 @@ class V4TeamController extends Controller
                 'data' => $teamDetails
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -617,7 +617,7 @@ class V4TeamController extends Controller
                 'message' => 'Team not found',
             ], 404);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -672,7 +672,7 @@ class V4TeamController extends Controller
                 'data' => $members
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -690,7 +690,7 @@ class V4TeamController extends Controller
                 'message' => 'Not found',
             ], 404);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -747,7 +747,7 @@ class V4TeamController extends Controller
                 ], 500);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -793,7 +793,7 @@ class V4TeamController extends Controller
                 'data' => $admins,
             ]);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -834,7 +834,7 @@ class V4TeamController extends Controller
                 'data' => $admin
             ], 200);
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -899,7 +899,7 @@ class V4TeamController extends Controller
                 'data' => $admin
             ], 201);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -958,7 +958,7 @@ class V4TeamController extends Controller
                 'data' => $admin
             ], 200);
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1005,7 +1005,7 @@ class V4TeamController extends Controller
                 'message' => 'Team admin deleted successfully',
             ], 200);
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [

@@ -126,7 +126,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -215,7 +215,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -267,7 +267,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -313,7 +313,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -398,7 +398,7 @@ class V4EvaluationController extends Controller
                 'data' => $category,
             ], 201);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -437,7 +437,7 @@ class V4EvaluationController extends Controller
                 'message' => 'Category deleted successfully',
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -602,7 +602,7 @@ class V4EvaluationController extends Controller
                 'data' => $category->fresh(),
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -773,7 +773,7 @@ class V4EvaluationController extends Controller
                 'data' => $category->fresh(),
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -805,7 +805,7 @@ class V4EvaluationController extends Controller
                 'data' => $category,
             ], 200);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -839,7 +839,7 @@ class V4EvaluationController extends Controller
                 'message' => 'Categories reordered successfully.',
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -910,7 +910,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -973,7 +973,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1035,7 +1035,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1095,7 +1095,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1127,7 +1127,7 @@ class V4EvaluationController extends Controller
                 'message' => 'Question deleted successfully',
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1241,7 +1241,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1439,7 +1439,7 @@ class V4EvaluationController extends Controller
                 ],
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1490,7 +1490,7 @@ class V4EvaluationController extends Controller
                 'question_id' => $request->input('id'),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1574,7 +1574,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1651,7 +1651,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1727,7 +1727,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -1857,7 +1857,7 @@ class V4EvaluationController extends Controller
                 ],
             ], 201);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -2084,7 +2084,7 @@ class V4EvaluationController extends Controller
                 'errors' => $e->errors(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -2129,7 +2129,7 @@ class V4EvaluationController extends Controller
                 'message' => 'Question option deleted successfully',
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -2182,7 +2182,7 @@ class V4EvaluationController extends Controller
                 'question_id' => $request->input('id'),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -2398,10 +2398,10 @@ class V4EvaluationController extends Controller
                         Storage::disk('s3')->delete($path);
                         throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                        // Track error in Sentry
+                        $this->errorTracker->captureException($e, [
+                            'action' => __METHOD__,
+                        ]);
                     }
                 } else if ($marketplaceType === MarketplaceTypes::CONSULTATION_VIDEO_CALL) {
                     // === ONE-ON-ONE CONSULTATION LOGIC ===
@@ -2489,10 +2489,10 @@ class V4EvaluationController extends Controller
                         DB::rollBack();
                         throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                        // Track error in Sentry
+                        $this->errorTracker->captureException($e, [
+                            'action' => __METHOD__,
+                        ]);
                     }
                 } else if ($marketplaceType === MarketplaceTypes::MENTORSHIP_PROGRAM) {
                     // === MENTORSHIP PROGRAM LOGIC ===
@@ -2590,10 +2590,10 @@ class V4EvaluationController extends Controller
                             DB::rollBack();
                             throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                            // Track error in Sentry
+                            $this->errorTracker->captureException($e, [
+                                'action' => __METHOD__,
+                            ]);
                         }
                     }
 
@@ -2696,10 +2696,10 @@ class V4EvaluationController extends Controller
                             Storage::disk('s3')->delete($path);
                             throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                            // Track error in Sentry
+                            $this->errorTracker->captureException($e, [
+                                'action' => __METHOD__,
+                            ]);
                         }
                     }
 
@@ -2964,10 +2964,10 @@ class V4EvaluationController extends Controller
                             $path = 'portfolio-videos/' . $playerId . '/' . $filename;
                             Storage::disk('s3')->delete($path);
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                            // Track error in Sentry
+                            $this->errorTracker->captureException($e, [
+                                'action' => __METHOD__,
+                            ]);
                         }
                         throw $e;
                     }
@@ -2976,7 +2976,7 @@ class V4EvaluationController extends Controller
 
             return response()->json(['success' => false, 'message' => 'Marketplace type not supported'], 400);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -3056,7 +3056,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -3257,7 +3257,7 @@ class V4EvaluationController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -3432,7 +3432,7 @@ class V4EvaluationController extends Controller
                 'submission_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -3586,7 +3586,7 @@ class V4EvaluationController extends Controller
                 'submission_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -3688,18 +3688,18 @@ class V4EvaluationController extends Controller
                 try {
                     $token = $request->bearerToken();
 
-                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $baseUrl = env('CHAT_APP_HOST');
 
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [
-                                    $authUser->id,
-                                    $submission->player_id
-                                ],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [
+                            $authUser->id,
+                            $submission->player_id
+                        ],
+                    ]);
 
                     if ($response->successful() && isset($response->json()['_id'])) {
                         $conversationId = $response->json()['_id'];
@@ -3712,10 +3712,10 @@ class V4EvaluationController extends Controller
                 } catch (\Throwable $e) {
                     Log::error('Conversation API error', ['error' => $e->getMessage()]);
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                    // Track error in Sentry
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                 }
 
                 // Create evaluator assignment
@@ -3885,7 +3885,7 @@ class V4EvaluationController extends Controller
                 ], 400);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4030,7 +4030,7 @@ class V4EvaluationController extends Controller
             ], 200);
         } catch (Exception $e) {
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4113,7 +4113,7 @@ class V4EvaluationController extends Controller
                 ],
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4317,7 +4317,7 @@ class V4EvaluationController extends Controller
                 'message' => 'Unable to determine evaluation status',
             ], 500);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4449,18 +4449,18 @@ class V4EvaluationController extends Controller
                     try {
                         $token = $request->bearerToken();
 
-                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $baseUrl = env('CHAT_APP_HOST');
 
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        $consultationRequest->submission->player_id,
-                                        $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                $consultationRequest->submission->player_id,
+                                $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4473,10 +4473,10 @@ class V4EvaluationController extends Controller
                     } catch (\Throwable $e) {
                         Log::error('Conversation API error', ['error' => $e->getMessage()]);
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                        // Track error in Sentry
+                        $this->errorTracker->captureException($e, [
+                            'action' => __METHOD__,
+                        ]);
                     }
 
                     // Create evaluator assignment
@@ -4523,13 +4523,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4614,7 +4614,7 @@ class V4EvaluationController extends Controller
                 'data' => $data,
             ]);
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4638,7 +4638,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4761,18 +4761,18 @@ class V4EvaluationController extends Controller
                     try {
                         $token = $request->bearerToken();
 
-                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $baseUrl = env('CHAT_APP_HOST');
 
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type' => 'application/json',
                         ])->post($baseUrl . '/conversation/create', [
-                                    'type' => 'single',
-                                    'participants' => [
-                                        $mentorshipRequest->submission->player_id,
-                                        $user->id
-                                    ],
-                                ]);
+                            'type' => 'single',
+                            'participants' => [
+                                $mentorshipRequest->submission->player_id,
+                                $user->id
+                            ],
+                        ]);
 
                         if ($response->successful() && isset($response->json()['_id'])) {
                             $conversationId = $response->json()['_id'];
@@ -4785,10 +4785,10 @@ class V4EvaluationController extends Controller
                     } catch (\Throwable $e) {
                         Log::error('Conversation API error', ['error' => $e->getMessage()]);
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                        // Track error in Sentry
+                        $this->errorTracker->captureException($e, [
+                            'action' => __METHOD__,
+                        ]);
                     }
 
                     // Create evaluator assignment
@@ -4834,13 +4834,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -4950,7 +4950,7 @@ class V4EvaluationController extends Controller
                 'data' => $assignment,
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -5110,13 +5110,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -5234,13 +5234,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -5424,13 +5424,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -5612,13 +5612,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -5867,13 +5867,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -6126,13 +6126,13 @@ class V4EvaluationController extends Controller
                 Storage::disk('s3')->delete($path);
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -6300,7 +6300,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -6476,13 +6476,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -6677,10 +6677,10 @@ class V4EvaluationController extends Controller
                     DB::rollBack();
                     throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                    // Track error in Sentry
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                 }
             } else if ($mentorshipUploadType == EvaluationSubmissionVersion::MENTORSHIP_UPLOAD_TYPE_SUBMITTED_VIDEO) {
 
@@ -6764,10 +6764,10 @@ class V4EvaluationController extends Controller
                     DB::rollBack();
                     throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                    // Track error in Sentry
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                 }
             } else {
                 return response()->json([
@@ -6777,7 +6777,7 @@ class V4EvaluationController extends Controller
                 ], 400);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -6934,13 +6934,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -7126,7 +7126,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -7386,7 +7386,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -7441,13 +7441,13 @@ class V4EvaluationController extends Controller
                 DB::rollBack();
                 throw $e;
 
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
+                // Track error in Sentry
+                $this->errorTracker->captureException($e, [
+                    'action' => __METHOD__,
+                ]);
             }
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -7559,7 +7559,7 @@ class V4EvaluationController extends Controller
             ], 200);
         } catch (Exception $e) {
             Log::error('Error fetching player hockey portfolio: ' . $e->getMessage());
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -7680,7 +7680,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -7961,7 +7961,7 @@ class V4EvaluationController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -8123,7 +8123,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -8248,7 +8248,7 @@ class V4EvaluationController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
