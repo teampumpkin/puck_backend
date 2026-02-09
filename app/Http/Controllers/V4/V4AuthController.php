@@ -63,8 +63,13 @@ class V4AuthController extends Controller
             );
 
             // Generate OTP
-            // Exception for specific test email
-            if ($identifier === 'mihir.pipermitwala+player@teampumpkin.com') {
+            // Exception for specific test emails - all use fixed OTP
+            $testEmails = [
+                'mihir.pipermitwala+player@teampumpkin.com',
+                // Add more test emails here as needed
+            ];
+            
+            if (in_array($identifier, $testEmails)) {
                 $otp = '123456';
             } else {
                 $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
