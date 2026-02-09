@@ -63,7 +63,12 @@ class V4AuthController extends Controller
             );
 
             // Generate OTP
-            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            // Exception for specific test email
+            if ($identifier === 'mihir.pipermitwala+player@teampumpkin.com') {
+                $otp = '123456';
+            } else {
+                $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            }
             $requestedAt = Carbon::now();
             $expireAt = $requestedAt->copy()->addMinutes(env('OTP_EXPIRY_TIME_MIN', 10));
 

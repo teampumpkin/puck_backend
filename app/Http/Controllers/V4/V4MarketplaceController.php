@@ -95,7 +95,7 @@ class V4MarketplaceController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -241,7 +241,7 @@ class V4MarketplaceController extends Controller
             ], 201);
         } catch (ValidationException $e) {
             DB::rollBack();
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -295,7 +295,7 @@ class V4MarketplaceController extends Controller
                 'data' => $marketplace,
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -327,7 +327,7 @@ class V4MarketplaceController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -380,7 +380,7 @@ class V4MarketplaceController extends Controller
                 'data' => $marketplace,
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -410,7 +410,7 @@ class V4MarketplaceController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -567,7 +567,7 @@ class V4MarketplaceController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -594,7 +594,7 @@ class V4MarketplaceController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -644,7 +644,7 @@ class V4MarketplaceController extends Controller
             ]);
 
             DB::rollBack();
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
