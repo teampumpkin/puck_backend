@@ -73,7 +73,8 @@ class V4AuthController extends Controller
                 'mihir.pipermitwala+academy@teampumpkin.com',
                 'mihir.pipermitwala+organizer@teampumpkin.com',
                 'mihir.pipermitwala+fan@teampumpkin.com',
-                'mihir.pipermitwala+adviser@teampumpkin.com',
+                'mihir.pipermitwala+advisor@teampumpkin.com',
+                'mihir.pipermitwala+evaluator@teampumpkin.com',
                 // Add more test emails here as needed
             ];
 
