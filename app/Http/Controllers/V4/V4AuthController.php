@@ -66,9 +66,17 @@ class V4AuthController extends Controller
             // Exception for specific test emails - all use fixed OTP
             $testEmails = [
                 'mihir.pipermitwala+player@teampumpkin.com',
+                'mihir.pipermitwala+coach@teampumpkin.com',
+                'mihir.pipermitwala+scout@teampumpkin.com',
+                'mihir.pipermitwala+parent@teampumpkin.com',
+                'mihir.pipermitwala+team@teampumpkin.com',
+                'mihir.pipermitwala+academy@teampumpkin.com',
+                'mihir.pipermitwala+organizer@teampumpkin.com',
+                'mihir.pipermitwala+fan@teampumpkin.com',
+                'mihir.pipermitwala+adviser@teampumpkin.com',
                 // Add more test emails here as needed
             ];
-            
+
             if (in_array($identifier, $testEmails)) {
                 $otp = '123456';
             } else {
