@@ -126,15 +126,15 @@ class V4AcademyController extends Controller
                     ->delete();
 
                 $token = $request->bearerToken();
-                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                $baseUrl = env('CHAT_APP_HOST');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $academy->conversation_id,
-                            'type' => 'group',
-                            'removeParticipants' => $removeIds,
-                        ]);
+                    'conversationId' => $academy->conversation_id,
+                    'type' => 'group',
+                    'removeParticipants' => $removeIds,
+                ]);
             }
 
             // Insert addIds
@@ -152,15 +152,15 @@ class V4AcademyController extends Controller
                 AcademyMember::insert($insertData);
 
                 $token = $request->bearerToken();
-                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                $baseUrl = env('CHAT_APP_HOST');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ])->put($baseUrl . '/conversation/update', [
-                            'conversationId' => $academy->conversation_id,
-                            'type' => 'group',
-                            'addParticipants' => $addIds,
-                        ]);
+                    'conversationId' => $academy->conversation_id,
+                    'type' => 'group',
+                    'addParticipants' => $addIds,
+                ]);
             }
 
             DB::commit();
@@ -173,7 +173,7 @@ class V4AcademyController extends Controller
 
             DB::rollBack();
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -229,7 +229,7 @@ class V4AcademyController extends Controller
                 'data' => $members
             ]);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -247,7 +247,7 @@ class V4AcademyController extends Controller
                 'message' => 'Not found',
             ], 404);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -285,9 +285,8 @@ class V4AcademyController extends Controller
                 'message' => 'Fetched academy admins successfully',
                 'data' => $admins,
             ]);
-
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -327,9 +326,8 @@ class V4AcademyController extends Controller
                 'message' => 'Fetched academy admin successfully',
                 'data' => $admin
             ], 200);
-
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -390,9 +388,8 @@ class V4AcademyController extends Controller
                 'message' => 'Academy admin created successfully',
                 'data' => $admin
             ], 201);
-
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -448,9 +445,8 @@ class V4AcademyController extends Controller
                 'message' => 'Academy admin updated successfully',
                 'data' => $admin
             ], 200);
-
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -495,9 +491,8 @@ class V4AcademyController extends Controller
                 'success' => true,
                 'message' => 'Academy admin deleted successfully',
             ]);
-
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [

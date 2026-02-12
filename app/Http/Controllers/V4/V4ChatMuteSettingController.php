@@ -44,7 +44,7 @@ class V4ChatMuteSettingController extends Controller
                 ]
             );
             $token   = $request->bearerToken();
-            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+            $baseUrl = env('CHAT_APP_HOST');
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -61,7 +61,7 @@ class V4ChatMuteSettingController extends Controller
                 'data'    => $muteSetting,
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -79,7 +79,7 @@ class V4ChatMuteSettingController extends Controller
                 'message' => 'User or chat not found',
             ], 404);
         } catch (QueryException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -111,7 +111,7 @@ class V4ChatMuteSettingController extends Controller
             $muteSetting->update(['active' => false]);
 
             $token   = $request->bearerToken();
-            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+            $baseUrl = env('CHAT_APP_HOST');
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -126,7 +126,7 @@ class V4ChatMuteSettingController extends Controller
                 'message' => 'Unmuted successfully',
             ], 200);
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -144,7 +144,7 @@ class V4ChatMuteSettingController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -185,7 +185,7 @@ class V4ChatMuteSettingController extends Controller
                 'data'    => $muteSettings,
             ], 200);
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [

@@ -116,7 +116,7 @@ class ProfileController extends Controller
             try {
                 $token = $request->bearerToken();
 
-                $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                $baseUrl = env('CHAT_APP_HOST');
 
                 $payload = [
                     'user_id' => $user->id,
@@ -287,7 +287,7 @@ class ProfileController extends Controller
                     if (!$user->is_onboarded) {
                         $v4Academy = V4Academy::create($academyValidated);
                         $token = $request->bearerToken();
-                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $baseUrl = env('CHAT_APP_HOST');
                         $requestData = [
                             'type' => 'group',
                             'participants' => [$user->id],
@@ -309,7 +309,7 @@ class ProfileController extends Controller
                         $v4Academy = V4Academy::find($validated['academy_id']);
                         if ($v4Academy) {
                             $token = $request->bearerToken();
-                            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                            $baseUrl = env('CHAT_APP_HOST');
                             if ($v4Academy->conversation_id == null) {
                                 $requestData = [
                                     'type' => 'group',
@@ -354,7 +354,7 @@ class ProfileController extends Controller
                             // Fallback
                             $v4Academy = V4Academy::create($academyValidated);
                             $token = $request->bearerToken();
-                            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                            $baseUrl = env('CHAT_APP_HOST');
                             $requestData = [
                                 'type' => 'group',
                                 'participants' => [$user->id],
@@ -402,7 +402,7 @@ class ProfileController extends Controller
                     if (!$user->is_onboarded) {
                         $v4team = V4Team::create($teamValidated);
                         $token = $request->bearerToken();
-                        $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                        $baseUrl = env('CHAT_APP_HOST');
                         $requestData = [
                             'type' => 'group',
                             'participants' => [$user->id],
@@ -423,7 +423,7 @@ class ProfileController extends Controller
                         $v4team = V4Team::find($teamId);
                         if ($v4team) {
                             $token = $request->bearerToken();
-                            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                            $baseUrl = env('CHAT_APP_HOST');
 
                             if ($v4team->conversation_id == null) {
                                 $requestData = [
@@ -467,7 +467,7 @@ class ProfileController extends Controller
                             $v4team = V4Team::create($teamValidated);
 
                             $token = $request->bearerToken();
-                            $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                            $baseUrl = env('CHAT_APP_HOST');
                             $requestData = [
                                 'type' => 'group',
                                 'participants' => [$user->id],
@@ -851,7 +851,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1917,7 +1917,7 @@ class ProfileController extends Controller
 
                         // founded → academy_years_running
                         'academy_years_running' =>
-                            !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
                     ]);
                 }
             }
@@ -3699,15 +3699,15 @@ class ProfileController extends Controller
 
                     $token = $request->bearerToken();
 
-                    $baseUrl = config('app.env') === 'production' ? config('CHAT_APP_HOST_PRODUCTION') : env('CHAT_APP_HOST');
+                    $baseUrl = env('CHAT_APP_HOST');
 
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [$user->id, $favId],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [$user->id, $favId],
+                    ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
