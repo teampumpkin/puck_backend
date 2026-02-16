@@ -85,12 +85,14 @@ class V4Academy extends Model
 
     public function adminAcademiesMembers($playerId)
     {
-        return $this->teams()->get()->map(fn($academy) => [
-            'academy' => $academy,
-            'is_member' => AcademyMember::where('academy_id', $academy->id)
-                ->where('player_id', $playerId)
-                ->exists(),
-        ]);
+        $isMember = AcademyMember::where('academy_id', $this->id)
+            ->where('player_id', $playerId)
+            ->exists();
+            
+        return [[
+            'academy' => $this,
+            'is_member' => $isMember,
+        ]];
     }
 
     public function getPlayerMembersCountAttribute()

@@ -125,16 +125,25 @@ class V4AcademyController extends Controller
                     ->whereIn('player_id', $removeIds)
                     ->delete();
 
-                $token = $request->bearerToken();
-                $baseUrl = env('CHAT_APP_HOST');
-                Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $token,
-                    'Content-Type' => 'application/json',
-                ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $academy->conversation_id,
-                    'type' => 'group',
-                    'removeParticipants' => $removeIds,
-                ]);
+                // Try to update chat conversation (non-blocking)
+                try {
+                    $token = $request->bearerToken();
+                    $baseUrl = env('CHAT_APP_HOST');
+                    Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type' => 'application/json',
+                    ])->put($baseUrl . '/conversation/update', [
+                        'conversationId' => $academy->conversation_id,
+                        'type' => 'group',
+                        'removeParticipants' => $removeIds,
+                    ]);
+                } catch (Exception $chatError) {
+                    // Log but don't fail the main operation
+                    Log::warning('Failed to update chat conversation for removed members', [
+                        'academy_id' => $academyId,
+                        'error' => $chatError->getMessage()
+                    ]);
+                }
             }
 
             // Insert addIds
@@ -151,16 +160,25 @@ class V4AcademyController extends Controller
                 }
                 AcademyMember::insert($insertData);
 
-                $token = $request->bearerToken();
-                $baseUrl = env('CHAT_APP_HOST');
-                Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $token,
-                    'Content-Type' => 'application/json',
-                ])->put($baseUrl . '/conversation/update', [
-                    'conversationId' => $academy->conversation_id,
-                    'type' => 'group',
-                    'addParticipants' => $addIds,
-                ]);
+                // Try to update chat conversation (non-blocking)
+                try {
+                    $token = $request->bearerToken();
+                    $baseUrl = env('CHAT_APP_HOST');
+                    Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type' => 'application/json',
+                    ])->put($baseUrl . '/conversation/update', [
+                        'conversationId' => $academy->conversation_id,
+                        'type' => 'group',
+                        'addParticipants' => $addIds,
+                    ]);
+                } catch (Exception $chatError) {
+                    // Log but don't fail the main operation
+                    Log::warning('Failed to update chat conversation for added members', [
+                        'academy_id' => $academyId,
+                        'error' => $chatError->getMessage()
+                    ]);
+                }
             }
 
             DB::commit();
