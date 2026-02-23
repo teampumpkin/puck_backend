@@ -75,6 +75,16 @@ class V4AuthController extends Controller
                 'mihir.pipermitwala+fan@teampumpkin.com',
                 'mihir.pipermitwala+advisor@teampumpkin.com',
                 'mihir.pipermitwala+evaluator@teampumpkin.com',
+                'player1@yopmail.com',
+                'team1@yopmail.com',
+                'coach1@yopmail.com',
+                'scout1@yopmail.com',
+                'organizer1@yopmail.com',
+                'parent1@yopmail.com',
+                'fan1@yopmail.com',
+                'academy1@yopmail.com',
+                'advisor1@yopmail.com',
+                'evaluator1@yopmail.com'
                 // Add more test emails here as needed
             ];
 
@@ -374,5 +384,4 @@ class V4AuthController extends Controller
             'message' => 'Login successful'
         ]);
     }
-}
-;
+};
