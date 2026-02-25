@@ -84,6 +84,10 @@ class V4AuthController extends Controller
                 'fan1@yopmail.com',
                 'academy1@yopmail.com',
                 'advisor1@yopmail.com',
+                'justpraveen55@gmail.com',
+                'praveenpandiyan1704@gmail.com',
+                'praveen.p@teampumpkin.com',
+                'praveenjp1704@gmail.com',
                 'evaluator1@yopmail.com'
                 // Add more test emails here as needed
             ];
