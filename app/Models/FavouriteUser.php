@@ -24,7 +24,7 @@ class FavouriteUser extends Model
 
     public function favourite()
     {
-        return $this->belongsTo(V4User::class, 'favourite_id');
+        return $this->belongsTo(V4User::class, 'favourite_id')->withTrashed();
     }
 
     public static function isFavourite($ownerId, $targetUserId): bool
