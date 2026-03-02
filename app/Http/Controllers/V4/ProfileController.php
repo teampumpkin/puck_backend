@@ -701,11 +701,42 @@ class ProfileController extends Controller
                 ], 403);
             }
 
-            $user->delete();
+            DB::beginTransaction();
 
-            return response()->json([
-                'message' => 'User account deleted successfully'
-            ], 200);
+            try {
+                // First, soft delete user from chat backend
+                $baseUrl = env('CHAT_APP_HOST');
+                $token = $request->bearerToken();
+
+                $response = Http::withToken($token)
+                    ->delete($baseUrl . '/user/soft/' . $user->id);
+
+                if (!$response->successful()) {
+                    Log::warning('Chat backend soft delete failed', [
+                        'user_id' => $user->id,
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                    throw new Exception('Failed to delete user from chat backend');
+                }
+
+                Log::info('User soft deleted from chat backend', [
+                    'user_id' => $user->id,
+                    'response' => $response->json(),
+                ]);
+
+                // Then, soft delete from local database
+                $user->delete();
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'User account deleted successfully'
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         } catch (ValidationException $e) {
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -716,6 +747,14 @@ class ProfileController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (Exception $e) {
+            $this->errorTracker->captureException($e, [
+                'action' => 'deleteUserAccount',
+                'user_id' => $id,
+            ]);
+            Log::error('User account deletion failed', [
+                'user_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'message' => 'User account deletion failed.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
