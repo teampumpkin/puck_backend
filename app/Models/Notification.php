@@ -31,10 +31,34 @@ class Notification extends Model
     ];
 
     protected $casts = [
-        'data'       => 'array',
         'read_at'    => 'datetime',
         'v4_user_id' => 'string', // Cast UUID as string
     ];
+
+    /**
+     * Get the data attribute with enriched from_user deleted_at
+     */
+    public function getDataAttribute($value)
+    {
+        $data = is_string($value) ? json_decode($value, true) : $value;
+
+        if (isset($data['from_user']['id'])) {
+            $fromUser = V4User::withTrashed()->find($data['from_user']['id']);
+            if ($fromUser) {
+                $data['from_user']['deleted_at'] = $fromUser->deleted_at;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Set the data attribute
+     */
+    public function setDataAttribute($value)
+    {
+        $this->attributes['data'] = is_array($value) ? json_encode($value) : $value;
+    }
 
     // Icon types
     const ICON_TYPE_DEFAULT  = 'default';
