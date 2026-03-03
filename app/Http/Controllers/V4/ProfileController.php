@@ -704,12 +704,18 @@ class ProfileController extends Controller
             DB::beginTransaction();
 
             try {
-                // First, soft delete user from chat backend
+                // First, soft delete from local database
+                $user->delete();
+                $user->refresh();
+
+                // Then, soft delete user from chat backend
                 $baseUrl = env('CHAT_APP_HOST');
                 $token = $request->bearerToken();
 
                 $response = Http::withToken($token)
-                    ->delete($baseUrl . '/user/soft/' . $user->id);
+                    ->delete($baseUrl . '/user/soft/' . $user->id, [
+                        'deleted_at' => $user->deleted_at->toIso8601String(),
+                    ]);
 
                 if (!$response->successful()) {
                     Log::warning('Chat backend soft delete failed', [
@@ -724,9 +730,6 @@ class ProfileController extends Controller
                     'user_id' => $user->id,
                     'response' => $response->json(),
                 ]);
-
-                // Then, soft delete from local database
-                $user->delete();
 
                 DB::commit();
 
