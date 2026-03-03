@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use App\Models\BlockedUser;
 use Illuminate\Validation\ValidationException;
 use App\Contracts\ErrorTrackerInterface;
@@ -30,7 +32,8 @@ class UserBlockController extends Controller
 
             $request->validate([
                 'blocked_id' => 'required|exists:v4_users,id',
-                'reason' => 'nullable|string|max:500'
+                'reason' => 'nullable|string|max:500',
+                'conversation_id' => 'required|string|max:255',
             ]);
 
             // Prevent blocking self
@@ -54,22 +57,57 @@ class UserBlockController extends Controller
                 ], 422);
             }
 
-            // Block the user
-            $block = BlockedUser::create([
-                'blocker_id' => $user->id,
-                'blocked_id' => $request->blocked_id,
-                'reason' => $request->reason,
-                'blocked_at' => now(),
-            ]);
+            DB::beginTransaction();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User blocked successfully',
-                'data' => $block
-            ], 200);
+            try {
+                // Block the user in local database
+                $block = BlockedUser::create([
+                    'blocker_id' => $user->id,
+                    'blocked_id' => $request->blocked_id,
+                    'reason' => $request->reason,
+                    'blocked_at' => now(),
+                ]);
+
+                // Block user in chat backend
+                $baseUrl = env('CHAT_APP_HOST');
+                $token = $request->bearerToken();
+
+                $response = Http::withToken($token)
+                    ->post($baseUrl . '/conversation/block', [
+                        'conversationId' => $request->conversation_id,
+                        'userIdToBlock' => $request->blocked_id,
+                    ]);
+
+                if (!$response->successful()) {
+                    Log::warning('Chat backend block user failed', [
+                        'blocker_id' => $user->id,
+                        'blocked_id' => $request->blocked_id,
+                        'conversation_id' => $request->conversation_id,
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                    throw new Exception('Failed to block user in chat backend');
+                }
+
+                Log::info('User blocked in chat backend', [
+                    'blocker_id' => $user->id,
+                    'blocked_id' => $request->blocked_id,
+                    'conversation_id' => $request->conversation_id,
+                    'response' => $response->json(),
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'User blocked successfully',
+                    'data' => $block
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         } catch (ValidationException $e) {
-            
-
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
                 'action' => __METHOD__,
@@ -99,6 +137,10 @@ class UserBlockController extends Controller
         try {
             $user = Auth::guard('v4api')->user();
 
+            $request->validate([
+                'conversation_id' => 'required|string|max:255',
+            ]);
+
             // Find the block record
             $block = BlockedUser::blockedBy($user->id)
                 ->blockedUser($userId)
@@ -112,19 +154,54 @@ class UserBlockController extends Controller
                 ], 404);
             }
 
-            // Unblock the user
-            $block->update([
-                'unblocked_at' => now()
-            ]);
+            DB::beginTransaction();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User unblocked successfully',
-                'data' => $block
-            ], 200);
+            try {
+                // Unblock the user in local database
+                $block->update([
+                    'unblocked_at' => now()
+                ]);
+
+                // Unblock user in chat backend
+                $baseUrl = env('CHAT_APP_HOST');
+                $token = $request->bearerToken();
+
+                $response = Http::withToken($token)
+                    ->post($baseUrl . '/conversation/unblock', [
+                        'conversationId' => $request->conversation_id,
+                        'userIdToUnblock' => $userId,
+                    ]);
+
+                if (!$response->successful()) {
+                    Log::warning('Chat backend unblock user failed', [
+                        'blocker_id' => $user->id,
+                        'blocked_id' => $userId,
+                        'conversation_id' => $request->conversation_id,
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                    ]);
+                    throw new Exception('Failed to unblock user in chat backend');
+                }
+
+                Log::info('User unblocked in chat backend', [
+                    'blocker_id' => $user->id,
+                    'blocked_id' => $userId,
+                    'conversation_id' => $request->conversation_id,
+                    'response' => $response->json(),
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'User unblocked successfully',
+                    'data' => $block
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         } catch (ValidationException $e) {
-            
-
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
                 'action' => __METHOD__,
@@ -164,7 +241,7 @@ class UserBlockController extends Controller
                 'data' => $blockedUsers
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -205,7 +282,7 @@ class UserBlockController extends Controller
                 'data' => $history
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -253,7 +330,7 @@ class UserBlockController extends Controller
                 ]
             ], 200);
         } catch (ValidationException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
