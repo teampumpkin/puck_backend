@@ -75,7 +75,7 @@ class UserBlockController extends Controller
                 $response = Http::withToken($token)
                     ->post($baseUrl . '/conversation/block', [
                         'conversationId' => $request->conversation_id,
-                        'userIdToBlock' => $request->blocked_id,
+                        'userIdToBlock' => $user->id
                     ]);
 
                 if (!$response->successful()) {
@@ -169,7 +169,7 @@ class UserBlockController extends Controller
                 $response = Http::withToken($token)
                     ->post($baseUrl . '/conversation/unblock', [
                         'conversationId' => $request->conversation_id,
-                        'userIdToUnblock' => $userId,
+                        'userIdToUnblock' => $user->id
                     ]);
 
                 if (!$response->successful()) {
