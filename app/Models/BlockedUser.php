@@ -50,10 +50,10 @@ class BlockedUser extends Model
         return $query->where(function ($q) use ($user1Id, $user2Id) {
             $q->where(function ($inner) use ($user1Id, $user2Id) {
                 $inner->where('blocker_id', $user1Id)
-                      ->where('blocked_id', $user2Id);
+                    ->where('blocked_id', $user2Id);
             })->orWhere(function ($inner) use ($user1Id, $user2Id) {
                 $inner->where('blocker_id', $user2Id)
-                      ->where('blocked_id', $user1Id);
+                    ->where('blocked_id', $user1Id);
             });
         });
     }
