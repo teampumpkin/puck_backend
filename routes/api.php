@@ -429,6 +429,9 @@ Route::prefix('v4')->group(function () {
                 Route::post('/', [V4PostController::class, 'uploadPost']);
                 Route::put('{postId}', [V4PostController::class, 'editPost']);
                 Route::delete('{postId}', [V4PostController::class, 'deletePost']);
+
+                Route::get('{postId}/likes/paginated', [V4PostLikeController::class, 'postLikesPaginated']);
+                Route::get('{postId}/comments/paginated', [V4PostCommentController::class, 'indexPaginated']);
             });
 
             Route::prefix('evaluation')->group(function () {
@@ -826,8 +829,10 @@ Route::prefix('v4')->group(function () {
             Route::post('{postId}/like', [V4PostLikeController::class, 'like']);
             Route::delete('{postId}/unlike', [V4PostLikeController::class, 'unlike']);
             Route::get('{postId}/likes', [V4PostLikeController::class, 'postLikes']);
+            Route::get('{postId}/likes/paginated', [V4PostLikeController::class, 'postLikesPaginated']);
 
             Route::get('{postId}/comments', [V4PostCommentController::class, 'index']);
+            Route::get('{postId}/comments/paginated', [V4PostCommentController::class, 'indexPaginated']);
             Route::post('{postId}/comments', [V4PostCommentController::class, 'store']);
             Route::put('{postId}/comments/{commentId}', [V4PostCommentController::class, 'update']);
             Route::delete('{postId}/comments/{commentId}', [V4PostCommentController::class, 'destroy']);
