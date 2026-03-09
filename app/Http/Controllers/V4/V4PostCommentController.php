@@ -33,15 +33,15 @@ class V4PostCommentController extends Controller
     public function store(Request $request, $postId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
-        if (! $authUser) {
+        if (!$authUser) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $validator = Validator::make(
             array_merge($request->all(), ['post_id' => $postId]),
             [
-                'post_id'   => 'required|integer|exists:v4_posts,id',
-                'body'      => 'required|string|max:2000',
+                'post_id' => 'required|integer|exists:v4_posts,id',
+                'body' => 'required|string|max:2000',
                 'parent_id' => 'nullable|exists:v4_post_comments,id',
             ]
         );
@@ -50,7 +50,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -58,10 +58,10 @@ class V4PostCommentController extends Controller
             $post = V4Post::findOrFail($postId);
 
             $comment = V4PostComment::create([
-                'user_id'   => $authUser->id,
-                'post_id'   => $post->id,
+                'user_id' => $authUser->id,
+                'post_id' => $post->id,
                 'parent_id' => $request->parent_id,
-                'body'      => $request->body,
+                'body' => $request->body,
             ]);
 
             // Notify post owner (if not same user)
@@ -72,11 +72,11 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Comment added successfully.',
-                'data'    => $comment->load('user'),
+                'data' => $comment->load('user'),
             ]);
         } catch (Exception $e) {
             Log::error('Comment store failed', ['error' => $e->getMessage()]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -86,7 +86,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to add comment.',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -97,7 +97,7 @@ class V4PostCommentController extends Controller
     public function destroy($commentId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
-        if (! $authUser) {
+        if (!$authUser) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
@@ -121,7 +121,7 @@ class V4PostCommentController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Comment delete failed', ['error' => $e->getMessage()]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -131,7 +131,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to delete comment.',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -149,14 +149,14 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post ID.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             $post = V4Post::find($postId);
 
-            if (! $post) {
+            if (!$post) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Post not found.',
@@ -173,11 +173,11 @@ class V4PostCommentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $comments,
+                'data' => $comments,
             ]);
         } catch (Exception $e) {
             Log::error('Fetch comments failed', ['error' => $e->getMessage()]);
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -187,7 +187,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch comments.',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -201,7 +201,7 @@ class V4PostCommentController extends Controller
             array_merge($request->all(), ['post_id' => $postId]),
             [
                 'post_id' => 'required|integer|exists:v4_posts,id',
-                'body'    => 'required|string|max:2000',
+                'body' => 'required|string|max:2000',
             ]
         );
 
@@ -209,7 +209,7 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -233,12 +233,12 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Comment updated successfully.',
-                'data'    => $comment->fresh('user'),
+                'data' => $comment->fresh('user'),
             ]);
         } catch (\Exception $e) {
             Log::error('Comment update failed', ['error' => $e->getMessage()]);
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -248,6 +248,76 @@ class V4PostCommentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to update comment.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Get paginated top-level comments for a post (default page size: 15)
+     */
+    public function indexPaginated(Request $request, $postId): JsonResponse
+    {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (! $authUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $validator = Validator::make(['post_id' => $postId], [
+            'post_id' => 'required|integer|exists:v4_posts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post ID.',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $post = V4Post::find($postId);
+
+            if (! $post) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Post not found.',
+                ], 404);
+            }
+
+            $perPage = max(1, (int) $request->query('per_page', 15));
+
+            $comments = V4PostComment::with([
+                'user:id,first_name,last_name,profile_photo',
+                'replies.user:id,first_name,last_name,profile_photo',
+            ])
+                ->where('post_id', $post->id)
+                ->whereNull('parent_id')
+                ->latest()
+                ->paginate($perPage);
+
+            return response()->json([
+                'success'    => true,
+                'data'       => $comments->items(),
+                'pagination' => [
+                    'total'        => $comments->total(),
+                    'per_page'     => $comments->perPage(),
+                    'current_page' => $comments->currentPage(),
+                    'last_page'    => $comments->lastPage(),
+                    'has_more'     => $comments->hasMorePages(),
+                ],
+            ]);
+        } catch (Exception $e) {
+            Log::error('Fetch paginated comments failed', ['error' => $e->getMessage()]);
+
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to fetch comments.',
                 'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
@@ -258,19 +328,19 @@ class V4PostCommentController extends Controller
      */
     protected function sendToCommentNotification(V4User $fromUser, V4User $toUser, V4Post $post, V4PostComment $comment)
     {
-        $title   = "New Comment on Your Post";
+        $title = "New Comment on Your Post";
         $message = "$fromUser->name commented on your post";
 
         $data = [
-            'type'            => 'user_post_commented',
+            'type' => 'user_post_commented',
             'action_required' => false,
-            'post'            => $post,
-            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
-            'comment'         => [
-                'id'         => $comment->id,
-                'body'       => $comment->body,
+            'post' => $post,
+            'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
+            'comment' => [
+                'id' => $comment->id,
+                'body' => $comment->body,
                 'created_at' => $comment->created_at,
-                'parent_id'  => $comment->parent_id,
+                'parent_id' => $comment->parent_id,
             ],
         ];
 

@@ -893,7 +893,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                        // Add other cases if needed
+                    // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1959,7 +1959,7 @@ class ProfileController extends Controller
 
                         // founded → academy_years_running
                         'academy_years_running' =>
-                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                            !empty($basic['founded']) ? (int) $basic['founded'] : null,
                     ]);
                 }
             }
@@ -3074,6 +3074,7 @@ class ProfileController extends Controller
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'email' => $user->email,
                     'status' => 'pending_assignment',
                     'isAvailable' => true,
                     'specializations' => MarketplaceTypes::all(),
@@ -3747,9 +3748,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                        'type' => 'single',
-                        'participants' => [$user->id, $favId],
-                    ]);
+                                'type' => 'single',
+                                'participants' => [$user->id, $favId],
+                            ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {

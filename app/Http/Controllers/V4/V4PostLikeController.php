@@ -37,7 +37,7 @@ class V4PostLikeController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (! $authUser) {
+        if (!$authUser) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access.',
@@ -52,7 +52,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -87,7 +87,7 @@ class V4PostLikeController extends Controller
                         return response()->json([
                             'success' => true,
                             'message' => 'Post liked again.',
-                            'data'    => $existingLike,
+                            'data' => $existingLike,
                         ]);
                     }
 
@@ -99,8 +99,8 @@ class V4PostLikeController extends Controller
                 }
 
                 /* ----------------------------------------
-             * NEW LIKE
-             * ---------------------------------------- */
+                 * NEW LIKE
+                 * ---------------------------------------- */
                 $like = V4PostLike::create([
                     'user_id' => $authUser->id,
                     'post_id' => $post->id,
@@ -114,12 +114,12 @@ class V4PostLikeController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Post liked successfully.',
-                    'data'    => $like,
+                    'data' => $like,
                 ]);
             });
         } catch (ModelNotFoundException $e) {
 
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -133,7 +133,7 @@ class V4PostLikeController extends Controller
         } catch (Exception $e) {
 
             Log::error('Like failed', [
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'user_id' => $authUser->id ?? null,
                 'post_id' => $postId,
             ]);
@@ -141,7 +141,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while liking the post.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -153,7 +153,7 @@ class V4PostLikeController extends Controller
     {
         $authUser = Auth::guard('v4api')->user();
 
-        if (! $authUser) {
+        if (!$authUser) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access.',
@@ -168,7 +168,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid post.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -182,7 +182,7 @@ class V4PostLikeController extends Controller
                     ->where('post_id', $post->id)
                     ->first();
 
-                if (! $like) {
+                if (!$like) {
                     return response()->json([
                         'success' => false,
                         'message' => 'You have not liked this post.',
@@ -204,7 +204,7 @@ class V4PostLikeController extends Controller
                 ]);
             });
         } catch (ModelNotFoundException $e) {
-            
+
 
             // Track error in Sentry
             $this->errorTracker->captureException($e, [
@@ -217,7 +217,7 @@ class V4PostLikeController extends Controller
             ], 404);
         } catch (Exception $e) {
             Log::error('Unlike failed', [
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'user_id' => $authUser->id ?? null,
                 'post_id' => $postId,
             ]);
@@ -225,7 +225,7 @@ class V4PostLikeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while unliking the post.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -234,6 +234,57 @@ class V4PostLikeController extends Controller
      * Get all likes for a post
      */
     public function postLikes($postId): JsonResponse
+    {
+        $authUser = Auth::guard('v4api')->user();
+
+        if (!$authUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $validator = Validator::make(['post_id' => $postId], [
+            'post_id' => 'required|exists:v4_posts,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid post.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $post = V4Post::findOrFail($postId);
+
+            $likes = V4PostLike::with('user:id,username,profile_photo,first_name,last_name,date_of_birth')
+                ->where('post_id', $post->id)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $likes,
+            ]);
+        } catch (Exception $e) {
+            Log::error('Fetch likes failed', ['error' => $e->getMessage()]);
+
+
+            // Track error in Sentry
+            $this->errorTracker->captureException($e, [
+                'action' => __METHOD__,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to fetch likes.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get paginated likes for a post (default page size: 15)
+     */
+    public function postLikesPaginated(Request $request, $postId): JsonResponse
     {
         $authUser = Auth::guard('v4api')->user();
 
@@ -254,21 +305,28 @@ class V4PostLikeController extends Controller
         }
 
         try {
-            $post = V4Post::findOrFail($postId);
+            $post     = V4Post::findOrFail($postId);
+            $perPage  = max(1, (int) $request->query('per_page', 15));
 
             $likes = V4PostLike::with('user:id,username,profile_photo,first_name,last_name,date_of_birth')
                 ->where('post_id', $post->id)
-                ->get();
+                ->latest()
+                ->paginate($perPage);
 
             return response()->json([
-                'success' => true,
-                'data'    => $likes,
+                'success'      => true,
+                'data'         => $likes->items(),
+                'pagination'   => [
+                    'total'        => $likes->total(),
+                    'per_page'     => $likes->perPage(),
+                    'current_page' => $likes->currentPage(),
+                    'last_page'    => $likes->lastPage(),
+                    'has_more'     => $likes->hasMorePages(),
+                ],
             ]);
         } catch (Exception $e) {
-            Log::error('Fetch likes failed', ['error' => $e->getMessage()]);
-            
+            Log::error('Fetch paginated likes failed', ['error' => $e->getMessage()]);
 
-            // Track error in Sentry
             $this->errorTracker->captureException($e, [
                 'action' => __METHOD__,
             ]);
@@ -286,15 +344,15 @@ class V4PostLikeController extends Controller
      */
     protected function sendToLikeNotification(V4User $fromUser, V4User $toUser, V4Post $post, V4PostLike $postLike)
     {
-        $title   = "Post Liked";
+        $title = "Post Liked";
         $message = "{$fromUser->name} Liked your post";
 
         $data = [
-            'type'            => 'user_post_liked',
+            'type' => 'user_post_liked',
             'action_required' => false,
-            'post'            => $post,
-            'postLike'        => $postLike,
-            'from_user'       => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
+            'post' => $post,
+            'postLike' => $postLike,
+            'from_user' => $fromUser->only(['id', 'name', 'first_name', 'last_name', 'profile_photo', 'role', 'date_of_birth']),
         ];
 
         return $this->notificationService->sendToUserWithImage(
