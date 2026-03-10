@@ -38,6 +38,8 @@ use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
+    private const ADMIN_USER_SEARCH_CACHE_VERSION_KEY = 'admin_users_search_users_version';
+
     protected $errorTracker;
 
     public function __construct(ErrorTrackerInterface $errorTracker)
@@ -1429,7 +1431,10 @@ class ProfileController extends Controller
             $sortBy = $validated['sort_by'] ?? 'first_name';
             $sortOrder = $validated['sort_order'] ?? 'asc';
 
+            $cacheVersion = (int) Cache::get(self::ADMIN_USER_SEARCH_CACHE_VERSION_KEY, 1);
+
             $cacheKey = 'admin_users_search_' . md5(json_encode([
+                'version' => $cacheVersion,
                 'q' => $searchTerm,
                 'role' => $role,
                 'page' => $page,
@@ -1677,6 +1682,12 @@ class ProfileController extends Controller
             // Toggle the is_verified flag
             $user->evaluatorProfile->is_verified = !$user->evaluatorProfile->is_verified;
             $user->evaluatorProfile->save();
+
+            // Bump the search cache namespace so updated verification status is returned.
+            Cache::forever(
+                self::ADMIN_USER_SEARCH_CACHE_VERSION_KEY,
+                ((int) Cache::get(self::ADMIN_USER_SEARCH_CACHE_VERSION_KEY, 1)) + 1
+            );
 
             // Refresh the relationship
             $user->load('evaluatorProfile');
