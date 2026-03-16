@@ -1128,23 +1128,24 @@ class ProfileController extends Controller
             }
 
             $userRules = [
-                'first_name' => 'nullable|string|max:255',
-                'last_name' => 'nullable|string|max:255',
-                'date_of_birth' => 'nullable|date',
-                'country' => 'nullable|string|max:100',
-                'state' => 'nullable|string|max:100',
-                'city' => 'nullable|string|max:100',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'date_of_birth' => 'required|date',
+                'country' => 'required|string|max:100',
+                'state' => 'required|string|max:100',
+                'city' => 'required|string|max:100',
                 'phone' => 'nullable|string|max:20',
+                'email' => 'nullable|email|max:255',
                 'enable_private_account' => 'nullable|boolean'
             ];
 
             $profileRules = [
                 'teams' => 'nullable|array',
                 'leagues' => 'nullable|array',
-                'position' => 'nullable|string|max:100',
-                'handedness' => 'nullable|in:left,right,ambidextrous',
-                'weight' => 'nullable|numeric',
-                'height' => 'nullable|numeric',
+                'position' => 'required|string|max:100',
+                'handedness' => 'required|in:left,right,ambidextrous',
+                'weight' => 'required|numeric',
+                'height' => 'required|numeric',
                 'gender' => 'nullable|in:male,female,other',
             ];
 
