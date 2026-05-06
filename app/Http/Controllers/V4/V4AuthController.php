@@ -195,7 +195,10 @@ class V4AuthController extends Controller
 
             $otpRecord->delete();
 
-            $token = JWTAuth::fromUser($user);
+            $accessToken = JWTAuth::fromUser($user);
+            JWTAuth::factory()->setTTL(config('jwt.refresh_ttl'));
+            $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
+            JWTAuth::factory()->setTTL(config('jwt.ttl'));
 
             $responseUser = [
                 'id' => $user->id,
@@ -212,7 +215,10 @@ class V4AuthController extends Controller
             }
 
             return response()->json([
-                'token' => $token,
+                'access_token' => $accessToken,
+                'refresh_token' => $refreshToken,
+                'token_type' => 'bearer',
+                'expires_in' => config('jwt.ttl') * 60,
                 'user' => $responseUser,
                 'message' => 'OTP verification successful',
             ]);
@@ -320,13 +326,18 @@ class V4AuthController extends Controller
                 ], 401);
             }
 
-            $token = JWTAuth::fromUser($user);
-
+            $accessToken = JWTAuth::fromUser($user);
+            JWTAuth::factory()->setTTL(config('jwt.refresh_ttl'));
+            $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
+            JWTAuth::factory()->setTTL(config('jwt.ttl'));
 
             return response()->json([
                 'success' => true,
                 'message' => 'Login successful',
-                'token' => $token,
+                'access_token' => $accessToken,
+                'refresh_token' => $refreshToken,
+                'token_type' => 'bearer',
+                'expires_in' => config('jwt.ttl') * 60,
                 'user' => [
                     'id' => $user->id,
                     'email' => $user->email,
@@ -373,10 +384,16 @@ class V4AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        $token = JWTAuth::fromUser($user);
+        $accessToken = JWTAuth::fromUser($user);
+        JWTAuth::factory()->setTTL(config('jwt.refresh_ttl'));
+        $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
+        JWTAuth::factory()->setTTL(config('jwt.ttl'));
 
         return response()->json([
-            'token' => $token,
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'token_type' => 'bearer',
+            'expires_in' => config('jwt.ttl') * 60,
             'user' => [
                 'id' => $user->id,
                 'role' => $user->role,
@@ -387,5 +404,27 @@ class V4AuthController extends Controller
             ],
             'message' => 'Login successful'
         ]);
+    }
+
+    public function refreshToken()
+    {
+        try {
+            $payload = JWTAuth::parseToken()->getPayload();
+
+            if ($payload->get('type') !== 'refresh') {
+                return response()->json(['message' => 'Invalid token type'], 401);
+            }
+
+            $user = JWTAuth::parseToken()->authenticate();
+            $newAccessToken = JWTAuth::fromUser($user);
+
+            return response()->json([
+                'access_token' => $newAccessToken,
+                'token_type' => 'bearer',
+                'expires_in' => config('jwt.ttl') * 60,
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Token could not be refreshed'], 401);
+        }
     }
 };

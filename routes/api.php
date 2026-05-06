@@ -280,6 +280,7 @@ Route::prefix('v4')->group(function () {
     Route::post('send-login-otp', [V4AuthController::class, 'sendLoginOtp']);
     Route::post('verify-login-otp', [V4AuthController::class, 'verifyLoginOtp']);
     Route::post('/child-login', [V4AuthController::class, 'childLogin']);
+    Route::middleware('auth:v4api')->post('refresh-token', [V4AuthController::class, 'refreshToken']);
 
     Route::prefix('login')->group(function () {
         Route::post('google', [V4SocialAuthController::class, 'handleGoogleCallback']);
@@ -870,3 +871,7 @@ Route::prefix('v4')->group(function () {
 
 // // Parent routes
 // Route::get('/children', [ParentController::class, 'listChildren']);
+// Add refresh token route
+Route::group(['middleware' => 'auth:api'], function () {
+    Route::post('refresh-token', [AuthController::class, 'refreshToken']);
+});

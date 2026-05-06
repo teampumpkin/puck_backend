@@ -525,7 +525,7 @@ class AuthController extends Controller
      * @OA\Post(
      * path="/change-password",
      * summary="change Password",
-     * description="change Password using OTP",
+     * description="Change Password using OTP",
      * operationId="changePassword",
      * tags={"Authentication"},
      * security={{"apiAuth":{}}},
@@ -671,6 +671,41 @@ class AuthController extends Controller
             return prepare_response(200, true, __('messages.valid_otp'));
         } catch (Exception $e) {
             return exceptionMessage($e);
+        }
+    }
+
+    /**
+     * Refresh JWT Token
+     *
+     * @OA\Post(
+     * path="/refresh-token",
+     * summary="Refresh JWT Token",
+     * description="Refresh the JWT token using the current token",
+     * operationId="authRefreshToken",
+     * tags={"Authentication"},
+     * @OA\Response(
+     *    response=200,
+     *    description="Token refreshed successfully",
+     *    @OA\JsonContent(
+     *       @OA\Property(property="access_token", type="string", example="new.jwt.token"),
+     *       @OA\Property(property="token_type", type="string", example="bearer"),
+     *       @OA\Property(property="expires_in", type="integer", example=3600)
+     *    )
+     * )
+     * )
+     */
+    public function refreshToken(Request $request)
+    {
+        try {
+            $newToken = auth()->refresh();
+
+            return response()->json([
+                'access_token' => $newToken,
+                'token_type' => 'bearer',
+                'expires_in' => auth()->factory()->getTTL() * 60,
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Could not refresh token'], 401);
         }
     }
 }
