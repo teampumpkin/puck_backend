@@ -7170,7 +7170,7 @@ class V4EvaluationController extends Controller
             }
 
             // Get marketplace type
-            $marketplaceType = $evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first()->type ?? null;
+            $marketplaceType = optional($evaluation->submission->paymentRequest->inAppPurchase->marketplaceItems->first())->type ?? null;
 
             // Verify this is a mentorship program
             if ($marketplaceType !== MarketplaceTypes::MENTORSHIP_PROGRAM) {
@@ -7268,7 +7268,6 @@ class V4EvaluationController extends Controller
                 if ($category['question_count'] > 0) {
                     $category['average_rating'] = round($category['total_rating'] / $category['question_count'], 1);
                 }
-                // Remove temporary calculation fields
                 unset($category['total_rating']);
                 unset($category['question_count']);
             }
@@ -7282,7 +7281,6 @@ class V4EvaluationController extends Controller
                     return null;
                 }
 
-                // If submission version has report_id, follow the chain
                 if ($submissionVersion->report_id) {
                     $linkedEvaluation = Evaluation::with('submission.currentVersion')->find($submissionVersion->report_id);
                     if ($linkedEvaluation && $linkedEvaluation->submission && $linkedEvaluation->submission->currentVersion) {
@@ -7290,7 +7288,6 @@ class V4EvaluationController extends Controller
                     }
                 }
 
-                // Otherwise, return the file_path directly
                 return $submissionVersion->file_path;
             };
 
@@ -7358,14 +7355,10 @@ class V4EvaluationController extends Controller
                 'personalized_evaluation' => ($mentorshipType === 'by_evaluation' && $personalizedEvaluation) ? $personalizedEvaluation : null,
 
                 'mentorship_result' => [
-                    // Evaluation details (with conditional personalized_evaluation)
                     'evaluation' => $evaluationData,
-
-                    // Categories with average ratings (same structure as getEvaluationReport)
                     'categories' => $categories,
                 ],
 
-                // In-app purchase details
                 'in_app_purchase' => $inAppPurchase,
 
                 // Submission details

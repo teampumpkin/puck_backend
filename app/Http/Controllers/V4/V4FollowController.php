@@ -776,15 +776,18 @@ class V4FollowController extends Controller
             $currentUser = V4User::findOrFail($authUser->id);
             $user = V4User::findOrFail($userId);
 
-            $query = V4Follow::with('follower')
+            $query = V4Follow::with(['follower' => function ($q) {
+                    $q->withTrashed();
+                }])
                 ->where('following_id', $user->id)
                 ->where('status', 'accepted')
                 ->latest();
 
-            // Apply search filter if query is provided
+            // Apply search filter if query is provided (include soft-deleted users)
             if ($searchQuery) {
                 $query->whereHas('follower', function ($q) use ($searchQuery) {
-                    $q->where('first_name', 'ilike', "%{$searchQuery}%")
+                    $q->withTrashed()
+                        ->where('first_name', 'ilike', "%{$searchQuery}%")
                         ->orWhere('last_name', 'ilike', "%{$searchQuery}%");
                 });
             }

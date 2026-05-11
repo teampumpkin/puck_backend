@@ -56,6 +56,7 @@ use App\Http\Controllers\V4\V4InAppPurchaseController;
 use App\Http\Controllers\V4\V4FollowController;
 use App\Http\Controllers\V4\V4TeamController;
 use App\Http\Controllers\V4\V4AcademyController;
+use App\Http\Controllers\V4\V4HockeyListingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -674,7 +675,7 @@ Route::prefix('v4')->group(function () {
             // Route::post('/reject-uploaded-request-video', [V4EvaluationController::class, 'rejectUploadedRequestVideo']);
             Route::get('/get-mentorship-report/{evaluation_id}', [V4EvaluationController::class, 'getMentorshipReport']);
 
-            // Professional Hockey Porfolio
+            // Professional Hockey Portfolio
             Route::delete('/delete-player-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'deletePlayerHockeyPortfolio']);
             Route::get('/get-hockey-portfolio/{portfolioId}', [V4EvaluationController::class, 'getPlayerHockeyPortfolio']);
             Route::get('/get-all-hockey-portfolios/{userId}', [V4EvaluationController::class, 'getPlayerAllHockeyPortfolios']);
@@ -866,6 +867,17 @@ Route::prefix('v4')->group(function () {
             Route::get('/', [V4UserReportReasonController::class, 'getAllReasons']);
         });
         Route::post('/report-user', [V4UserReportController::class, 'reportUser']);
+
+        // Hockey Marketplace
+        Route::prefix('hockey-listings')->group(function () {
+            Route::post('initiate-payment', [V4HockeyListingController::class, 'initiatePayment']);
+            Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
+            Route::get('/', [V4HockeyListingController::class, 'index']);
+            Route::post('/', [V4HockeyListingController::class, 'store']);
+            Route::get('{listing}', [V4HockeyListingController::class, 'show']);
+            Route::put('{listing}', [V4HockeyListingController::class, 'update']);
+            Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
+        });
     });
 });
 
