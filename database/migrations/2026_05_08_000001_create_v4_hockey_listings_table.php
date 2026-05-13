@@ -16,6 +16,7 @@ class CreateV4HockeyListingsTable extends Migration
                 ->onDelete('cascade');
 
             $table->foreignId('payment_request_id')
+                ->nullable()
                 ->constrained('v4_payment_requests')
                 ->onDelete('restrict');
 
@@ -28,8 +29,8 @@ class CreateV4HockeyListingsTable extends Migration
             $table->string('condition');
 
             // Geolocation (Google Maps)
-            $table->decimal('latitude', 10, 7);
-            $table->decimal('longitude', 10, 7);
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
             $table->string('address', 500)->nullable();
             $table->string('city', 100)->nullable();
             $table->string('state', 100)->nullable();
@@ -39,7 +40,7 @@ class CreateV4HockeyListingsTable extends Migration
 
             $table->timestamp('listed_at')->nullable();
 
-            $table->string('status')->default('pending_payment');
+            $table->string('status')->default('draft');
 
             $table->timestamps();
             $table->softDeletes();

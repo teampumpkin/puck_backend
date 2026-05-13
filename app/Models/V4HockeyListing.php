@@ -10,9 +10,11 @@ class V4HockeyListing extends Model
 {
     use HasFactory, SoftDeletes;
 
-    const STATUS_PENDING_PAYMENT = 'pending_payment';
-    const STATUS_ACTIVE = 'active';
-    const STATUS_SOLD = 'sold';
+    const STATUS_DRAFT = 'draft';
+    const STATUS_PAYMENT_REQUESTED = 'payment_requested';
+    const STATUS_PAYMENT_FAILED = 'payment_failed';
+    const STATUS_PAYMENT_REJECTED = 'payment_rejected';
+    const STATUS_PUBLISHED = 'published';
 
     protected $fillable = [
         'user_id',
@@ -45,7 +47,7 @@ class V4HockeyListing extends Model
 
     protected $attributes = [
         'currency' => 'USD',
-        'status' => self::STATUS_PENDING_PAYMENT,
+        'status' => self::STATUS_DRAFT,
         'sell_radius' => 50,
     ];
 
@@ -64,9 +66,9 @@ class V4HockeyListing extends Model
         return $this->hasMany(V4HockeyListingImage::class, 'listing_id')->orderBy('sort_order');
     }
 
-    public function scopeActive($query)
+    public function scopePublished($query)
     {
-        return $query->where('status', self::STATUS_ACTIVE);
+        return $query->where('status', self::STATUS_PUBLISHED);
     }
 
     public function getFormattedPriceAttribute(): string
@@ -74,22 +76,34 @@ class V4HockeyListing extends Model
         return number_format($this->price_cents / 100, 2) . ' ' . strtoupper($this->currency);
     }
 
-    public function markPendingPayment(): void
+    public function markDraft(): void
     {
-        $this->status = self::STATUS_PENDING_PAYMENT;
+        $this->status = self::STATUS_DRAFT;
         $this->save();
     }
 
-    public function markActive(): void
+    public function markPaymentRequested(): void
     {
-        $this->status = self::STATUS_ACTIVE;
+        $this->status = self::STATUS_PAYMENT_REQUESTED;
+        $this->save();
+    }
+
+    public function markPaymentFailed(): void
+    {
+        $this->status = self::STATUS_PAYMENT_FAILED;
+        $this->save();
+    }
+
+    public function markPaymentRejected(): void
+    {
+        $this->status = self::STATUS_PAYMENT_REJECTED;
+        $this->save();
+    }
+
+    public function markPublished(): void
+    {
+        $this->status = self::STATUS_PUBLISHED;
         $this->listed_at = now();
-        $this->save();
-    }
-
-    public function markSold(): void
-    {
-        $this->status = self::STATUS_SOLD;
         $this->save();
     }
 }

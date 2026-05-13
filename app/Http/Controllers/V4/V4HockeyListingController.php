@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class V4HockeyListingController extends Controller
@@ -86,85 +87,60 @@ class V4HockeyListingController extends Controller
             $user = Auth::guard('v4api')->user();
 
             $validated = $request->validate([
-                'payment_request_id' => 'required|integer|exists:v4_payment_requests,id',
                 'name' => 'required|string|max:255',
                 'price_cents' => 'required|integer|min:0',
                 'currency' => 'required|string|size:3',
                 'description' => 'nullable|string',
                 'category' => 'required|string|in:' . implode(',', HockeyListingCategories::all()),
                 'condition' => 'required|string|in:' . implode(',', HockeyListingConditions::all()),
-                'latitude' => 'required|numeric|between:-90,90',
-                'longitude' => 'required|numeric|between:-180,180',
+                'latitude' => 'nullable|numeric|between:-90,90',
+                'longitude' => 'nullable|numeric|between:-180,180',
                 'address' => 'nullable|string|max:500',
                 'city' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'country' => 'nullable|string|max:100',
-                'sell_radius' => 'required|integer|min:1',
+                'sell_radius' => 'nullable|integer|min:1',
                 'images' => 'required|array|min:1|max:10',
-                'images.*.image_url' => 'required|url|max:500',
-                'images.*.sort_order' => 'nullable|integer|min:0',
+                'images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240',
+                'sort_orders' => 'nullable|array',
+                'sort_orders.*' => 'nullable|integer|min:0',
             ]);
-
-            // Verify the payment request belongs to this user and is paid
-            $paymentRequest = V4PaymentRequest::where('id', $validated['payment_request_id'])
-                ->where('payer_id', $user->id)
-                ->where('status', V4PaymentRequest::STATUS_PAID)
-                ->first();
-
-            if (!$paymentRequest) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment not completed. Please complete payment before creating a listing.',
-                ], 402);
-            }
-
-            // Prevent reuse of the same payment_request_id for multiple listings
-            $alreadyUsed = V4HockeyListing::where('payment_request_id', $validated['payment_request_id'])
-                ->withTrashed()
-                ->exists();
-
-            if ($alreadyUsed) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This payment has already been used for another listing.',
-                ], 409);
-            }
 
             DB::beginTransaction();
             try {
                 $listing = V4HockeyListing::create([
                     'user_id' => $user->id,
-                    'payment_request_id' => $validated['payment_request_id'],
                     'name' => $validated['name'],
                     'price_cents' => $validated['price_cents'],
                     'currency' => $validated['currency'],
                     'description' => $validated['description'] ?? null,
                     'category' => $validated['category'],
                     'condition' => $validated['condition'],
-                    'latitude' => $validated['latitude'],
-                    'longitude' => $validated['longitude'],
+                    'latitude' => $validated['latitude'] ?? null,
+                    'longitude' => $validated['longitude'] ?? null,
                     'address' => $validated['address'] ?? null,
                     'city' => $validated['city'] ?? null,
                     'state' => $validated['state'] ?? null,
                     'country' => $validated['country'] ?? null,
-                    'sell_radius' => $validated['sell_radius'],
+                    'sell_radius' => $validated['sell_radius'] ?? null,
                 ]);
 
-                $listing->markActive();
+                $imageFiles = $request->file('images');
+                $sortOrders = $validated['sort_orders'] ?? [];
+                $images = [];
 
-                if (!empty($validated['images'])) {
-                    $images = array_map(function ($img, $index) use ($listing) {
-                        return [
-                            'listing_id' => $listing->id,
-                            'image_url' => $img['image_url'],
-                            'sort_order' => $img['sort_order'] ?? $index,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }, $validated['images'], array_keys($validated['images']));
-
-                    V4HockeyListingImage::insert($images);
+                foreach ($imageFiles as $index => $file) {
+                    $path = $file->store('hockey-listings/' . $listing->id, 's3');
+                    $images[] = [
+                        'listing_id' => $listing->id,
+                        'image_url' => Storage::disk('s3')->url($path),
+                        'sort_order' => $sortOrders[$index] ?? $index,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                 }
+
+                V4HockeyListingImage::insert($images);
 
                 DB::commit();
 
@@ -172,7 +148,7 @@ class V4HockeyListingController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Listing created successfully.',
+                    'message' => 'Listing saved as draft.',
                     'data' => $listing,
                 ], 201);
             } catch (Exception $e) {
@@ -318,7 +294,7 @@ class V4HockeyListingController extends Controller
 
             $record = V4HockeyListing::where('id', $listing)
                 ->where('user_id', $user->id)
-                ->where('status', V4HockeyListing::STATUS_ACTIVE)
+                ->where('status', V4HockeyListing::STATUS_PUBLISHED)
                 ->first();
 
             if (!$record) {
