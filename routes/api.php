@@ -874,6 +874,7 @@ Route::prefix('v4')->group(function () {
             Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
+            Route::post('{listing}/confirm-payment', [V4HockeyListingController::class, 'confirmPayment']);
             Route::get('{listing}', [V4HockeyListingController::class, 'show']);
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);

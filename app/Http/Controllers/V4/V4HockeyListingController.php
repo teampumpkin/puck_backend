@@ -9,6 +9,7 @@ use App\Models\V4HockeyListing;
 use App\Models\V4HockeyListingImage;
 use App\Models\V4InAppPurchase;
 use App\Models\V4PaymentRequest;
+use App\Models\V4PaymentTransaction;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,14 +24,54 @@ class V4HockeyListingController extends Controller
     const LISTING_FEE_SKU = 'hockey_listing_fee';
 
     /**
-     * Create a payment request for the listing fee.
-     * The client uses the returned payment_request_id to complete payment
-     * via the existing V4PaymentController@processPayment flow.
+     * Create a payment request tied to a specific draft listing.
+     * Returns the SKU for the client to complete the Play Store / App Store purchase,
+     * then call confirmPayment to publish the listing.
      */
     public function initiatePayment(Request $request): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
+
+            $validated = $request->validate([
+                'listing_id' => 'required|integer',
+            ]);
+
+            $listing = V4HockeyListing::where('id', $validated['listing_id'])
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$listing) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing not found.',
+                ], 404);
+            }
+
+            if ($listing->status === V4HockeyListing::STATUS_PUBLISHED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing is already published.',
+                ], 400);
+            }
+
+            // Idempotency: return existing in-flight payment request
+            if ($listing->payment_request_id) {
+                $existingPayment = V4PaymentRequest::find($listing->payment_request_id);
+                if ($existingPayment && $existingPayment->status === V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment already initiated. Complete purchase then call confirm-payment.',
+                        'data' => [
+                            'payment_request_id' => $existingPayment->id,
+                            'sku' => $existingPayment->inAppPurchase->sku,
+                            'amount_cents' => $existingPayment->amount_cents,
+                            'currency' => $existingPayment->currency,
+                            'formatted_amount' => $existingPayment->formatted_amount,
+                        ],
+                    ]);
+                }
+            }
 
             $inAppPurchase = V4InAppPurchase::where('sku', self::LISTING_FEE_SKU)
                 ->where('active', true)
@@ -43,26 +84,44 @@ class V4HockeyListingController extends Controller
                 ], 404);
             }
 
-            $paymentRequest = V4PaymentRequest::create([
-                'payer_id' => $user->id,
-                'player_id' => $user->id,
-                'in_app_purchase_id' => $inAppPurchase->id,
-                'amount_cents' => $inAppPurchase->amount_cents,
-                'currency' => $inAppPurchase->currency,
-                'status' => V4PaymentRequest::STATUS_PENDING,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment request created. Complete payment to activate your listing.',
-                'data' => [
-                    'payment_request_id' => $paymentRequest->id,
-                    'sku' => $inAppPurchase->sku,
+            DB::beginTransaction();
+            try {
+                $paymentRequest = V4PaymentRequest::create([
+                    'payer_id' => $user->id,
+                    'player_id' => $user->id,
+                    'in_app_purchase_id' => $inAppPurchase->id,
                     'amount_cents' => $inAppPurchase->amount_cents,
                     'currency' => $inAppPurchase->currency,
-                    'formatted_amount' => $paymentRequest->formatted_amount,
-                ],
-            ], 201);
+                    'status' => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                ]);
+
+                $listing->payment_request_id = $paymentRequest->id;
+                $listing->status = V4HockeyListing::STATUS_PAYMENT_REQUESTED;
+                $listing->save();
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment initiated. Complete purchase then call confirm-payment.',
+                    'data' => [
+                        'payment_request_id' => $paymentRequest->id,
+                        'sku' => $inAppPurchase->sku,
+                        'amount_cents' => $inAppPurchase->amount_cents,
+                        'currency' => $inAppPurchase->currency,
+                        'formatted_amount' => $paymentRequest->formatted_amount,
+                    ],
+                ], 201);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (Exception $e) {
             Log::error('Failed to initiate hockey listing payment', [
                 'user_id' => Auth::id(),
@@ -73,6 +132,133 @@ class V4HockeyListingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to initiate payment.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Confirm a completed Play Store / App Store purchase and publish the listing.
+     * Must be called after initiatePayment + completing the IAP on the device.
+     */
+    public function confirmPayment(Request $request, int $listing): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            $record = V4HockeyListing::where('id', $listing)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$record) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing not found.',
+                ], 404);
+            }
+
+            if ($record->status === V4HockeyListing::STATUS_PUBLISHED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing is already published.',
+                ], 400);
+            }
+
+            if ($record->status !== V4HockeyListing::STATUS_PAYMENT_REQUESTED || !$record->payment_request_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No active payment request found. Call initiate-payment first.',
+                ], 400);
+            }
+
+            $paymentRequest = V4PaymentRequest::find($record->payment_request_id);
+
+            if (!$paymentRequest || $paymentRequest->status !== V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment request is not in a confirmable state.',
+                ], 400);
+            }
+
+            $validated = $request->validate([
+                'purchase_id' => 'nullable|string',
+                'source' => 'required|in:ios,android,web,window,linux,macos',
+                'verification_data' => 'nullable|array',
+                'store_status' => 'nullable|string',
+                'transaction_date' => 'nullable|date',
+                'payload' => 'nullable|array',
+            ]);
+
+            // Duplicate purchase prevention
+            if (!empty($validated['purchase_id'])) {
+                $duplicate = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
+                    ->where('source', $validated['source'])
+                    ->first();
+
+                if ($duplicate) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This purchase has already been processed.',
+                        'payment_transaction_id' => $duplicate->id,
+                    ], 400);
+                }
+            }
+
+            DB::beginTransaction();
+            try {
+                $transaction = V4PaymentTransaction::create([
+                    'payment_request_id' => $paymentRequest->id,
+                    'payer_id' => $user->id,
+                    'amount_cents' => $paymentRequest->amount_cents,
+                    'currency' => $paymentRequest->currency,
+                    'gateway' => 'internal',
+                    'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
+                    'status' => V4PaymentTransaction::STATUS_SUCCESS,
+                    'purchase_id' => $validated['purchase_id'] ?? null,
+                    'source' => $validated['source'],
+                    'verification_data' => $validated['verification_data'] ?? null,
+                    'store_status' => $validated['store_status'] ?? null,
+                    'transaction_date' => $validated['transaction_date'] ?? null,
+                    'payload' => $validated['payload'] ?? null,
+                ]);
+
+                $paymentRequest->markPaid();
+                $record->markPublished();
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment confirmed. Your listing is now live.',
+                    'data' => [
+                        'listing_id' => $record->id,
+                        'listing_status' => $record->status,
+                        'listed_at' => $record->listed_at,
+                        'payment_request_id' => $paymentRequest->id,
+                        'payment_transaction_id' => $transaction->id,
+                    ],
+                ]);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Failed to confirm hockey listing payment', [
+                'user_id' => Auth::id(),
+                'listing_id' => $listing,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to confirm payment.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -429,7 +615,7 @@ class V4HockeyListingController extends Controller
             $user = Auth::guard('v4api')->user();
 
             $validated = $request->validate([
-                'status' => 'nullable|string|in:pending_payment,active,sold',
+                'status' => 'nullable|string|in:draft,payment_requested,payment_failed,payment_rejected,published',
                 'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 

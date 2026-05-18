@@ -71,6 +71,11 @@ class V4HockeyListing extends Model
         return $query->where('status', self::STATUS_PUBLISHED);
     }
 
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::STATUS_PUBLISHED);
+    }
+
     public function getFormattedPriceAttribute(): string
     {
         return number_format($this->price_cents / 100, 2) . ' ' . strtoupper($this->currency);
