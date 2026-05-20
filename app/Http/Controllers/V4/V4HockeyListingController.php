@@ -21,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 class V4HockeyListingController extends Controller
 {
-    const LISTING_FEE_SKU = 'hockey_listing_fee';
+    const LISTING_FEE_SKU = 'test_marketplace_listing_fee_min';
 
     /**
      * Create a payment request tied to a specific draft listing.
