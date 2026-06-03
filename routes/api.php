@@ -878,6 +878,7 @@ Route::prefix('v4')->group(function () {
             Route::get('{listing}', [V4HockeyListingController::class, 'show']);
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
+            Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
         });
     });
 });

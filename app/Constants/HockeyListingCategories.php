@@ -4,9 +4,10 @@ namespace App\Constants;
 
 class HockeyListingCategories
 {
-    const HOCKEY_CAMPS = 'Hockey Camps';
-    const HELMET = 'Helmet';
-    const GEAR = 'Gear';
+    const HOCKEY_CAMPS = 'hockey_camps';
+    const HELMET = 'helmet';
+    const GEAR = 'gear';
+    const TICKETS_FOR_GAMES = 'tickets_for_games';
 
     public static function all(): array
     {
@@ -14,6 +15,7 @@ class HockeyListingCategories
             self::HOCKEY_CAMPS,
             self::HELMET,
             self::GEAR,
+            self::TICKETS_FOR_GAMES,
         ];
     }
 }

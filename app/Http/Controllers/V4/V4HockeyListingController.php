@@ -279,15 +279,16 @@ class V4HockeyListingController extends Controller
                 'description' => 'nullable|string',
                 'category' => 'required|string|in:' . implode(',', HockeyListingCategories::all()),
                 'condition' => 'required|string|in:' . implode(',', HockeyListingConditions::all()),
-                'latitude' => 'nullable|numeric|between:-90,90',
-                'longitude' => 'nullable|numeric|between:-180,180',
+                'latitude' => 'required|numeric|between:-90,90',
+                'longitude' => 'required|numeric|between:-180,180',
                 'address' => 'nullable|string|max:500',
-                'city' => 'nullable|string|max:100',
+                'city' => 'required|string|max:100',
                 'state' => 'nullable|string|max:100',
-                'country' => 'nullable|string|max:100',
+                'country' => 'required|string|max:100',
+                'postal_code' => 'nullable|string|max:20',
                 'sell_radius' => 'nullable|integer|min:1',
                 'images' => 'required|array|min:1|max:10',
-                'images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240',
+                'images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:2048',
                 'sort_orders' => 'nullable|array',
                 'sort_orders.*' => 'nullable|integer|min:0',
             ]);
@@ -308,6 +309,7 @@ class V4HockeyListingController extends Controller
                     'city' => $validated['city'] ?? null,
                     'state' => $validated['state'] ?? null,
                     'country' => $validated['country'] ?? null,
+                    'postal_code' => $validated['postal_code'] ?? null,
                     'sell_radius' => $validated['sell_radius'] ?? null,
                 ]);
 
@@ -373,6 +375,7 @@ class V4HockeyListingController extends Controller
                 'condition' => 'nullable|string|in:' . implode(',', HockeyListingConditions::all()),
                 'country' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
+                'postal_code' => 'nullable|string|max:20',
                 'min_price_cents' => 'nullable|integer|min:0',
                 'max_price_cents' => 'nullable|integer|min:0',
                 'per_page' => 'nullable|integer|min:1|max:100',
@@ -398,6 +401,10 @@ class V4HockeyListingController extends Controller
 
             if (!empty($validated['city'])) {
                 $query->where('city', $validated['city']);
+            }
+
+            if (!empty($validated['postal_code'])) {
+                $query->where('postal_code', $validated['postal_code']);
             }
 
             if (isset($validated['min_price_cents'])) {
@@ -503,6 +510,7 @@ class V4HockeyListingController extends Controller
                 'city' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'country' => 'nullable|string|max:100',
+                'postal_code' => 'nullable|string|max:20',
                 'sell_radius' => 'sometimes|integer|min:1',
                 'images' => 'nullable|array|max:10',
                 'images.*.image_url' => 'required|url|max:500',
@@ -606,6 +614,44 @@ class V4HockeyListingController extends Controller
         }
     }
 
+    public function markSold(int $listing): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+
+            $record = V4HockeyListing::where('id', $listing)
+                ->where('user_id', $user->id)
+                ->where('status', V4HockeyListing::STATUS_PUBLISHED)
+                ->first();
+
+            if (!$record) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing not found or cannot be marked as sold.',
+                ], 404);
+            }
+
+            $record->markSold();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Listing marked as sold.',
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to mark hockey listing as sold', [
+                'user_id' => Auth::id(),
+                'listing_id' => $listing,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to mark listing as sold.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * Get the authenticated user's own listings (all statuses).
      */
@@ -615,14 +661,13 @@ class V4HockeyListingController extends Controller
             $user = Auth::guard('v4api')->user();
 
             $validated = $request->validate([
-                'status' => 'nullable|string|in:draft,payment_requested,payment_failed,payment_rejected,published',
+                'status' => 'nullable|string|in:draft,payment_requested,payment_failed,payment_rejected,published,sold',
                 'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
-            $perPage = max(1, min((int) ($validated['per_page'] ?? 14), 100));
+            $perPage = max(1, min((int) ($validated['per_page'] ?? 10), 50));
 
-            $query = V4HockeyListing::withTrashed()
-                ->where('user_id', $user->id)
+            $query = V4HockeyListing::where('user_id', $user->id)
                 ->with('images')
                 ->orderByDesc('created_at');
 

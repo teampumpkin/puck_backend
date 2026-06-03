@@ -35,6 +35,7 @@ class CreateV4HockeyListingsTable extends Migration
             $table->string('city', 100)->nullable();
             $table->string('state', 100)->nullable();
             $table->string('country', 100)->nullable();
+            $table->string('postal_code', 20)->nullable();
 
             $table->unsignedInteger('sell_radius')->default(50); // in km
 

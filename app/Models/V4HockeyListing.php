@@ -15,6 +15,7 @@ class V4HockeyListing extends Model
     const STATUS_PAYMENT_FAILED = 'payment_failed';
     const STATUS_PAYMENT_REJECTED = 'payment_rejected';
     const STATUS_PUBLISHED = 'published';
+    const STATUS_SOLD = 'sold';
 
     protected $fillable = [
         'user_id',
@@ -31,6 +32,7 @@ class V4HockeyListing extends Model
         'city',
         'state',
         'country',
+        'postal_code',
         'sell_radius',
         'listed_at',
         'status',
@@ -109,6 +111,12 @@ class V4HockeyListing extends Model
     {
         $this->status = self::STATUS_PUBLISHED;
         $this->listed_at = now();
+        $this->save();
+    }
+
+    public function markSold(): void
+    {
+        $this->status = self::STATUS_SOLD;
         $this->save();
     }
 }
