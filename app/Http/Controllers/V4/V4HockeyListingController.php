@@ -512,32 +512,35 @@ class V4HockeyListingController extends Controller
                 'country' => 'nullable|string|max:100',
                 'postal_code' => 'nullable|string|max:20',
                 'sell_radius' => 'sometimes|integer|min:1',
-                'images' => 'nullable|array|max:10',
-                'images.*.image_url' => 'required|url|max:500',
-                'images.*.sort_order' => 'nullable|integer|min:0',
+                'remove_images' => 'nullable|array',
+                'remove_images.*' => 'required|url|max:500',
+                'add_images' => 'nullable|array|max:10',
+                'add_images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:2048',
             ]);
 
             DB::beginTransaction();
             try {
-                $record->fill(collect($validated)->except('images')->toArray());
+                $record->fill(collect($validated)->except(['remove_images', 'add_images'])->toArray());
                 $record->save();
 
-                if (array_key_exists('images', $validated)) {
-                    $record->images()->delete();
+                if (!empty($validated['remove_images'])) {
+                    $record->images()->whereIn('image_url', $validated['remove_images'])->delete();
+                }
 
-                    if (!empty($validated['images'])) {
-                        $images = array_map(function ($img, $index) use ($record) {
-                            return [
-                                'listing_id' => $record->id,
-                                'image_url' => $img['image_url'],
-                                'sort_order' => $img['sort_order'] ?? $index,
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ];
-                        }, $validated['images'], array_keys($validated['images']));
-
-                        V4HockeyListingImage::insert($images);
+                if ($request->hasFile('add_images')) {
+                    $existing = $record->images()->count();
+                    $images = [];
+                    foreach ($request->file('add_images') as $index => $file) {
+                        $path = $file->store('hockey-listings/' . $record->id, 's3');
+                        $images[] = [
+                            'listing_id' => $record->id,
+                            'image_url' => Storage::disk('s3')->url($path),
+                            'sort_order' => $existing + $index,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
                     }
+                    V4HockeyListingImage::insert($images);
                 }
 
                 DB::commit();
