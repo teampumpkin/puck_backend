@@ -872,6 +872,7 @@ Route::prefix('v4')->group(function () {
         Route::prefix('hockey-listings')->group(function () {
             Route::post('initiate-payment', [V4HockeyListingController::class, 'initiatePayment']);
             Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
+            Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
             Route::post('{listing}/confirm-payment', [V4HockeyListingController::class, 'confirmPayment']);

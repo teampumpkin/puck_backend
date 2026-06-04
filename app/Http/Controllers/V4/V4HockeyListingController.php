@@ -447,6 +447,84 @@ class V4HockeyListingController extends Controller
         }
     }
 
+    public function nearby(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'latitude' => 'required|numeric|between:-90,90',
+                'longitude' => 'required|numeric|between:-180,180',
+                'search' => 'nullable|string|max:255',
+                'categories' => 'nullable|array',
+                'categories.*' => 'required|string|in:' . implode(',', HockeyListingCategories::all()),
+                'per_page' => 'nullable|integer|min:1|max:50',
+            ]);
+
+            $lat = $validated['latitude'];
+            $lng = $validated['longitude'];
+            $perPage = max(1, min((int) ($validated['per_page'] ?? 12), 50));
+
+            $user = Auth::guard('v4api')->user();
+
+            $query = V4HockeyListing::active()
+                ->with('images')
+                ->where('user_id', '!=', $user->id)
+                ->whereNotNull('latitude')
+                ->whereNotNull('longitude')
+                ->whereNotNull('sell_radius')
+                ->whereRaw(
+                    '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) <= sell_radius',
+                    [$lat, $lng, $lat]
+                )
+                ->selectRaw(
+                    '*, (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance_km',
+                    [$lat, $lng, $lat]
+                )
+                ->orderBy('distance_km');
+
+            if (!empty($validated['search'])) {
+                $search = '%' . $validated['search'] . '%';
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', $search)
+                        ->orWhere('description', 'like', $search);
+                });
+            }
+
+            if (!empty($validated['categories'])) {
+                $query->whereIn('category', $validated['categories']);
+            }
+
+            $listings = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $listings->items(),
+                'pagination' => [
+                    'current_page' => $listings->currentPage(),
+                    'per_page' => $listings->perPage(),
+                    'total' => $listings->total(),
+                    'last_page' => $listings->lastPage(),
+                    'has_more_pages' => $listings->hasMorePages(),
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Failed to fetch nearby hockey listings', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch nearby listings.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     /**
      * Get a single listing by ID.
      */
