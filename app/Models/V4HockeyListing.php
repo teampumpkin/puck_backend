@@ -50,7 +50,7 @@ class V4HockeyListing extends Model
     protected $attributes = [
         'currency' => 'USD',
         'status' => self::STATUS_DRAFT,
-        'sell_radius' => 50,
+        'sell_radius' => 10,
     ];
 
     public function user()

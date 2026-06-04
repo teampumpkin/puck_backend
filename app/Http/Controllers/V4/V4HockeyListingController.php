@@ -465,21 +465,24 @@ class V4HockeyListingController extends Controller
 
             $user = Auth::guard('v4api')->user();
 
+            // Bounding box pre-filter using indexes (500 miles max covers all realistic sell_radius values)
+            $maxMiles = 500;
+            $latDelta = $maxMiles / 69.0;
+            $lngDelta = $maxMiles / (69.0 * cos(deg2rad($lat)));
+
+            $haversine = '(3958.8 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
+
             $query = V4HockeyListing::active()
                 ->with('images')
                 ->where('user_id', '!=', $user->id)
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
                 ->whereNotNull('sell_radius')
-                ->whereRaw(
-                    '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) <= sell_radius',
-                    [$lat, $lng, $lat]
-                )
-                ->selectRaw(
-                    '*, (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance_km',
-                    [$lat, $lng, $lat]
-                )
-                ->orderBy('distance_km');
+                ->whereBetween('latitude', [$lat - $latDelta, $lat + $latDelta])
+                ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta])
+                ->whereRaw("$haversine <= sell_radius", [$lat, $lng, $lat])
+                ->selectRaw("*, $haversine AS distance_miles", [$lat, $lng, $lat])
+                ->orderBy('distance_miles');
 
             if (!empty($validated['search'])) {
                 $search = '%' . $validated['search'] . '%';

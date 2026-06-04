@@ -37,7 +37,7 @@ class CreateV4HockeyListingsTable extends Migration
             $table->string('country', 100)->nullable();
             $table->string('postal_code', 20)->nullable();
 
-            $table->unsignedInteger('sell_radius')->default(50); // in km
+            $table->unsignedInteger('sell_radius')->default(10); // in miles
 
             $table->timestamp('listed_at')->nullable();
 
@@ -50,6 +50,9 @@ class CreateV4HockeyListingsTable extends Migration
             $table->index(['status', 'listed_at']);
             $table->index(['category', 'status']);
             $table->index('payment_request_id');
+            $table->index('latitude');
+            $table->index('longitude');
+            $table->index('sell_radius');
         });
     }
 
