@@ -32,6 +32,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing initiate payment', ['user_id' => $user->id, 'payload' => $request->all()]);
 
             $validated = $request->validate([
                 'listing_id' => 'required|integer',
@@ -145,6 +146,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing confirm payment', ['user_id' => $user->id, 'listing_id' => $listing, 'payload' => $request->all()]);
 
             $record = V4HockeyListing::where('id', $listing)
                 ->where('user_id', $user->id)
@@ -271,6 +273,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing store', ['user_id' => $user->id, 'payload' => $request->except('images')]);
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -288,7 +291,7 @@ class V4HockeyListingController extends Controller
                 'postal_code' => 'nullable|string|max:20',
                 'sell_radius' => 'nullable|integer|min:1',
                 'images' => 'required|array|min:1|max:10',
-                'images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:2048',
+                'images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp,heic,heif|max:3072',
                 'sort_orders' => 'nullable|array',
                 'sort_orders.*' => 'nullable|integer|min:0',
             ]);
@@ -344,6 +347,7 @@ class V4HockeyListingController extends Controller
                 throw $e;
             }
         } catch (ValidationException $e) {
+            Log::error('Hockey listing store validation failed', ['user_id' => Auth::id(), 'errors' => $e->errors()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -370,6 +374,8 @@ class V4HockeyListingController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            Log::info('Hockey listing index', ['filters' => $request->all()]);
+
             $validated = $request->validate([
                 'category' => 'nullable|string|in:' . implode(',', HockeyListingCategories::all()),
                 'condition' => 'nullable|string|in:' . implode(',', HockeyListingConditions::all()),
@@ -450,6 +456,8 @@ class V4HockeyListingController extends Controller
     public function nearby(Request $request): JsonResponse
     {
         try {
+            Log::info('Hockey listing nearby', ['filters' => $request->all()]);
+
             $validated = $request->validate([
                 'latitude' => 'required|numeric|between:-90,90',
                 'longitude' => 'required|numeric|between:-180,180',
@@ -534,6 +542,8 @@ class V4HockeyListingController extends Controller
     public function show(int $listing): JsonResponse
     {
         try {
+            Log::info('Hockey listing show', ['listing_id' => $listing]);
+
             $record = V4HockeyListing::active()
                 ->with('images')
                 ->find($listing);
@@ -565,6 +575,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing update', ['user_id' => $user->id, 'listing_id' => $listing, 'payload' => $request->except(['add_images'])]);
 
             $record = V4HockeyListing::where('id', $listing)
                 ->where('user_id', $user->id)
@@ -596,7 +607,7 @@ class V4HockeyListingController extends Controller
                 'remove_images' => 'nullable|array',
                 'remove_images.*' => 'required|url|max:500',
                 'add_images' => 'nullable|array|max:10',
-                'add_images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:2048',
+                'add_images.*' => 'required|file|image|mimes:jpeg,png,jpg,webp,heic,heif|max:3072',
             ]);
 
             DB::beginTransaction();
@@ -665,6 +676,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing destroy', ['user_id' => $user->id, 'listing_id' => $listing]);
 
             $record = V4HockeyListing::where('id', $listing)
                 ->where('user_id', $user->id)
@@ -702,6 +714,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing mark sold', ['user_id' => $user->id, 'listing_id' => $listing]);
 
             $record = V4HockeyListing::where('id', $listing)
                 ->where('user_id', $user->id)
@@ -743,6 +756,7 @@ class V4HockeyListingController extends Controller
     {
         try {
             $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing my listings', ['user_id' => $user->id, 'filters' => $request->all()]);
 
             $validated = $request->validate([
                 'status' => 'nullable|string|in:draft,payment_requested,payment_failed,payment_rejected,published,sold',
