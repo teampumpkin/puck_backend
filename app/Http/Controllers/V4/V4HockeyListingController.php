@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V4;
 
 use App\Constants\HockeyListingCategories;
 use App\Constants\HockeyListingConditions;
+use App\DTOs\SellerInfoDTO;
 use App\Http\Controllers\Controller;
 use App\Models\V4HockeyListing;
 use App\Models\V4HockeyListingImage;
@@ -21,7 +22,6 @@ use Illuminate\Validation\ValidationException;
 
 class V4HockeyListingController extends Controller
 {
-    const LISTING_FEE_SKU = 'test_marketplace_listing_fee_min';
 
     /**
      * Create a payment request tied to a specific draft listing.
@@ -74,7 +74,7 @@ class V4HockeyListingController extends Controller
                 }
             }
 
-            $inAppPurchase = V4InAppPurchase::where('sku', self::LISTING_FEE_SKU)
+            $inAppPurchase = V4InAppPurchase::where('sku', env('HOCKEY_LISTING_FEE_SKU'))
                 ->where('active', true)
                 ->first();
 
@@ -335,12 +335,12 @@ class V4HockeyListingController extends Controller
 
                 DB::commit();
 
-                $listing->load('images');
+                $listing->load(['images', 'user:' . SellerInfoDTO::selectColumns()]);
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Listing saved as draft.',
-                    'data' => $listing,
+                    'data' => $this->formatListing($listing),
                 ], 201);
             } catch (Exception $e) {
                 DB::rollBack();
@@ -390,7 +390,7 @@ class V4HockeyListingController extends Controller
             $perPage = max(1, min((int) ($validated['per_page'] ?? 20), 100));
 
             $query = V4HockeyListing::active()
-                ->with('images')
+                ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->orderByDesc('listed_at');
 
             if (!empty($validated['category'])) {
@@ -425,7 +425,7 @@ class V4HockeyListingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $listings->items(),
+                'data' => array_map(fn($l) => $this->formatListing($l), $listings->items()),
                 'pagination' => [
                     'current_page' => $listings->currentPage(),
                     'per_page' => $listings->perPage(),
@@ -481,7 +481,7 @@ class V4HockeyListingController extends Controller
             $haversine = '(3958.8 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
 
             $query = V4HockeyListing::active()
-                ->with('images')
+                ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->where('user_id', '!=', $user->id)
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
@@ -508,7 +508,7 @@ class V4HockeyListingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $listings->items(),
+                'data' => array_map(fn($l) => $this->formatListing($l), $listings->items()),
                 'pagination' => [
                     'current_page' => $listings->currentPage(),
                     'per_page' => $listings->perPage(),
@@ -545,7 +545,7 @@ class V4HockeyListingController extends Controller
             Log::info('Hockey listing show', ['listing_id' => $listing]);
 
             $record = V4HockeyListing::active()
-                ->with('images')
+                ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->find($listing);
 
             if (!$record) {
@@ -557,7 +557,7 @@ class V4HockeyListingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $record,
+                'data' => $this->formatListing($record),
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -637,12 +637,12 @@ class V4HockeyListingController extends Controller
 
                 DB::commit();
 
-                $record->load('images');
+                $record->load(['images', 'user:' . SellerInfoDTO::selectColumns()]);
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Listing updated successfully.',
-                    'data' => $record,
+                    'data' => $this->formatListing($record),
                 ]);
             } catch (Exception $e) {
                 DB::rollBack();
@@ -766,7 +766,7 @@ class V4HockeyListingController extends Controller
             $perPage = max(1, min((int) ($validated['per_page'] ?? 10), 50));
 
             $query = V4HockeyListing::where('user_id', $user->id)
-                ->with('images')
+                ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->orderByDesc('created_at');
 
             if (!empty($validated['status'])) {
@@ -777,7 +777,7 @@ class V4HockeyListingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $listings->items(),
+                'data' => array_map(fn($l) => $this->formatListing($l), $listings->items()),
                 'pagination' => [
                     'current_page' => $listings->currentPage(),
                     'per_page' => $listings->perPage(),
@@ -804,5 +804,22 @@ class V4HockeyListingController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    private function formatListing(V4HockeyListing $listing): array
+    {
+        if ($listing->relationLoaded('user') && $listing->user) {
+            // Strip computed $appends before toArray() — they fire DB queries per model
+            // and are unused since the user is immediately replaced by the DTO below.
+            $listing->user->setAppends([]);
+        }
+
+        $data = $listing->toArray();
+
+        if ($listing->relationLoaded('user') && $listing->user) {
+            $data['user'] = SellerInfoDTO::fromUser($listing->user)->toArray();
+        }
+
+        return $data;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\DTOs\SellerInfoDTO;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -81,6 +82,15 @@ class V4HockeyListing extends Model
     public function getFormattedPriceAttribute(): string
     {
         return number_format($this->price_cents / 100, 2) . ' ' . strtoupper($this->currency);
+    }
+
+    public function getSellerInfoAttribute(): ?array
+    {
+        if (!$this->relationLoaded('user') || !$this->user) {
+            return null;
+        }
+
+        return SellerInfoDTO::fromUser($this->user)->toArray();
     }
 
     public function markDraft(): void

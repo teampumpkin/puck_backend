@@ -14,6 +14,17 @@ use Carbon\Carbon;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
+/**
+ * @property int $id
+ * @property string|null $first_name
+ * @property string|null $last_name
+ * @property string|null $username
+ * @property string|null $profile_photo
+ * @property string|null $city
+ * @property string|null $state
+ * @property string|null $country
+ * @property string|null $role
+ */
 class V4User extends Authenticatable implements JWTSubject
 {
     use HasFactory, Notifiable, SoftDeletes;
@@ -223,10 +234,13 @@ class V4User extends Authenticatable implements JWTSubject
             ];
         }
 
+        $youBlockedThem = $this->hasBlocked($currentUserId);
+        $theyBlockedYou = $this->isBlockedBy($currentUserId);
+
         return [
-            'you_blocked_them' => $this->hasBlocked($currentUserId),
-            'they_blocked_you' => $this->isBlockedBy($currentUserId),
-            'is_blocked' => $this->hasBlocked($currentUserId) || $this->isBlockedBy($currentUserId),
+            'you_blocked_them' => $youBlockedThem,
+            'they_blocked_you' => $theyBlockedYou,
+            'is_blocked' => $youBlockedThem || $theyBlockedYou,
         ];
     }
 

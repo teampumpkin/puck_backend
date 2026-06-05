@@ -115,51 +115,6 @@ class ProfileController extends Controller
                 $userData['fan_profile']
             );
 
-            try {
-                $token = $request->bearerToken();
-
-                $baseUrl = env('CHAT_APP_HOST');
-
-                $payload = [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'phone' => $user->phone,
-                    'name' => $user->name,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'date_of_birth' => $user->date_of_birth,
-                    'country' => $user->country,
-                    'state' => $user->state,
-                    'city' => $user->city,
-                    'zip' => $user->zip,
-                    'is_child' => $user->is_child,
-                    'parent_id' => $user->parent_id,
-                    'username' => $user->username,
-                    'role' => $user->role,
-                    'age' => $user->age,
-                    'profile_photo' => $user->profile_photo,
-
-                ];
-
-                $response = Http::withToken($token)
-                    ->put($baseUrl . '/user/update', $payload);
-
-                if ($response->successful() && isset($response->json()['_id'])) {
-                    Log::info('User updated successfully', $response->json());
-                } else {
-                    Log::warning('Update User API failed', [
-                        'status' => $response->status(),
-                        'body' => $response->body(),
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                // Track error in Sentry
-                $this->errorTracker->captureException($e, [
-                    'action' => 'unknown_method',
-                ]);
-                Log::error('Update User Profile API error', ['error' => $e->getMessage()]);
-            }
-
             // Add the profile data under a standardized field name
             $userData['profile'] = $profileData;
             return response()->json([
