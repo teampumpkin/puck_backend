@@ -873,6 +873,8 @@ Route::prefix('v4')->group(function () {
             Route::post('initiate-payment', [V4HockeyListingController::class, 'initiatePayment']);
             Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
             Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
+            Route::get('stats', [V4HockeyListingController::class, 'stats']);
+            Route::get('manage', [V4HockeyListingController::class, 'manage']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
             Route::post('{listing}/confirm-payment', [V4HockeyListingController::class, 'confirmPayment']);
@@ -880,6 +882,7 @@ Route::prefix('v4')->group(function () {
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
+            Route::patch('{listing}/mark-available', [V4HockeyListingController::class, 'markAvailable']);
         });
     });
 });

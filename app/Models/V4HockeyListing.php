@@ -129,4 +129,10 @@ class V4HockeyListing extends Model
         $this->status = self::STATUS_SOLD;
         $this->save();
     }
+
+    public function markAvailable(): void
+    {
+        $this->status = self::STATUS_PUBLISHED;
+        $this->save();
+    }
 }
