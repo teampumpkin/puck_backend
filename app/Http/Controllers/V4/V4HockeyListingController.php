@@ -11,6 +11,8 @@ use App\Models\V4HockeyListingImage;
 use App\Models\V4InAppPurchase;
 use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
+use App\Models\V4User;
+use App\Services\NotificationService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,13 @@ use Illuminate\Validation\ValidationException;
 
 class V4HockeyListingController extends Controller
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
 
     /**
      * Create a payment request tied to a specific draft listing.
@@ -56,16 +65,43 @@ class V4HockeyListingController extends Controller
                 ], 400);
             }
 
+            $isChild = (bool) ($user->is_child ?? false);
+            $parentId = $isChild ? $user->parent_id : null;
+
+            if ($isChild && !$parentId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Child account is missing a parent. Cannot request payment.',
+                ], 400);
+            }
+
             // Idempotency: return existing in-flight payment request
             if ($listing->payment_request_id) {
-                $existingPayment = V4PaymentRequest::find($listing->payment_request_id);
+                $existingPayment = V4PaymentRequest::with('inAppPurchase')->find($listing->payment_request_id);
+
+                if ($existingPayment && $existingPayment->status === V4PaymentRequest::STATUS_PENDING && $isChild) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment request already sent to parent.',
+                        'data' => [
+                            'awaiting_parent' => true,
+                            'payment_request_id' => $existingPayment->id,
+                            'sku' => null,
+                            'amount_cents' => $existingPayment->amount_cents,
+                            'currency' => $existingPayment->currency,
+                            'formatted_amount' => $existingPayment->formatted_amount,
+                        ],
+                    ]);
+                }
+
                 if ($existingPayment && $existingPayment->status === V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
                     return response()->json([
                         'success' => true,
                         'message' => 'Payment already initiated. Complete purchase then call confirm-payment.',
                         'data' => [
+                            'awaiting_parent' => false,
                             'payment_request_id' => $existingPayment->id,
-                            'sku' => $existingPayment->inAppPurchase->sku,
+                            'sku' => optional($existingPayment->inAppPurchase)->sku,
                             'amount_cents' => $existingPayment->amount_cents,
                             'currency' => $existingPayment->currency,
                             'formatted_amount' => $existingPayment->formatted_amount,
@@ -87,14 +123,22 @@ class V4HockeyListingController extends Controller
 
             DB::beginTransaction();
             try {
-                $paymentRequest = V4PaymentRequest::create([
-                    'payer_id' => $user->id,
+                $paymentRequestData = [
+                    'payer_id' => $isChild ? $parentId : $user->id,
                     'player_id' => $user->id,
                     'in_app_purchase_id' => $inAppPurchase->id,
                     'amount_cents' => $inAppPurchase->amount_cents,
                     'currency' => $inAppPurchase->currency,
-                    'status' => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
-                ]);
+                    'status' => $isChild
+                        ? V4PaymentRequest::STATUS_PENDING
+                        : V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                ];
+
+                if ($isChild) {
+                    $paymentRequestData['parent_id'] = $parentId;
+                }
+
+                $paymentRequest = V4PaymentRequest::create($paymentRequestData);
 
                 $listing->payment_request_id = $paymentRequest->id;
                 $listing->status = V4HockeyListing::STATUS_PAYMENT_REQUESTED;
@@ -102,10 +146,29 @@ class V4HockeyListingController extends Controller
 
                 DB::commit();
 
+                if ($isChild) {
+                    $paymentRequest->load(['player', 'parent']);
+                    $this->sendListingPaymentRequestNotification($paymentRequest, $listing, $inAppPurchase);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment request sent to parent.',
+                        'data' => [
+                            'awaiting_parent' => true,
+                            'payment_request_id' => $paymentRequest->id,
+                            'sku' => null,
+                            'amount_cents' => $inAppPurchase->amount_cents,
+                            'currency' => $inAppPurchase->currency,
+                            'formatted_amount' => $paymentRequest->formatted_amount,
+                        ],
+                    ], 201);
+                }
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment initiated. Complete purchase then call confirm-payment.',
                     'data' => [
+                        'awaiting_parent' => false,
                         'payment_request_id' => $paymentRequest->id,
                         'sku' => $inAppPurchase->sku,
                         'amount_cents' => $inAppPurchase->amount_cents,
@@ -148,15 +211,37 @@ class V4HockeyListingController extends Controller
             $user = Auth::guard('v4api')->user();
             Log::info('Hockey listing confirm payment', ['user_id' => $user->id, 'listing_id' => $listing, 'payload' => $request->all()]);
 
-            $record = V4HockeyListing::where('id', $listing)
-                ->where('user_id', $user->id)
-                ->first();
+            $record = V4HockeyListing::find($listing);
 
             if (!$record) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Listing not found.',
                 ], 404);
+            }
+
+            $paymentRequest = $record->payment_request_id
+                ? V4PaymentRequest::find($record->payment_request_id)
+                : null;
+
+            $authId = (int) $user->id;
+            $isOwner = (int) $record->user_id === $authId;
+            $isParentPayer = $paymentRequest
+                && $paymentRequest->parent_id
+                && (int) $paymentRequest->parent_id === $authId;
+
+            if (!$isOwner && !$isParentPayer) {
+                Log::warning('Hockey listing confirm unauthorized', [
+                    'auth_user_id' => $authId,
+                    'listing_user_id' => $record->user_id,
+                    'pr_parent_id' => $paymentRequest?->parent_id,
+                    'pr_id' => $paymentRequest?->id,
+                    'pr_status' => $paymentRequest?->status,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized.',
+                ], 403);
             }
 
             if ($record->status === V4HockeyListing::STATUS_PUBLISHED) {
@@ -173,13 +258,30 @@ class V4HockeyListingController extends Controller
                 ], 400);
             }
 
-            $paymentRequest = V4PaymentRequest::find($record->payment_request_id);
+            if (!$paymentRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment request not found.',
+                ], 400);
+            }
 
-            if (!$paymentRequest || $paymentRequest->status !== V4PaymentRequest::STATUS_PAYMENT_INITIATED) {
+            $allowedStatuses = [
+                V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                V4PaymentRequest::STATUS_PENDING,
+            ];
+
+            if (!in_array($paymentRequest->status, $allowedStatuses, true)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Payment request is not in a confirmable state.',
                 ], 400);
+            }
+
+            if ($paymentRequest->status === V4PaymentRequest::STATUS_PENDING && !$isParentPayer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the parent can confirm this payment.',
+                ], 403);
             }
 
             $validated = $request->validate([
@@ -228,6 +330,10 @@ class V4HockeyListingController extends Controller
                 $record->markPublished();
 
                 DB::commit();
+
+                if ($isParentPayer) {
+                    $this->sendListingPaymentApprovedNotification($paymentRequest, $record);
+                }
 
                 return response()->json([
                     'success' => true,
@@ -784,6 +890,184 @@ class V4HockeyListingController extends Controller
                 'message' => 'Failed to mark listing as sold.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
+        }
+    }
+
+    /**
+     * Parent fetches the pending payment request for a child's listing,
+     * so the parent device can run the IAP flow and call confirm-payment.
+     */
+    public function parentListingPayment(Request $request, int $listing): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing parent payment fetch', [
+                'user_id' => $user->id,
+                'listing_id' => $listing,
+            ]);
+
+            $record = V4HockeyListing::with(['images', 'user:' . SellerInfoDTO::selectColumns(), 'paymentRequest.inAppPurchase'])
+                ->find($listing);
+
+            if (!$record) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing not found.',
+                ], 404);
+            }
+
+            $paymentRequest = $record->paymentRequest;
+
+            if (!$paymentRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No payment request for this listing.',
+                ], 404);
+            }
+
+            if (!$paymentRequest->parent_id || (int) $paymentRequest->parent_id !== (int) $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the parent can access this payment request.',
+                ], 403);
+            }
+
+            $inAppPurchase = $paymentRequest->inAppPurchase;
+
+            if (!$inAppPurchase) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing fee product not found.',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Listing payment request loaded.',
+                'data' => [
+                    'listing' => $this->formatListing($record),
+                    'payment_request_id' => $paymentRequest->id,
+                    'payment_status' => $paymentRequest->status,
+                    'sku' => $inAppPurchase->sku,
+                    'amount_cents' => $paymentRequest->amount_cents,
+                    'currency' => $paymentRequest->currency,
+                    'formatted_amount' => $paymentRequest->formatted_amount,
+                ],
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to load parent listing payment', [
+                'user_id' => Auth::id(),
+                'listing_id' => $listing,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load payment request.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Notify parent that a child has requested approval to pay a listing fee.
+     */
+    protected function sendListingPaymentRequestNotification(
+        V4PaymentRequest $paymentRequest,
+        V4HockeyListing $listing,
+        V4InAppPurchase $inAppPurchase
+    ): void {
+        try {
+            $child = $paymentRequest->player;
+            $parent = $paymentRequest->parent;
+
+            if (!$child || !$parent) {
+                return;
+            }
+
+            $title = '💰 Listing Fee Approval from ' . $child->name;
+            $message = $child->name . ' wants to publish "' . $listing->name . '". Approve the listing fee?';
+            $redirectUrl = "/marketplace/parent-listing-payment/{$listing->id}";
+
+            $data = [
+                'payment_request_id' => $paymentRequest->id,
+                'listing_id' => $listing->id,
+                'listing_name' => $listing->name,
+                'sku' => $inAppPurchase->sku,
+                'child_id' => $child->id,
+                'child_name' => $child->name,
+                'amount_cents' => $paymentRequest->amount_cents,
+                'currency' => $paymentRequest->currency,
+                'status' => 'pending',
+                'action_required' => true,
+                'quick_actions' => ['pay', 'decline'],
+                'redirect_url' => $redirectUrl,
+            ];
+
+            $this->notificationService->sendToUserWithImage(
+                $parent,
+                $title,
+                $message,
+                $child->profile_photo ?? '',
+                $data,
+                'hockey_listing_payment_request',
+                $redirectUrl,
+                'payment_request_action',
+                $paymentRequest
+            );
+        } catch (Exception $e) {
+            Log::error('errorSendListingPaymentRequestNotification: ' . $e->getMessage(), [
+                'payment_request_id' => $paymentRequest->id,
+                'listing_id' => $listing->id,
+            ]);
+        }
+    }
+
+    /**
+     * Notify the child that the parent paid the listing fee and listing is live.
+     */
+    protected function sendListingPaymentApprovedNotification(
+        V4PaymentRequest $paymentRequest,
+        V4HockeyListing $listing
+    ): void {
+        try {
+            $paymentRequest->loadMissing(['player', 'notification']);
+
+            // Remove the original request notification so it stops showing pending.
+            if ($paymentRequest->notification) {
+                $paymentRequest->notification->delete();
+            }
+
+            $child = $paymentRequest->player;
+            if (!$child) {
+                return;
+            }
+
+            $title = '✅ Listing Published';
+            $message = 'Your parent paid the fee. "' . $listing->name . '" is now live in the marketplace.';
+
+            $this->notificationService->sendToUserWithImage(
+                $child,
+                $title,
+                $message,
+                $child->profile_photo ?? '',
+                [
+                    'payment_request_id' => $paymentRequest->id,
+                    'listing_id' => $listing->id,
+                    'listing_name' => $listing->name,
+                    'status' => 'paid',
+                ],
+                'hockey_listing_payment_approved',
+                "/marketplace/product-detail",
+                'listing_published_action',
+                $paymentRequest
+            );
+        } catch (Exception $e) {
+            Log::error('errorSendListingPaymentApprovedNotification: ' . $e->getMessage(), [
+                'payment_request_id' => $paymentRequest->id,
+                'listing_id' => $listing->id,
+            ]);
         }
     }
 

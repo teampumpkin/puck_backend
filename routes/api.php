@@ -887,6 +887,7 @@ Route::prefix('v4')->group(function () {
             Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
+            Route::get('{listing}/parent-payment', [V4HockeyListingController::class, 'parentListingPayment']);
             Route::post('{listing}/confirm-payment', [V4HockeyListingController::class, 'confirmPayment']);
             Route::get('{listing}', [V4HockeyListingController::class, 'show']);
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
