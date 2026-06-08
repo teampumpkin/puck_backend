@@ -63,5 +63,8 @@ return [
         'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_TOKEN'),
         'phone_number' => env('TWILIO_PHONE_NUMBER')
-    ]
+    ],
+    'hockey_listing' => [
+        'fee_sku' => env('HOCKEY_LISTING_FEE_SKU'),
+    ],
 ];

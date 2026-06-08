@@ -74,7 +74,7 @@ class V4HockeyListingController extends Controller
                 }
             }
 
-            $inAppPurchase = V4InAppPurchase::where('sku', env('HOCKEY_LISTING_FEE_SKU'))
+            $inAppPurchase = V4InAppPurchase::where('sku', config('services.hockey_listing.fee_sku'))
                 ->where('active', true)
                 ->first();
 

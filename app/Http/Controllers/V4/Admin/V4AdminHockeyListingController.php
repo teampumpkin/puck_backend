@@ -29,7 +29,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 ")
                 ->first();
 
-            $listingFee = V4InAppPurchase::where('sku', env('HOCKEY_LISTING_FEE_SKU'))
+            $listingFee = V4InAppPurchase::where('sku', config('services.hockey_listing.fee_sku'))
                 ->where('active', true)
                 ->first(['amount_cents', 'currency']);
 
