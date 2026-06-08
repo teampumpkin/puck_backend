@@ -45,6 +45,7 @@ use App\Http\Controllers\V4\V4SuspendReasonController;
 use App\Http\Controllers\V4\V4SuspendedUserController;
 use App\Http\Controllers\V4\V4BanReasonController;
 use App\Http\Controllers\V4\V4BannedUserController;
+use App\Http\Controllers\V4\Admin\V4AdminHockeyListingController;
 use App\Http\Controllers\V4\Admin\V4DashboardController;
 use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
@@ -524,6 +525,17 @@ Route::prefix('v4')->group(function () {
                 Route::delete('{id}', [V4UserReportReasonController::class, 'delete']);
                 Route::get('{id}', [V4UserReportReasonController::class, 'getRejectionReason']);
             });
+
+            // Hockey Marketplace (Admin)
+            Route::prefix('hockey-listings')->group(function () {
+                Route::get('stats', [V4AdminHockeyListingController::class, 'stats']);
+                Route::get('manage', [V4AdminHockeyListingController::class, 'manage']);
+                Route::get('/', [V4HockeyListingController::class, 'index']);
+                Route::get('{listing}', [V4HockeyListingController::class, 'show']);
+                Route::delete('{listing}', [V4AdminHockeyListingController::class, 'destroy']);
+                Route::patch('{listing}/mark-sold', [V4AdminHockeyListingController::class, 'markSold']);
+                Route::patch('{listing}/mark-available', [V4AdminHockeyListingController::class, 'markAvailable']);
+            });
         });
     });
 
@@ -872,11 +884,14 @@ Route::prefix('v4')->group(function () {
         Route::prefix('hockey-listings')->group(function () {
             Route::post('initiate-payment', [V4HockeyListingController::class, 'initiatePayment']);
             Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
+            Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
+            Route::post('{listing}/confirm-payment', [V4HockeyListingController::class, 'confirmPayment']);
             Route::get('{listing}', [V4HockeyListingController::class, 'show']);
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
+            Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
         });
     });
 });

@@ -7,7 +7,9 @@ use App\Models\V4Post;
 use App\Models\V4Follow;
 use App\Models\V4User;
 use App\Models\V4PostMedia;
+use App\Models\SuperAdminProfile;
 use Exception;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -50,29 +52,21 @@ class V4FeedController extends Controller
                 ->pluck('following_id')
                 ->toArray();
 
-            // Include own posts in feed
-            $userIds = array_merge(
-                []
-                // [$authUser->id]
-                ,
-                $followingIds
-            );
+            $superAdminIds = Cache::remember('feed_super_admin_user_ids', 300, function () {
+                return SuperAdminProfile::whereNull('super_admin_id')
+                    ->pluck('v4_user_id')
+                    ->toArray();
+            });
+
+            $userIds = array_unique(array_merge($followingIds, $superAdminIds));
 
             // Fetch posts
             $posts = V4Post::with([
                 'user:id,profile_photo,first_name,last_name,role',
                 'media:id,post_id,type,url',
                 'likedByAuthUser',
-                // 'comments' => function ($query) {
-                //     $query->latest()->limit(1); // ✅ Only latest comment
-                // },
-                // 'comments.user:id,username,profile_photo,role',
             ])
                 ->whereIn('user_id', $userIds)
-                ->orWhereHas('user.superAdminProfile', function ($query) {
-                    $query->whereNull('super_admin_id');
-                })
-                ->whereNull('deleted_at')
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 

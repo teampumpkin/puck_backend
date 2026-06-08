@@ -71,13 +71,21 @@ class NotificationController extends Controller
                 $query->unread();
             }
 
-            $notifications = $query->orderBy('created_at', 'desc')
+            $notificationList = $query->orderBy('created_at', 'desc')
                 ->skip($offset)
                 ->take($limit)
-                ->get()
-                ->map(function ($notification) {
-                    return $this->formatUserNotificationResponse($notification);
-                });
+                ->get();
+
+            // Batch-load from_user deleted_at to prevent N+1 inside getDataAttribute
+            $fromUserIds = $notificationList->map(function ($n) {
+                $raw = json_decode($n->getRawOriginal('data') ?? '{}', true);
+                return $raw['from_user']['id'] ?? null;
+            })->filter()->unique()->values()->all();
+            Notification::warmFromUserCache($fromUserIds);
+
+            $notifications = $notificationList->map(function ($notification) {
+                return $this->formatUserNotificationResponse($notification);
+            });
             $unreadCount = $this->notificationService->getUnreadCount($user);
 
             return response()->json([

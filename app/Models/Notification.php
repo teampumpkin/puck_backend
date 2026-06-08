@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use App\Models\V4User;
 
 class Notification extends Model
 {
@@ -35,6 +36,25 @@ class Notification extends Model
         'v4_user_id' => 'string', // Cast UUID as string
     ];
 
+    // Keyed by user id — populated by warmFromUserCache() before bulk processing
+    private static array $fromUserDeletedAtCache = [];
+
+    /**
+     * Pre-fetch deleted_at for a batch of from_user IDs in one query.
+     * Call this before iterating a notification collection to avoid N+1.
+     */
+    public static function warmFromUserCache(array $userIds): void
+    {
+        $missing = array_filter($userIds, fn($id) => !array_key_exists($id, static::$fromUserDeletedAtCache));
+        if (empty($missing)) {
+            return;
+        }
+        $rows = V4User::withTrashed()->whereIn('id', array_values($missing))->pluck('deleted_at', 'id');
+        foreach ($missing as $id) {
+            static::$fromUserDeletedAtCache[$id] = $rows->get($id);
+        }
+    }
+
     /**
      * Get the data attribute with enriched from_user deleted_at
      */
@@ -43,10 +63,12 @@ class Notification extends Model
         $data = is_string($value) ? json_decode($value, true) : $value;
 
         if (isset($data['from_user']['id'])) {
-            $fromUser = V4User::withTrashed()->find($data['from_user']['id']);
-            if ($fromUser) {
-                $data['from_user']['deleted_at'] = $fromUser->deleted_at;
+            $userId = $data['from_user']['id'];
+            if (!array_key_exists($userId, static::$fromUserDeletedAtCache)) {
+                $fromUser = V4User::withTrashed()->find($userId);
+                static::$fromUserDeletedAtCache[$userId] = $fromUser?->deleted_at;
             }
+            $data['from_user']['deleted_at'] = static::$fromUserDeletedAtCache[$userId];
         }
 
         return $data;
