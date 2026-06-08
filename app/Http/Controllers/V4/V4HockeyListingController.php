@@ -735,15 +735,15 @@ class V4HockeyListingController extends Controller
             ]);
         } catch (Exception $e) {
             Log::error('Failed to mark hockey listing as available', [
-                'user_id'    => $user->id,
+                'user_id' => $user->id,
                 'listing_id' => $listing,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to mark listing as available.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -783,144 +783,6 @@ class V4HockeyListingController extends Controller
                 'success' => false,
                 'message' => 'Failed to mark listing as sold.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
-        }
-    }
-
-    /**
-     * Paginated listing browser with advanced filters (admin / management use).
-     */
-    public function manage(Request $request): JsonResponse
-    {
-        try {
-            $validated = $request->validate([
-                'per_page'    => 'nullable|integer|min:12|max:50',
-                'status'      => 'nullable|string|in:all,published,sold',
-                'category'    => 'nullable|string|in:' . implode(',', HockeyListingCategories::all()),
-                'search'      => 'nullable|string|max:255',
-                'user_search' => 'nullable|string|max:255',
-            ]);
-
-            $perPage = (int) ($validated['per_page'] ?? 12);
-            $status  = $validated['status'] ?? 'all';
-
-            $query = V4HockeyListing::with([
-                'images',
-                'user:id,first_name,last_name,username,profile_photo,email,city,state,country,role',
-                'paymentRequest:id,amount_cents,currency,status',
-            ])->orderByDesc('created_at');
-
-            if ($status === 'all') {
-                $query->whereIn('status', [V4HockeyListing::STATUS_PUBLISHED, V4HockeyListing::STATUS_SOLD]);
-            } else {
-                $query->where('status', $status);
-            }
-
-            if (!empty($validated['category'])) {
-                $query->where('category', $validated['category']);
-            }
-
-            if (!empty($validated['search'])) {
-                $term = '%' . $validated['search'] . '%';
-                $query->where(function ($q) use ($term) {
-                    $q->where('name', 'like', $term)
-                      ->orWhere('description', 'like', $term)
-                      ->orWhere('address', 'like', $term);
-                });
-            }
-
-            if (!empty($validated['user_search'])) {
-                $term = '%' . $validated['user_search'] . '%';
-                $query->whereHas('user', function ($q) use ($term) {
-                    $q->where('email', 'like', $term)
-                      ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$term]);
-                });
-            }
-
-            $listings = $query->paginate($perPage);
-
-            return response()->json([
-                'success'    => true,
-                'data'       => array_map(fn($l) => $this->formatManageListing($l), $listings->items()),
-                'pagination' => [
-                    'current_page'   => $listings->currentPage(),
-                    'per_page'       => $listings->perPage(),
-                    'total'          => $listings->total(),
-                    'last_page'      => $listings->lastPage(),
-                    'has_more_pages' => $listings->hasMorePages(),
-                ],
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
-            ], 422);
-        } catch (Exception $e) {
-            Log::error('Failed to fetch managed hockey listings', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch listings.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
-        }
-    }
-
-    /**
-     * Aggregate stats for the authenticated user's listings.
-     */
-    public function stats(): JsonResponse
-    {
-        $user = Auth::guard('v4api')->user();
-
-        try {
-            $published = V4HockeyListing::STATUS_PUBLISHED;
-            $sold      = V4HockeyListing::STATUS_SOLD;
-
-            $row = V4HockeyListing::where('user_id', $user->id)
-                ->selectRaw("
-                    COUNT(*) as total_listings,
-                    SUM(CASE WHEN status = '$published' THEN 1 ELSE 0 END) as active_listings,
-                    SUM(CASE WHEN status = '$sold'      THEN 1 ELSE 0 END) as sold_listings,
-                    SUM(CASE WHEN status = '$sold'      THEN price_cents ELSE 0 END) as total_revenue_cents,
-                    MAX(currency) as currency
-                ")
-                ->first();
-
-            $listingFee = V4InAppPurchase::where('sku', env('HOCKEY_LISTING_FEE_SKU'))
-                ->where('active', true)
-                ->first(['amount_cents', 'currency']);
-
-            $currency     = $row->currency ?? 'USD';
-            $revenueCents = (int) $row->total_revenue_cents;
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'total_listings'           => (int) $row->total_listings,
-                    'active_listings'          => (int) $row->active_listings,
-                    'sold_listings'            => (int) $row->sold_listings,
-                    'total_revenue_cents'      => $revenueCents,
-                    'total_revenue_formatted'  => strtoupper($currency) . ' ' . number_format($revenueCents / 100, 2),
-                    'listing_fee_cents'        => $listingFee?->amount_cents,
-                    'listing_fee_formatted'    => $listingFee
-                        ? strtoupper($listingFee->currency) . ' ' . number_format($listingFee->amount_cents / 100, 2)
-                        : null,
-                ],
-            ]);
-        } catch (Exception $e) {
-            Log::error('Failed to fetch hockey listing stats', [
-                'user_id' => $user->id,
-                'error'   => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch listing stats.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -999,7 +861,7 @@ class V4HockeyListingController extends Controller
         return $data;
     }
 
-    private function formatManageListing(V4HockeyListing $listing): array
+    protected function formatManageListing(V4HockeyListing $listing): array
     {
         if ($listing->relationLoaded('user') && $listing->user) {
             $listing->user->setAppends([]);
@@ -1010,15 +872,15 @@ class V4HockeyListingController extends Controller
         if ($listing->relationLoaded('user') && $listing->user) {
             $u = $listing->user;
             $data['user'] = [
-                'id'            => $u->id,
-                'name'          => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: null,
-                'username'      => $u->username,
-                'email'         => $u->email,
+                'id' => $u->id,
+                'name' => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: null,
+                'username' => $u->username,
+                'email' => $u->email,
                 'profile_photo' => $u->profile_photo,
-                'city'          => $u->city,
-                'state'         => $u->state,
-                'country'       => $u->country,
-                'role'          => $u->role,
+                'city' => $u->city,
+                'state' => $u->state,
+                'country' => $u->country,
+                'role' => $u->role,
             ];
         }
 
