@@ -6,6 +6,7 @@ use App\Constants\HockeyListingCategories;
 use App\Http\Controllers\V4\V4HockeyListingController;
 use App\Models\V4HockeyListing;
 use App\Models\V4InAppPurchase;
+use App\Models\V4PaymentTransaction;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,18 +24,27 @@ class V4AdminHockeyListingController extends V4HockeyListingController
             $row = V4HockeyListing::selectRaw("
                     COUNT(*) as total_listings,
                     SUM(CASE WHEN status = '$published' THEN 1 ELSE 0 END) as active_listings,
-                    SUM(CASE WHEN status = '$sold'      THEN 1 ELSE 0 END) as sold_listings,
-                    SUM(CASE WHEN status = '$sold'      THEN price_cents ELSE 0 END) as total_revenue_cents,
-                    MAX(currency) as currency
+                    SUM(CASE WHEN status = '$sold'      THEN 1 ELSE 0 END) as sold_listings
                 ")
                 ->first();
 
-            $listingFee = V4InAppPurchase::where('sku', config('services.hockey_listing.fee_sku'))
+            $feeSku = config('services.hockey_listing.fee_sku');
+
+            $listingFee = V4InAppPurchase::where('sku', $feeSku)
                 ->where('active', true)
                 ->first(['amount_cents', 'currency']);
 
-            $currency     = $row->currency ?? 'USD';
-            $revenueCents = (int) $row->total_revenue_cents;
+            $revenueRow = V4PaymentTransaction::query()
+                ->from('v4_payment_transactions as t')
+                ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
+                ->join('v4_in_app_purchases as p', 'p.id', '=', 'r.in_app_purchase_id')
+                ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
+                ->where('p.sku', $feeSku)
+                ->selectRaw('COALESCE(SUM(t.amount_cents), 0) as total_revenue_cents, MAX(t.currency) as currency')
+                ->first();
+
+            $revenueCents = (int) ($revenueRow->total_revenue_cents ?? 0);
+            $currency     = $revenueRow->currency ?? ($listingFee->currency ?? 'USD');
 
             return response()->json([
                 'success' => true,
