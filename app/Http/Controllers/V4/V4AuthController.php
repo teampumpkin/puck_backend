@@ -200,6 +200,10 @@ class V4AuthController extends Controller
             $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
             JWTAuth::factory()->setTTL(config('jwt.ttl'));
 
+            // Ensure user exists in chat microservice (upsert) so /conversation/create
+            // does not 404 with "Users not found".
+            \App\Helpers\ChatUserSyncHelper::sync($user, $accessToken);
+
             $responseUser = [
                 'id' => $user->id,
                 'role' => $user->role,
@@ -388,6 +392,8 @@ class V4AuthController extends Controller
         JWTAuth::factory()->setTTL(config('jwt.refresh_ttl'));
         $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
         JWTAuth::factory()->setTTL(config('jwt.ttl'));
+
+        \App\Helpers\ChatUserSyncHelper::sync($user, $accessToken);
 
         return response()->json([
             'access_token' => $accessToken,
