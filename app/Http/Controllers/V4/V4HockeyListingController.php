@@ -331,6 +331,13 @@ class V4HockeyListingController extends Controller
 
                 DB::commit();
 
+                // Remove the original payment-request notification from the parent
+                // so it stops showing as pending once payment is confirmed.
+                $paymentRequest->loadMissing('notification');
+                if ($paymentRequest->notification) {
+                    $paymentRequest->notification->delete();
+                }
+
                 if ($isParentPayer) {
                     $this->sendListingPaymentApprovedNotification($paymentRequest, $record);
                 }
@@ -367,6 +374,189 @@ class V4HockeyListingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to confirm payment.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get the current payment status for a listing.
+     * Accessible to the listing owner (child) or the parent payer.
+     */
+    public function paymentStatus(Request $request, int $listing): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing payment status', ['user_id' => $user->id, 'listing_id' => $listing]);
+
+            $record = V4HockeyListing::with('paymentRequest.inAppPurchase')->find($listing);
+
+            if (!$record) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing not found.',
+                ], 404);
+            }
+
+            $paymentRequest = $record->paymentRequest;
+
+            $authId = (int) $user->id;
+            $isOwner = (int) $record->user_id === $authId;
+            $isParentPayer = $paymentRequest
+                && $paymentRequest->parent_id
+                && (int) $paymentRequest->parent_id === $authId;
+
+            if (!$isOwner && !$isParentPayer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized.',
+                ], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Listing payment status loaded.',
+                'data' => [
+                    'listing_id' => $record->id,
+                    'listing_status' => $record->status,
+                    'is_published' => $record->status === V4HockeyListing::STATUS_PUBLISHED,
+                    'awaiting_parent' => $paymentRequest
+                        && $paymentRequest->status === V4PaymentRequest::STATUS_PENDING,
+                    'payment_request_id' => $paymentRequest?->id,
+                    'payment_status' => $paymentRequest?->status,
+                    'sku' => optional($paymentRequest?->inAppPurchase)->sku,
+                    'amount_cents' => $paymentRequest?->amount_cents,
+                    'currency' => $paymentRequest?->currency,
+                    'formatted_amount' => $paymentRequest?->formatted_amount,
+                ],
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to load hockey listing payment status', [
+                'user_id' => Auth::id(),
+                'listing_id' => $listing,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load payment status.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject (decline) a pending parent-approval payment request for a listing.
+     * Only the parent payer can decline. Marks the listing payment_rejected.
+     */
+    public function rejectPayment(Request $request, int $listing): JsonResponse
+    {
+        try {
+            $user = Auth::guard('v4api')->user();
+            Log::info('Hockey listing reject payment', ['user_id' => $user->id, 'listing_id' => $listing, 'payload' => $request->all()]);
+
+            $validated = $request->validate([
+                'reason' => 'nullable|string|max:500',
+            ]);
+
+            $record = V4HockeyListing::find($listing);
+
+            if (!$record) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing not found.',
+                ], 404);
+            }
+
+            $paymentRequest = $record->payment_request_id
+                ? V4PaymentRequest::find($record->payment_request_id)
+                : null;
+
+            if (!$paymentRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No payment request for this listing.',
+                ], 404);
+            }
+
+            $isParentPayer = $paymentRequest->parent_id
+                && (int) $paymentRequest->parent_id === (int) $user->id;
+
+            if (!$isParentPayer) {
+                Log::warning('Hockey listing reject unauthorized', [
+                    'auth_user_id' => (int) $user->id,
+                    'pr_parent_id' => $paymentRequest->parent_id,
+                    'pr_id' => $paymentRequest->id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the parent can reject this payment request.',
+                ], 403);
+            }
+
+            if ($record->status === V4HockeyListing::STATUS_PUBLISHED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing is already published.',
+                ], 400);
+            }
+
+            if ($paymentRequest->status !== V4PaymentRequest::STATUS_PENDING) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment request is not in a rejectable state.',
+                ], 400);
+            }
+
+            DB::beginTransaction();
+            try {
+                $paymentRequest->markParentRejected($validated['reason'] ?? null);
+                $record->markPaymentRejected();
+
+                DB::commit();
+
+                // Remove the original payment-request notification from the parent
+                // so it stops showing as pending once the request is rejected.
+                $paymentRequest->loadMissing('notification');
+                if ($paymentRequest->notification) {
+                    $paymentRequest->notification->delete();
+                }
+
+                $paymentRequest->load(['player', 'parent']);
+                $this->sendListingPaymentRejectedNotification($paymentRequest, $record);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment request rejected.',
+                    'data' => [
+                        'listing_id' => $record->id,
+                        'listing_status' => $record->status,
+                        'payment_request_id' => $paymentRequest->id,
+                        'payment_status' => $paymentRequest->status,
+                    ],
+                ]);
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            Log::error('Failed to reject hockey listing payment', [
+                'user_id' => Auth::id(),
+                'listing_id' => $listing,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject payment.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -650,7 +840,7 @@ class V4HockeyListingController extends Controller
         try {
             Log::info('Hockey listing show', ['listing_id' => $listing]);
 
-            $record = V4HockeyListing::active()
+            $record = V4HockeyListing::query()
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->find($listing);
 
@@ -1032,12 +1222,7 @@ class V4HockeyListingController extends Controller
         V4HockeyListing $listing
     ): void {
         try {
-            $paymentRequest->loadMissing(['player', 'notification']);
-
-            // Remove the original request notification so it stops showing pending.
-            if ($paymentRequest->notification) {
-                $paymentRequest->notification->delete();
-            }
+            $paymentRequest->loadMissing(['player']);
 
             $child = $paymentRequest->player;
             if (!$child) {
@@ -1065,6 +1250,48 @@ class V4HockeyListingController extends Controller
             );
         } catch (Exception $e) {
             Log::error('errorSendListingPaymentApprovedNotification: ' . $e->getMessage(), [
+                'payment_request_id' => $paymentRequest->id,
+                'listing_id' => $listing->id,
+            ]);
+        }
+    }
+
+    /**
+     * Notify the child that the parent declined the listing fee payment.
+     */
+    protected function sendListingPaymentRejectedNotification(
+        V4PaymentRequest $paymentRequest,
+        V4HockeyListing $listing
+    ): void {
+        try {
+            $paymentRequest->loadMissing(['player']);
+
+            $child = $paymentRequest->player;
+            if (!$child) {
+                return;
+            }
+
+            $title = '❌ Listing Fee Declined';
+            $message = 'Your parent declined the listing fee for "' . $listing->name . '".';
+
+            $this->notificationService->sendToUserWithImage(
+                $child,
+                $title,
+                $message,
+                $child->profile_photo ?? '',
+                [
+                    'payment_request_id' => $paymentRequest->id,
+                    'listing_id' => $listing->id,
+                    'listing_name' => $listing->name,
+                    'status' => 'parent_rejected',
+                ],
+                'hockey_listing_payment_rejected',
+                "/marketplace/product-detail",
+                'listing_payment_rejected_action',
+                $paymentRequest
+            );
+        } catch (Exception $e) {
+            Log::error('errorSendListingPaymentRejectedNotification: ' . $e->getMessage(), [
                 'payment_request_id' => $paymentRequest->id,
                 'listing_id' => $listing->id,
             ]);
