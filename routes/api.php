@@ -293,6 +293,11 @@ Route::prefix('v4')->group(function () {
     // Apple Sign-In redirect route for Android Web Authentication
     Route::post('auth/apple/redirect', [V4SocialAuthController::class, 'handleAppleRedirect']);
 
+    // Public hockey listing routes (no auth required)
+    Route::prefix('hockey-listings')->group(function () {
+        Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
+    });
+
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
@@ -884,7 +889,6 @@ Route::prefix('v4')->group(function () {
         Route::prefix('hockey-listings')->group(function () {
             Route::post('initiate-payment', [V4HockeyListingController::class, 'initiatePayment']);
             Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
-            Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
             Route::get('{listing}/parent-payment', [V4HockeyListingController::class, 'parentListingPayment']);

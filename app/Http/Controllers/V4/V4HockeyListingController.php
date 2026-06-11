@@ -588,7 +588,7 @@ class V4HockeyListingController extends Controller
 
             $query = V4HockeyListing::active()
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
-                ->where('user_id', '!=', $user->id)
+                ->when($user, fn($q) => $q->where('user_id', '!=', $user->id))
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
                 ->whereNotNull('sell_radius')
