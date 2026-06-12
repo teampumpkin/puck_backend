@@ -13,6 +13,7 @@ use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\NotificationService;
+use App\Services\Payments\PaymentTransactionService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -293,46 +294,15 @@ class V4HockeyListingController extends Controller
                 'payload' => 'nullable|array',
             ]);
 
-            // Duplicate purchase prevention
-            if (!empty($validated['purchase_id'])) {
-                $duplicate = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
-                    ->where('source', $validated['source'])
-                    ->first();
+            [$transaction, $wasExisting] = app(PaymentTransactionService::class)
+                ->recordSuccess($paymentRequest->id, $user->id, $validated);
 
-                if ($duplicate) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This purchase has already been processed.',
-                        'payment_transaction_id' => $duplicate->id,
-                    ], 400);
+            if (!$wasExisting) {
+                $record->refresh();
+                if ($record->status !== V4HockeyListing::STATUS_PUBLISHED) {
+                    $record->markPublished();
                 }
-            }
 
-            DB::beginTransaction();
-            try {
-                $transaction = V4PaymentTransaction::create([
-                    'payment_request_id' => $paymentRequest->id,
-                    'payer_id' => $user->id,
-                    'amount_cents' => $paymentRequest->amount_cents,
-                    'currency' => $paymentRequest->currency,
-                    'gateway' => 'internal',
-                    'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
-                    'status' => V4PaymentTransaction::STATUS_SUCCESS,
-                    'purchase_id' => $validated['purchase_id'] ?? null,
-                    'source' => $validated['source'],
-                    'verification_data' => $validated['verification_data'] ?? null,
-                    'store_status' => $validated['store_status'] ?? null,
-                    'transaction_date' => $validated['transaction_date'] ?? null,
-                    'payload' => $validated['payload'] ?? null,
-                ]);
-
-                $paymentRequest->markPaid();
-                $record->markPublished();
-
-                DB::commit();
-
-                // Remove the original payment-request notification from the parent
-                // so it stops showing as pending once payment is confirmed.
                 $paymentRequest->loadMissing('notification');
                 if ($paymentRequest->notification) {
                     $paymentRequest->notification->delete();
@@ -341,22 +311,21 @@ class V4HockeyListingController extends Controller
                 if ($isParentPayer) {
                     $this->sendListingPaymentApprovedNotification($paymentRequest, $record);
                 }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment confirmed. Your listing is now live.',
-                    'data' => [
-                        'listing_id' => $record->id,
-                        'listing_status' => $record->status,
-                        'listed_at' => $record->listed_at,
-                        'payment_request_id' => $paymentRequest->id,
-                        'payment_transaction_id' => $transaction->id,
-                    ],
-                ]);
-            } catch (Exception $e) {
-                DB::rollBack();
-                throw $e;
             }
+
+            return response()->json([
+                'success' => true,
+                'message' => $wasExisting
+                    ? 'Payment already confirmed for this listing.'
+                    : 'Payment confirmed. Your listing is now live.',
+                'data' => [
+                    'listing_id' => $record->id,
+                    'listing_status' => $record->status,
+                    'listed_at' => $record->listed_at,
+                    'payment_request_id' => $paymentRequest->id,
+                    'payment_transaction_id' => $transaction->id,
+                ],
+            ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,

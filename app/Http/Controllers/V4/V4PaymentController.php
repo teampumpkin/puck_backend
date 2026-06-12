@@ -9,6 +9,7 @@ use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\NotificationService;
+use App\Services\Payments\PaymentTransactionService;
 use App\Services\Payments\PaymentValidator;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -46,21 +47,6 @@ class V4PaymentController extends Controller
         try {
             $user = Auth::guard('v4api')->user();
             $validated = (new PaymentValidator)->validate($request);
-
-            // Duplicate prevention (purchase_id + source)
-            if (!empty($validated['purchase_id']) && !empty($validated['source'])) {
-                $existing = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
-                    ->where('source', $validated['source'])
-                    ->first();
-
-                if ($existing) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This purchase has already been processed.',
-                        'payment_transaction_id' => $existing->id,
-                    ], 400);
-                }
-            }
 
             $inAppPurchase = V4InAppPurchase::where('sku', $validated['sku'])->where('active', true)->first();
             if (!$inAppPurchase) {
@@ -125,34 +111,9 @@ class V4PaymentController extends Controller
 
             // Handle failed status - create new transaction and update
             if ($latestPayment && $latestPayment->status === V4PaymentRequest::STATUS_FAILED) {
-                // Transaction for payment request and transaction creation
-                DB::beginTransaction();
                 try {
-                    $transaction = V4PaymentTransaction::create([
-                        'payment_request_id' => $latestPayment->id,
-                        'payer_id' => $payerId,
-                        'amount_cents' => $inAppPurchase->amount_cents,
-                        'currency' => $inAppPurchase->currency,
-                        'gateway' => 'internal',
-                        'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
-                        'status' => V4PaymentTransaction::STATUS_SUCCESS,
-
-                        // new IAP fields
-                        'purchase_id' => $validated['purchase_id'] ?? null,
-                        'source' => $validated['source'] ?? null,
-                        'verification_data' => !empty($validated['verification_data'])
-                            ? json_encode($validated['verification_data'])
-                            : null,
-                        'store_status' => $validated['store_status'] ?? null,
-                        'transaction_date' => $validated['transaction_date'] ?? null,
-                        'payload' => !empty($validated['payload'])
-                            ? json_encode($validated['payload'])
-                            : null,
-                    ]);
-
-                    $latestPayment->markPaid();
-
-                    DB::commit();
+                    [$transaction, $wasExisting] = app(PaymentTransactionService::class)
+                        ->recordSuccess($latestPayment->id, $payerId, $validated);
 
                     // Create evaluation submission entry outside transaction
                     try {
@@ -199,13 +160,10 @@ class V4PaymentController extends Controller
                         ], 201);
                     }
                 } catch (Exception $e) {
-                    DB::rollBack();
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                     throw $e;
-
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
                 }
             }
 
@@ -223,33 +181,9 @@ class V4PaymentController extends Controller
                     $this->handlePaymentSuccessNotifications($latestPayment, $inAppPurchase, $player);
                 }
 
-                // Transaction for payment approval
-                DB::beginTransaction();
                 try {
-                    $transaction = V4PaymentTransaction::create([
-                        'payment_request_id' => $latestPayment->id,
-                        'payer_id' => $payerId,
-                        'amount_cents' => $inAppPurchase->amount_cents,
-                        'currency' => $inAppPurchase->currency,
-                        'gateway' => 'internal',
-                        'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
-                        'status' => V4PaymentTransaction::STATUS_SUCCESS,
-
-                        'purchase_id' => $validated['purchase_id'] ?? null,
-                        'source' => $validated['source'] ?? null,
-                        'verification_data' => !empty($validated['verification_data'])
-                            ? json_encode($validated['verification_data'])
-                            : null,
-                        'store_status' => $validated['store_status'] ?? null,
-                        'transaction_date' => $validated['transaction_date'] ?? null,
-                        'payload' => !empty($validated['payload'])
-                            ? json_encode($validated['payload'])
-                            : null,
-                    ]);
-
-                    $latestPayment->markPaid();
-
-                    DB::commit();
+                    [$transaction, $wasExisting] = app(PaymentTransactionService::class)
+                        ->recordSuccess($latestPayment->id, $payerId, $validated);
 
                     // Create evaluation submission entry outside transaction
                     try {
@@ -296,17 +230,12 @@ class V4PaymentController extends Controller
                         ], 201);
                     }
                 } catch (Exception $e) {
-                    DB::rollBack();
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                     throw $e;
-
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
                 }
             } else {
-                // Create new payment request - wrapped in transaction
-                DB::beginTransaction();
                 try {
                     $paymentRequestData = [
                         'payer_id' => $payerId,
@@ -317,37 +246,14 @@ class V4PaymentController extends Controller
                         'status' => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
                     ];
 
-                    // Only add parent_id if player is a child
                     if ($player->is_child && $player->parent_id) {
                         $paymentRequestData['parent_id'] = $player->parent_id;
                     }
 
                     $paymentRequest = V4PaymentRequest::create($paymentRequestData);
 
-                    $transaction = V4PaymentTransaction::create([
-                        'payment_request_id' => $paymentRequest->id,
-                        'payer_id' => $payerId,
-                        'amount_cents' => $inAppPurchase->amount_cents,
-                        'currency' => $inAppPurchase->currency,
-                        'gateway' => 'internal',
-                        'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
-                        'status' => V4PaymentTransaction::STATUS_SUCCESS,
-
-                        'purchase_id' => $validated['purchase_id'] ?? null,
-                        'source' => $validated['source'] ?? null,
-                        'verification_data' => !empty($validated['verification_data'])
-                            ? json_encode($validated['verification_data'])
-                            : null,
-                        'store_status' => $validated['store_status'] ?? null,
-                        'transaction_date' => $validated['transaction_date'] ?? null,
-                        'payload' => !empty($validated['payload'])
-                            ? json_encode($validated['payload'])
-                            : null,
-                    ]);
-
-                    $paymentRequest->markPaid();
-
-                    DB::commit();
+                    [$transaction, $wasExisting] = app(PaymentTransactionService::class)
+                        ->recordSuccess($paymentRequest->id, $payerId, $validated);
 
                     // Create evaluation submission entry outside transaction
                     try {
@@ -394,13 +300,10 @@ class V4PaymentController extends Controller
                         ], 201);
                     }
                 } catch (Exception $e) {
-                    DB::rollBack();
+                    $this->errorTracker->captureException($e, [
+                        'action' => __METHOD__,
+                    ]);
                     throw $e;
-
-            // Track error in Sentry
-            $this->errorTracker->captureException($e, [
-                'action' => __METHOD__,
-            ]);
                 }
             }
         } catch (ValidationException $e) {
