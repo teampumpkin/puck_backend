@@ -84,7 +84,8 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 'images',
                 'user:id,first_name,last_name,username,profile_photo,email,city,state,country,role',
                 'paymentRequest:id,amount_cents,currency,status',
-            ])->orderByDesc('listed_at');
+            ])->orderByDesc('listed_at')
+              ->orderByDesc('created_at');
 
             if ($status === 'all') {
                 $query->whereIn('status', [V4HockeyListing::STATUS_PUBLISHED, V4HockeyListing::STATUS_SOLD]);

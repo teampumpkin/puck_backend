@@ -698,7 +698,8 @@ class V4HockeyListingController extends Controller
 
             $query = V4HockeyListing::active()
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
-                ->orderByDesc('listed_at');
+                ->orderByDesc('listed_at')
+                ->orderByDesc('created_at');
 
             if (!empty($validated['category'])) {
                 $query->where('category', $validated['category']);
