@@ -141,7 +141,11 @@ class V4HockeyListingController extends Controller
                 $paymentRequest = V4PaymentRequest::create($paymentRequestData);
 
                 $listing->payment_request_id = $paymentRequest->id;
-                $listing->status = V4HockeyListing::STATUS_PAYMENT_REQUESTED;
+
+                // A non-child pays directly, so the listing stays draft until confirmPayment publishes it.
+                if ($isChild) {
+                    $listing->status = V4HockeyListing::STATUS_PAYMENT_REQUESTED;
+                }
                 $listing->save();
 
                 DB::commit();
@@ -251,7 +255,14 @@ class V4HockeyListingController extends Controller
                 ], 400);
             }
 
-            if ($record->status !== V4HockeyListing::STATUS_PAYMENT_REQUESTED || !$record->payment_request_id) {
+            // Child listings sit in payment_requested (awaiting parent); non-child listings
+            // stay in draft after initiate-payment. Both are confirmable while a request is attached.
+            $confirmableStatuses = [
+                V4HockeyListing::STATUS_PAYMENT_REQUESTED,
+                V4HockeyListing::STATUS_DRAFT,
+            ];
+
+            if (!in_array($record->status, $confirmableStatuses, true) || !$record->payment_request_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No active payment request found. Call initiate-payment first.',
