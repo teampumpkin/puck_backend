@@ -1383,34 +1383,4 @@ class V4HockeyListingController extends Controller
         return $data;
     }
 
-    protected function formatManageListing(V4HockeyListing $listing): array
-    {
-        if ($listing->relationLoaded('user') && $listing->user) {
-            $listing->user->setAppends([]);
-        }
-
-        $data = $listing->toArray();
-
-        if ($listing->relationLoaded('user') && $listing->user) {
-            $u = $listing->user;
-            $data['user'] = [
-                'id' => $u->id,
-                'name' => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: null,
-                'username' => $u->username,
-                'email' => $u->email,
-                'profile_photo' => $u->profile_photo,
-                'city' => $u->city,
-                'state' => $u->state,
-                'country' => $u->country,
-                'role' => $u->role,
-            ];
-        }
-
-        $pr = $listing->relationLoaded('paymentRequest') ? $listing->paymentRequest : null;
-        $feeCents = ($pr && $pr->status === V4PaymentRequest::STATUS_PAID) ? $pr->amount_cents : 0;
-
-        $data['total_publishing_fee'] = number_format($feeCents / 100, 2);
-
-        return $data;
-    }
 }

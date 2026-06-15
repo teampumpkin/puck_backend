@@ -17,6 +17,8 @@ class V4HockeyListing extends Model
     const STATUS_PAYMENT_REJECTED = 'payment_rejected';
     const STATUS_PUBLISHED = 'published';
     const STATUS_SOLD = 'sold';
+    // Virtual/display-only status for soft-deleted listings (no stored value; derived from deleted_at).
+    const STATUS_DELETED = 'deleted';
 
     protected $fillable = [
         'user_id',

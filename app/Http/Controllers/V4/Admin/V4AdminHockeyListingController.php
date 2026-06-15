@@ -6,6 +6,7 @@ use App\Constants\HockeyListingCategories;
 use App\Http\Controllers\V4\V4HockeyListingController;
 use App\Models\V4HockeyListing;
 use App\Models\V4InAppPurchase;
+use App\Models\V4PaymentRequest;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
             $sold      = V4HockeyListing::STATUS_SOLD;
 
             $row = V4HockeyListing::selectRaw("
-                    COUNT(*) as total_listings,
+                    SUM(CASE WHEN status IN ('$published', '$sold') THEN 1 ELSE 0 END) as total_listings,
                     SUM(CASE WHEN status = '$published' THEN 1 ELSE 0 END) as active_listings,
                     SUM(CASE WHEN status = '$sold'      THEN 1 ELSE 0 END) as sold_listings,
                     SUM(CASE WHEN status = '$sold'      THEN price_cents ELSE 0 END) as total_revenue_cents,
@@ -68,7 +69,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
         try {
             $validated = $request->validate([
                 'per_page'    => 'nullable|integer|min:12|max:50',
-                'status'      => 'nullable|string|in:all,unsold,sold',
+                'status'      => 'nullable|string|in:all,unsold,sold,deleted',
                 'category'    => 'nullable|string|in:' . implode(',', HockeyListingCategories::all()),
                 'search'      => 'nullable|string|max:255',
                 'seller'    => 'nullable|string|max:255',
@@ -89,6 +90,9 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 $query->whereIn('status', [V4HockeyListing::STATUS_PUBLISHED, V4HockeyListing::STATUS_SOLD]);
             } elseif ($status === 'unsold') {
                 $query->where('status', V4HockeyListing::STATUS_PUBLISHED);
+            } elseif ($status === 'deleted') {
+                // Exclusively show soft-deleted listings; their status is rendered as "deleted".
+                $query->onlyTrashed();
             } else {
                 $query->where('status', $status);
             }
@@ -253,5 +257,41 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    protected function formatManageListing(V4HockeyListing $listing): array
+    {
+        if ($listing->relationLoaded('user') && $listing->user) {
+            $listing->user->setAppends([]);
+        }
+
+        $data = $listing->toArray();
+
+        // Soft-deleted listings have no stored "deleted" status; surface it for the admin view.
+        if ($listing->trashed()) {
+            $data['status'] = V4HockeyListing::STATUS_DELETED;
+        }
+
+        if ($listing->relationLoaded('user') && $listing->user) {
+            $u = $listing->user;
+            $data['user'] = [
+                'id' => $u->id,
+                'name' => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: null,
+                'username' => $u->username,
+                'email' => $u->email,
+                'profile_photo' => $u->profile_photo,
+                'city' => $u->city,
+                'state' => $u->state,
+                'country' => $u->country,
+                'role' => $u->role,
+            ];
+        }
+
+        $pr = $listing->relationLoaded('paymentRequest') ? $listing->paymentRequest : null;
+        $feeCents = ($pr && $pr->status === V4PaymentRequest::STATUS_PAID) ? $pr->amount_cents : 0;
+
+        $data['total_publishing_fee'] = number_format($feeCents / 100, 2);
+
+        return $data;
     }
 }
