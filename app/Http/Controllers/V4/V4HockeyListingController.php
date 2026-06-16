@@ -248,10 +248,44 @@ class V4HockeyListingController extends Controller
                 ], 403);
             }
 
+            $validated = $request->validate([
+                'purchase_id' => 'nullable|string',
+                'source' => 'required|in:ios,android,web,window,linux,macos',
+                'verification_data' => 'nullable|array',
+                'store_status' => 'nullable|string',
+                'transaction_date' => 'nullable|date',
+                'payload' => 'nullable|array',
+            ]);
+
+            // Duplicate purchase prevention. Checked before status gates so that
+            // StoreKit replays of an already-finalized transaction return an
+            // idempotent signal instead of being blocked by "already published".
+            if (!empty($validated['purchase_id'])) {
+                $duplicate = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
+                    ->where('source', $validated['source'])
+                    ->first();
+
+                if ($duplicate) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This purchase has already been processed.',
+                        'payment_transaction_id' => $duplicate->id,
+                    ], 400);
+                }
+            }
+
             if ($record->status === V4HockeyListing::STATUS_PUBLISHED) {
+                $existing = $record->payment_request_id
+                    ? V4PaymentTransaction::where('payment_request_id', $record->payment_request_id)
+                        ->where('status', V4PaymentTransaction::STATUS_SUCCESS)
+                        ->latest('id')
+                        ->first()
+                    : null;
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Listing is already published.',
+                    'payment_transaction_id' => $existing?->id,
                 ], 400);
             }
 
@@ -293,30 +327,6 @@ class V4HockeyListingController extends Controller
                     'success' => false,
                     'message' => 'Only the parent can confirm this payment.',
                 ], 403);
-            }
-
-            $validated = $request->validate([
-                'purchase_id' => 'nullable|string',
-                'source' => 'required|in:ios,android,web,window,linux,macos',
-                'verification_data' => 'nullable|array',
-                'store_status' => 'nullable|string',
-                'transaction_date' => 'nullable|date',
-                'payload' => 'nullable|array',
-            ]);
-
-            // Duplicate purchase prevention
-            if (!empty($validated['purchase_id'])) {
-                $duplicate = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
-                    ->where('source', $validated['source'])
-                    ->first();
-
-                if ($duplicate) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This purchase has already been processed.',
-                        'payment_transaction_id' => $duplicate->id,
-                    ], 400);
-                }
             }
 
             DB::beginTransaction();
