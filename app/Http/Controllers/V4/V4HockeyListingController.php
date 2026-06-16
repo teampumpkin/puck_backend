@@ -797,7 +797,8 @@ class V4HockeyListingController extends Controller
                 ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta])
                 ->whereRaw("$haversine <= sell_radius", [$lat, $lng, $lat])
                 ->selectRaw("*, $haversine AS distance_miles", [$lat, $lng, $lat])
-                ->orderBy('distance_miles');
+                ->orderBy('distance_miles')
+                ->orderByDesc('listed_at');
 
             if (!empty($validated['search'])) {
                 $search = '%' . $validated['search'] . '%';
