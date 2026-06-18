@@ -114,13 +114,13 @@ class V4AuthController extends Controller
             ]);
 
 
-            if ($user->email) {
+            if ($field === 'email') {
                 Mail::to($user->email)->send(new SendOtpMail($otp));
                 //SendXOtpController::sendOtp($user->email, $otp);
             } else {
                 $TwilioSmsService = new TwilioSmsService();
                 $message = "Your Puck Recruiter OTP is: $otp. It will expire in " . env('OTP_EXPIRY_TIME_MIN', 10) . " minutes.";
-                $TwilioSmsService->sendSms($user->phone, $message);
+                $TwilioSmsService->sendSms($identifier, $message);
             }
 
             return response()->json([
