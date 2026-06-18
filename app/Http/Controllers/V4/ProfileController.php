@@ -195,7 +195,7 @@ class ProfileController extends Controller
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
@@ -1134,7 +1134,7 @@ class ProfileController extends Controller
                 'country' => 'required|string|max:100',
                 'state' => 'required|string|max:100',
                 'city' => 'required|string|max:100',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
                 'email' => 'nullable|email|max:255',
                 'enable_private_account' => 'nullable|boolean'
             ];
@@ -1982,7 +1982,7 @@ class ProfileController extends Controller
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
@@ -3865,7 +3865,7 @@ class ProfileController extends Controller
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
             ];
 
             if ($request->hasFile('profile_photo')) {
