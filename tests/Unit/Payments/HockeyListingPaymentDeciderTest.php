@@ -98,4 +98,64 @@ class HockeyListingPaymentDeciderTest extends TestCase
         $this->assertSame(HockeyListingPaymentDecider::CONFIRM_PROCEED, $listingA);
         $this->assertSame(HockeyListingPaymentDecider::CONFIRM_PROCEED, $listingB);
     }
+
+    private function initBase(array $over = []): array
+    {
+        return array_merge([
+            'listing_status' => 'draft',
+            'is_child' => false,
+            'has_parent' => false,
+            'existing_request_status' => null,
+        ], $over);
+    }
+
+    public function test_initiate_blocks_when_already_published(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_ALREADY_PUBLISHED,
+            $this->d->initiate($this->initBase(['listing_status' => 'published']))
+        );
+    }
+
+    public function test_initiate_blocks_child_without_parent(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_CHILD_NO_PARENT,
+            $this->d->initiate($this->initBase(['is_child' => true, 'has_parent' => false]))
+        );
+    }
+
+    public function test_initiate_returns_existing_pending_for_child(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_RETURN_EXISTING_PENDING,
+            $this->d->initiate($this->initBase([
+                'is_child' => true, 'has_parent' => true, 'existing_request_status' => 'pending',
+            ]))
+        );
+    }
+
+    public function test_initiate_returns_existing_initiated(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_RETURN_EXISTING_INITIATED,
+            $this->d->initiate($this->initBase(['existing_request_status' => 'payment_initiated']))
+        );
+    }
+
+    public function test_initiate_creates_new_for_fresh_or_dead_request(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_CREATE_NEW,
+            $this->d->initiate($this->initBase(['existing_request_status' => null]))
+        );
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_CREATE_NEW,
+            $this->d->initiate($this->initBase(['existing_request_status' => 'failed']))
+        );
+        $this->assertSame(
+            HockeyListingPaymentDecider::INIT_CREATE_NEW,
+            $this->d->initiate($this->initBase(['existing_request_status' => 'parent_rejected']))
+        );
+    }
 }
