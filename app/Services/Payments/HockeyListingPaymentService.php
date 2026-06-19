@@ -35,6 +35,7 @@ class HockeyListingPaymentService
         $code = $this->decider->initiate([
             'listing_status' => $listing->status,
             'is_child' => $isChild,
+            // has_parent means "child has a valid parent"; null for adults, who never reach CHILD_NO_PARENT
             'has_parent' => (bool) $parentId,
             'existing_request_status' => $existing?->status,
         ]);
@@ -49,7 +50,7 @@ class HockeyListingPaymentService
             return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, true, null)];
         }
         if ($code === HockeyListingPaymentDecider::INIT_RETURN_EXISTING_INITIATED) {
-            return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, false, optional($existing->inAppPurchase)->sku)];
+            return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, false, $existing->inAppPurchase?->sku)];
         }
 
         // INIT_CREATE_NEW
@@ -58,10 +59,11 @@ class HockeyListingPaymentService
             return ['code' => 'fee_missing', 'http' => 404, 'payload' => ['message' => 'Listing fee product not found or inactive.']];
         }
 
-        $request = DB::transaction(function () use ($listing, $actor, $isChild, $parentId, $fee) {
+        $actorId = $actor->id;
+        $request = DB::transaction(function () use ($listing, $actorId, $isChild, $parentId, $fee) {
             $data = [
-                'payer_id' => $isChild ? $parentId : $actor->id,
-                'player_id' => $actor->id,
+                'payer_id' => $isChild ? $parentId : $actorId,
+                'player_id' => $actorId,
                 'in_app_purchase_id' => $fee->id,
                 'amount_cents' => $fee->amount_cents,
                 'currency' => $fee->currency,
