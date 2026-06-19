@@ -39,6 +39,7 @@ class V4AuthController extends Controller
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
                 'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{7,14}$/',
+                'country_code' => 'required_with:phone|string|regex:/^\+[1-9]\d{0,3}$/',
             ]);
             $identifier = $validated['email'] ?? $validated['phone'];
             $field = isset($validated['email']) ? 'email' : 'phone';
@@ -48,6 +49,23 @@ class V4AuthController extends Controller
                     'success' => false,
                     'message' => 'Child players must use parent-supervised login'
                 ], 403);
+            }
+
+            // Legacy records may store the phone without the country code prefix.
+            // If the user logs in with the full number (e.g. +919318369648) but an
+            // existing record holds only the local number (e.g. 9318369648), migrate
+            // that record to the full number so we don't create a duplicate account.
+            // If the number is already stored with the country code, do nothing.
+            if ($field === 'phone' && !empty($validated['country_code'])) {
+                $countryCode = $validated['country_code'];
+                if (str_starts_with($identifier, $countryCode)) {
+                    $localNumber = substr($identifier, strlen($countryCode));
+                    if ($localNumber !== '') {
+                        V4User::where('phone', $localNumber)
+                            ->whereNull('deleted_at')
+                            ->update(['phone' => $identifier]);
+                    }
+                }
             }
 
             $user = V4User::firstOrCreate(
