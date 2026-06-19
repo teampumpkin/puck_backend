@@ -38,7 +38,7 @@ class V4AuthController extends Controller
                 'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{7,14}$/',
             ]);
             $identifier = $validated['email'] ?? $validated['phone'];
             $field = isset($validated['email']) ? 'email' : 'phone';
@@ -114,13 +114,13 @@ class V4AuthController extends Controller
             ]);
 
 
-            if ($user->email) {
+            if ($field === 'email') {
                 Mail::to($user->email)->send(new SendOtpMail($otp));
                 //SendXOtpController::sendOtp($user->email, $otp);
             } else {
                 $TwilioSmsService = new TwilioSmsService();
                 $message = "Your Puck Recruiter OTP is: $otp. It will expire in " . env('OTP_EXPIRY_TIME_MIN', 10) . " minutes.";
-                $TwilioSmsService->sendSms($user->phone, $message);
+                $TwilioSmsService->sendSms($identifier, $message);
             }
 
             return response()->json([
@@ -159,7 +159,7 @@ class V4AuthController extends Controller
         try {
             $validated = $request->validate([
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{7,14}$/',
                 'otp' => 'required|string|size:6',
             ]);
 
