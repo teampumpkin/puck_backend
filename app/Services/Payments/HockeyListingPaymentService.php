@@ -235,11 +235,37 @@ class HockeyListingPaymentService
 
     public function status(V4HockeyListing $listing): array
     {
-        throw new LogicException('not implemented');
+        $request = $listing->relationLoaded('paymentRequest')
+            ? $listing->paymentRequest
+            : $listing->load('paymentRequest.inAppPurchase')->paymentRequest;
+
+        return [
+            'payload' => [
+                'listing_id' => $listing->id,
+                'listing_status' => $listing->status,
+                'is_published' => $listing->status === V4HockeyListing::STATUS_PUBLISHED,
+                'awaiting_parent' => $request
+                    && $request->status === V4PaymentRequest::STATUS_PENDING,
+                'payment_request_id' => $request?->id,
+                'payment_status' => $request?->status,
+                'sku' => optional($request?->inAppPurchase)->sku,
+                'amount_cents' => $request?->amount_cents,
+                'currency' => $request?->currency,
+                'formatted_amount' => $request?->formatted_amount,
+            ],
+        ];
     }
 
     public function reject(V4PaymentRequest $request, V4HockeyListing $listing, ?string $reason): void
     {
-        throw new LogicException('not implemented');
+        DB::transaction(function () use ($request, $listing, $reason) {
+            $request->markParentRejected($reason);
+            $listing->markPaymentRejected();
+        });
+
+        $request->loadMissing('notification');
+        if ($request->notification) {
+            $request->notification->delete();
+        }
     }
 }
