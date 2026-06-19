@@ -13,6 +13,7 @@ use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\NotificationService;
+use App\Services\Payments\HockeyListingPaymentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class V4HockeyListingController extends Controller
 {
     protected NotificationService $notificationService;
 
-    public function __construct(NotificationService $notificationService)
+    public function __construct(NotificationService $notificationService, private HockeyListingPaymentService $hockeyPayments)
     {
         $this->notificationService = $notificationService;
     }
@@ -216,36 +217,8 @@ class V4HockeyListingController extends Controller
             Log::info('Hockey listing confirm payment', ['user_id' => $user->id, 'listing_id' => $listing, 'payload' => $request->all()]);
 
             $record = V4HockeyListing::find($listing);
-
             if (!$record) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Listing not found.',
-                ], 404);
-            }
-
-            $paymentRequest = $record->payment_request_id
-                ? V4PaymentRequest::find($record->payment_request_id)
-                : null;
-
-            $authId = (int) $user->id;
-            $isOwner = (int) $record->user_id === $authId;
-            $isParentPayer = $paymentRequest
-                && $paymentRequest->parent_id
-                && (int) $paymentRequest->parent_id === $authId;
-
-            if (!$isOwner && !$isParentPayer) {
-                Log::warning('Hockey listing confirm unauthorized', [
-                    'auth_user_id' => $authId,
-                    'listing_user_id' => $record->user_id,
-                    'pr_parent_id' => $paymentRequest?->parent_id,
-                    'pr_id' => $paymentRequest?->id,
-                    'pr_status' => $paymentRequest?->status,
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized.',
-                ], 403);
+                return response()->json(['success' => false, 'message' => 'Listing not found.'], 404);
             }
 
             $validated = $request->validate([
@@ -257,133 +230,26 @@ class V4HockeyListingController extends Controller
                 'payload' => 'nullable|array',
             ]);
 
-            // Duplicate purchase prevention. Checked before status gates so that
-            // StoreKit replays of an already-finalized transaction return an
-            // idempotent signal instead of being blocked by "already published".
-            if (!empty($validated['purchase_id'])) {
-                $duplicate = V4PaymentTransaction::where('purchase_id', $validated['purchase_id'])
-                    ->where('source', $validated['source'])
-                    ->first();
+            $result = $this->hockeyPayments->confirm($record, $user, $validated);
 
-                if ($duplicate) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This purchase has already been processed.',
-                        'payment_transaction_id' => $duplicate->id,
-                    ], 400);
+            // Side-effect notifications preserved from the previous implementation.
+            if ($result['code'] === \App\Services\Payments\HockeyListingPaymentDecider::CONFIRM_PROCEED
+                && ($result['is_parent_payer'] ?? false)) {
+                $req = $result['request'];
+                $req->loadMissing('notification');
+                if ($req->notification) {
+                    $req->notification->delete();
                 }
+                $this->sendListingPaymentApprovedNotification($req, $result['listing']);
             }
 
-            if ($record->status === V4HockeyListing::STATUS_PUBLISHED) {
-                $existing = $record->payment_request_id
-                    ? V4PaymentTransaction::where('payment_request_id', $record->payment_request_id)
-                        ->where('status', V4PaymentTransaction::STATUS_SUCCESS)
-                        ->latest('id')
-                        ->first()
-                    : null;
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Listing is already published.',
-                    'payment_transaction_id' => $existing?->id,
-                ], 400);
-            }
-
-            // Child listings sit in payment_requested (awaiting parent); non-child listings
-            // stay in draft after initiate-payment. Both are confirmable while a request is attached.
-            $confirmableStatuses = [
-                V4HockeyListing::STATUS_PAYMENT_REQUESTED,
-                V4HockeyListing::STATUS_DRAFT,
-            ];
-
-            if (!in_array($record->status, $confirmableStatuses, true) || !$record->payment_request_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No active payment request found. Call initiate-payment first.',
-                ], 400);
-            }
-
-            if (!$paymentRequest) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment request not found.',
-                ], 400);
-            }
-
-            $allowedStatuses = [
-                V4PaymentRequest::STATUS_PAYMENT_INITIATED,
-                V4PaymentRequest::STATUS_PENDING,
-            ];
-
-            if (!in_array($paymentRequest->status, $allowedStatuses, true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment request is not in a confirmable state.',
-                ], 400);
-            }
-
-            if ($paymentRequest->status === V4PaymentRequest::STATUS_PENDING && !$isParentPayer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Only the parent can confirm this payment.',
-                ], 403);
-            }
-
-            DB::beginTransaction();
-            try {
-                $transaction = V4PaymentTransaction::create([
-                    'payment_request_id' => $paymentRequest->id,
-                    'payer_id' => $user->id,
-                    'amount_cents' => $paymentRequest->amount_cents,
-                    'currency' => $paymentRequest->currency,
-                    'gateway' => 'internal',
-                    'gateway_reference' => 'internal_' . uniqid() . '_' . time(),
-                    'status' => V4PaymentTransaction::STATUS_SUCCESS,
-                    'purchase_id' => $validated['purchase_id'] ?? null,
-                    'source' => $validated['source'],
-                    'verification_data' => $validated['verification_data'] ?? null,
-                    'store_status' => $validated['store_status'] ?? null,
-                    'transaction_date' => $validated['transaction_date'] ?? null,
-                    'payload' => $validated['payload'] ?? null,
-                ]);
-
-                $paymentRequest->markPaid();
-                $record->markPublished();
-
-                DB::commit();
-
-                // Remove the original payment-request notification from the parent
-                // so it stops showing as pending once payment is confirmed.
-                $paymentRequest->loadMissing('notification');
-                if ($paymentRequest->notification) {
-                    $paymentRequest->notification->delete();
-                }
-
-                if ($isParentPayer) {
-                    $this->sendListingPaymentApprovedNotification($paymentRequest, $record);
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment confirmed. Your listing is now live.',
-                    'data' => [
-                        'listing_id' => $record->id,
-                        'listing_status' => $record->status,
-                        'listed_at' => $record->listed_at,
-                        'payment_request_id' => $paymentRequest->id,
-                        'payment_transaction_id' => $transaction->id,
-                    ],
-                ]);
-            } catch (Exception $e) {
-                DB::rollBack();
-                throw $e;
-            }
+            $success = in_array($result['http'], [200, 201], true);
+            return response()->json(array_merge(
+                ['success' => $success],
+                $result['payload'],
+            ), $result['http']);
         } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors' => $e->errors(),
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
         } catch (Exception $e) {
             Log::error('Failed to confirm hockey listing payment', [
                 'user_id' => Auth::id(),
@@ -391,7 +257,6 @@ class V4HockeyListingController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to confirm payment.',
@@ -411,46 +276,24 @@ class V4HockeyListingController extends Controller
             Log::info('Hockey listing payment status', ['user_id' => $user->id, 'listing_id' => $listing]);
 
             $record = V4HockeyListing::with('paymentRequest.inAppPurchase')->find($listing);
-
             if (!$record) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Listing not found.',
-                ], 404);
+                return response()->json(['success' => false, 'message' => 'Listing not found.'], 404);
             }
 
             $paymentRequest = $record->paymentRequest;
-
             $authId = (int) $user->id;
             $isOwner = (int) $record->user_id === $authId;
-            $isParentPayer = $paymentRequest
-                && $paymentRequest->parent_id
+            $isParentPayer = $paymentRequest && $paymentRequest->parent_id
                 && (int) $paymentRequest->parent_id === $authId;
 
             if (!$isOwner && !$isParentPayer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized.',
-                ], 403);
+                return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Listing payment status loaded.',
-                'data' => [
-                    'listing_id' => $record->id,
-                    'listing_status' => $record->status,
-                    'is_published' => $record->status === V4HockeyListing::STATUS_PUBLISHED,
-                    'awaiting_parent' => $paymentRequest
-                        && $paymentRequest->status === V4PaymentRequest::STATUS_PENDING,
-                    'payment_request_id' => $paymentRequest?->id,
-                    'payment_status' => $paymentRequest?->status,
-                    'sku' => optional($paymentRequest?->inAppPurchase)->sku,
-                    'amount_cents' => $paymentRequest?->amount_cents,
-                    'currency' => $paymentRequest?->currency,
-                    'formatted_amount' => $paymentRequest?->formatted_amount,
-                ],
-            ]);
+            $result = $this->hockeyPayments->status($record);
+            return response()->json(array_merge(
+                ['success' => true, 'message' => 'Listing payment status loaded.', 'data' => $result['payload']],
+            ));
         } catch (Exception $e) {
             Log::error('Failed to load hockey listing payment status', [
                 'user_id' => Auth::id(),
@@ -458,7 +301,6 @@ class V4HockeyListingController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load payment status.',
