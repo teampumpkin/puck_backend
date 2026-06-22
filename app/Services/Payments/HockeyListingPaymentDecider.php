@@ -15,6 +15,7 @@ class HockeyListingPaymentDecider
     public const CONFIRM_DUPLICATE         = 'duplicate';
     public const CONFIRM_ALREADY_PUBLISHED = 'already_published';
     public const CONFIRM_SELF_HEAL_PUBLISH = 'self_heal_publish';
+    public const CONFIRM_RECOVER_PUBLISH   = 'recover_publish';
     public const CONFIRM_NO_ACTIVE_REQUEST = 'no_active_request';
     public const CONFIRM_NOT_CONFIRMABLE   = 'not_confirmable';
     public const CONFIRM_PARENT_ONLY       = 'parent_only';
@@ -64,6 +65,12 @@ class HockeyListingPaymentDecider
         }
         $confirmableListing = in_array($c['listing_status'] ?? null, ['draft', 'payment_requested'], true);
         if (!$confirmableListing || !($c['has_request'] ?? false)) {
+            // A real store purchase was presented but there is no request to attach it to
+            // (never initiated, or reconcile released it mid-flight). Don't drop the money:
+            // recover by creating a request, recording the txn, and publishing.
+            if ($confirmableListing && ($c['purchase_id_provided'] ?? false)) {
+                return self::CONFIRM_RECOVER_PUBLISH;
+            }
             return self::CONFIRM_NO_ACTIVE_REQUEST;
         }
         if (!in_array($c['request_status'] ?? null, ['payment_initiated', 'pending'], true)) {

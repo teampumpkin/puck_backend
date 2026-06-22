@@ -61,9 +61,29 @@ class HockeyListingPaymentDeciderTest extends TestCase
         $this->assertSame(HockeyListingPaymentDecider::CONFIRM_SELF_HEAL_PUBLISH, $r);
     }
 
-    public function test_confirm_no_active_request(): void
+    public function test_confirm_no_active_request_without_purchase(): void
     {
-        $r = $this->d->confirm($this->confirmBase(['has_request' => false]));
+        // No request and no store purchase to recover from -> hard client error.
+        $r = $this->d->confirm($this->confirmBase(['has_request' => false, 'purchase_id_provided' => false]));
+        $this->assertSame(HockeyListingPaymentDecider::CONFIRM_NO_ACTIVE_REQUEST, $r);
+    }
+
+    public function test_confirm_recovers_when_purchase_present_but_no_request(): void
+    {
+        // Real store purchase but request missing (never initiated / released mid-flight):
+        // recover rather than dropping the money.
+        $r = $this->d->confirm($this->confirmBase(['has_request' => false, 'purchase_id_provided' => true]));
+        $this->assertSame(HockeyListingPaymentDecider::CONFIRM_RECOVER_PUBLISH, $r);
+    }
+
+    public function test_confirm_no_recover_when_listing_not_confirmable(): void
+    {
+        // A purchase against a non-draft/non-requested listing is not recoverable here.
+        $r = $this->d->confirm($this->confirmBase([
+            'has_request' => false,
+            'purchase_id_provided' => true,
+            'listing_status' => 'payment_rejected',
+        ]));
         $this->assertSame(HockeyListingPaymentDecider::CONFIRM_NO_ACTIVE_REQUEST, $r);
     }
 
