@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class ProfileController extends Controller
@@ -194,8 +195,22 @@ class ProfileController extends Controller
                 'academy_id' => 'nullable|exists:v4_academies,id',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
-                'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
+                'email' => [
+                    'nullable',
+                    'email',
+                    Rule::unique('v4_users', 'email')
+                        ->ignore($user->id)
+                        ->whereNull('deleted_at'),
+                ],
+                'phone' => [
+                    'nullable',
+                    'string',
+                    'max:20',
+                    'regex:/^\+[1-9]\d{7,14}$/',
+                    Rule::unique('v4_users', 'phone')
+                        ->ignore($user->id)
+                        ->whereNull('deleted_at'),
+                ],
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
