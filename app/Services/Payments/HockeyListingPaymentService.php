@@ -183,6 +183,46 @@ class HockeyListingPaymentService
                     'payment_transaction_id' => $successTxn->id,
                 ]];
 
+            case HockeyListingPaymentDecider::CONFIRM_RECOVER_PUBLISH:
+                $fee = $this->feeProduct();
+                if (!$fee) {
+                    return ['code' => 'fee_missing', 'http' => 404, 'payload' => ['message' => 'Listing fee product not found or inactive.']];
+                }
+                $recovered = DB::transaction(function () use ($listing, $actor, $receipt, $source, $fee) {
+                    $request = V4PaymentRequest::create([
+                        'payer_id' => $actor->id,
+                        'player_id' => $listing->user_id,
+                        'in_app_purchase_id' => $fee->id,
+                        'amount_cents' => $fee->amount_cents,
+                        'currency' => $fee->currency,
+                        'status' => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                        'meta' => ['purpose' => 'hockey_listing', 'listing_id' => $listing->id, 'recovered' => true],
+                    ]);
+                    $listing->payment_request_id = $request->id;
+                    $listing->save();
+
+                    $txn = $this->recordSuccessTransaction($request, $actor, $receipt, $source);
+                    $request->markPaid();
+                    $listing->markPublished();
+                    return ['request' => $request, 'txn' => $txn];
+                });
+                return [
+                    'code' => $code,
+                    'http' => 200,
+                    'payload' => [
+                        'message' => 'Payment confirmed. Your listing is now live.',
+                        'listing_id' => $listing->id,
+                        'listing_status' => $listing->status,
+                        'listed_at' => $listing->listed_at,
+                        'payment_request_id' => $recovered['request']->id,
+                        'payment_transaction_id' => $recovered['txn']->id,
+                        'recovered' => true,
+                    ],
+                    'request' => $recovered['request'],
+                    'listing' => $listing,
+                    'is_parent_payer' => false,
+                ];
+
             case HockeyListingPaymentDecider::CONFIRM_NO_ACTIVE_REQUEST:
                 return ['code' => $code, 'http' => 400, 'payload' => ['message' => 'No active payment request found. Call initiate-payment first.']];
 
@@ -196,21 +236,7 @@ class HockeyListingPaymentService
         // CONFIRM_PROCEED — record transaction + publish.
         // SEAM: server-side receipt verification (Apple/Google) can be inserted here before success.
         $transaction = DB::transaction(function () use ($request, $actor, $receipt, $source, $listing) {
-            $txn = V4PaymentTransaction::create([
-                'payment_request_id' => $request->id,
-                'payer_id' => $actor->id,
-                'amount_cents' => $request->amount_cents,
-                'currency' => $request->currency,
-                'gateway' => $this->decider->gatewayForSource($source),
-                'gateway_reference' => $source . '_' . uniqid() . '_' . time(),
-                'status' => V4PaymentTransaction::STATUS_SUCCESS,
-                'purchase_id' => $receipt['purchase_id'] ?? null,
-                'source' => $source,
-                'verification_data' => $receipt['verification_data'] ?? null,
-                'store_status' => $receipt['store_status'] ?? null,
-                'transaction_date' => $receipt['transaction_date'] ?? null,
-                'payload' => $receipt['payload'] ?? null,
-            ]);
+            $txn = $this->recordSuccessTransaction($request, $actor, $receipt, $source);
             $request->markPaid();
             $listing->markPublished();
             return $txn;
@@ -231,6 +257,25 @@ class HockeyListingPaymentService
             'listing' => $listing,
             'is_parent_payer' => $isParentPayer,
         ];
+    }
+
+    private function recordSuccessTransaction(V4PaymentRequest $request, V4User $actor, array $receipt, string $source): V4PaymentTransaction
+    {
+        return V4PaymentTransaction::create([
+            'payment_request_id' => $request->id,
+            'payer_id' => $actor->id,
+            'amount_cents' => $request->amount_cents,
+            'currency' => $request->currency,
+            'gateway' => $this->decider->gatewayForSource($source),
+            'gateway_reference' => $source . '_' . uniqid() . '_' . time(),
+            'status' => V4PaymentTransaction::STATUS_SUCCESS,
+            'purchase_id' => $receipt['purchase_id'] ?? null,
+            'source' => $source,
+            'verification_data' => $receipt['verification_data'] ?? null,
+            'store_status' => $receipt['store_status'] ?? null,
+            'transaction_date' => $receipt['transaction_date'] ?? null,
+            'payload' => $receipt['payload'] ?? null,
+        ]);
     }
 
     public function status(V4HockeyListing $listing): array
