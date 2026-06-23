@@ -7,6 +7,7 @@ use App\Models\V4InAppPurchase;
 use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
+use App\Services\Payments\Sk2ReceiptDecoder;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -50,6 +51,7 @@ class HockeyListingPaymentService
             return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, true, null)];
         }
         if ($code === HockeyListingPaymentDecider::INIT_RETURN_EXISTING_INITIATED) {
+            $this->ensureBindingToken($existing);
             return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, false, $existing->inAppPurchase?->sku)];
         }
 
@@ -70,6 +72,7 @@ class HockeyListingPaymentService
                 'status' => $isChild
                     ? V4PaymentRequest::STATUS_PENDING
                     : V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                'binding_token' => (string) \Illuminate\Support\Str::uuid(),
                 'meta' => ['purpose' => 'hockey_listing', 'listing_id' => $listing->id],
             ];
             if ($isChild) {
@@ -108,7 +111,17 @@ class HockeyListingPaymentService
             'amount_cents' => $request->amount_cents,
             'currency' => $request->currency,
             'formatted_amount' => $request->formatted_amount,
+            'binding_token' => $request->binding_token,
         ];
+    }
+
+    public function ensureBindingToken(V4PaymentRequest $request): string
+    {
+        if (empty($request->binding_token)) {
+            $request->binding_token = (string) \Illuminate\Support\Str::uuid();
+            $request->save();
+        }
+        return $request->binding_token;
     }
 
     public function confirm(V4HockeyListing $listing, V4User $actor, array $receipt): array
@@ -121,8 +134,28 @@ class HockeyListingPaymentService
         $isOwner = (int) $listing->user_id === $authId;
         $isParentPayer = $request && $request->parent_id && (int) $request->parent_id === $authId;
 
-        $purchaseId = $receipt['purchase_id'] ?? null;
         $source = $receipt['source'];
+
+        // iOS StoreKit2: decode the JWS receipt to (a) bind it to THIS listing's
+        // payment request via appAccountToken, and (b) dedup on the real transactionId
+        // — the client `purchase_id` is unreliable under SK2 (can arrive as "0").
+        // Signature verification is a tracked follow-up (the SEAM below).
+        if ($source === 'ios' && $request) {
+            $jws = $receipt['verification_data']['server_verification_data'] ?? null;
+            $decoded = Sk2ReceiptDecoder::decode(is_string($jws) ? $jws : null);
+            if ($decoded) {
+                if ($this->decider->bindingMismatch($decoded['app_account_token'] ?? null, $request->binding_token)) {
+                    return ['code' => 'binding_mismatch', 'http' => 422, 'payload' => [
+                        'message' => 'This receipt does not belong to this listing.',
+                    ]];
+                }
+                if (!empty($decoded['transaction_id'])) {
+                    $receipt['purchase_id'] = $decoded['transaction_id'];
+                }
+            }
+        }
+
+        $purchaseId = $receipt['purchase_id'] ?? null;
 
         $duplicate = null;
         if (!empty($purchaseId)) {

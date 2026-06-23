@@ -822,6 +822,8 @@ class V4HockeyListingController extends Controller
                 ], 404);
             }
 
+            $bindingToken = $this->hockeyPayments->ensureBindingToken($paymentRequest);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Listing payment request loaded.',
@@ -833,6 +835,7 @@ class V4HockeyListingController extends Controller
                     'amount_cents' => $paymentRequest->amount_cents,
                     'currency' => $paymentRequest->currency,
                     'formatted_amount' => $paymentRequest->formatted_amount,
+                    'binding_token' => $bindingToken,
                 ],
             ]);
         } catch (Exception $e) {
