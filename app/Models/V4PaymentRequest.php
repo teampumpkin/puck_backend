@@ -38,6 +38,7 @@ class V4PaymentRequest extends Model
         'amount_cents',
         'currency',
         'status',
+        'binding_token',
         'retry_count',
         'notes',
         'meta',

@@ -50,6 +50,7 @@ class HockeyListingPaymentService
             return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, true, null)];
         }
         if ($code === HockeyListingPaymentDecider::INIT_RETURN_EXISTING_INITIATED) {
+            $this->ensureBindingToken($existing);
             return ['code' => $code, 'http' => 200, 'payload' => $this->requestPayload($existing, false, $existing->inAppPurchase?->sku)];
         }
 
@@ -70,6 +71,7 @@ class HockeyListingPaymentService
                 'status' => $isChild
                     ? V4PaymentRequest::STATUS_PENDING
                     : V4PaymentRequest::STATUS_PAYMENT_INITIATED,
+                'binding_token' => (string) \Illuminate\Support\Str::uuid(),
                 'meta' => ['purpose' => 'hockey_listing', 'listing_id' => $listing->id],
             ];
             if ($isChild) {
@@ -108,7 +110,17 @@ class HockeyListingPaymentService
             'amount_cents' => $request->amount_cents,
             'currency' => $request->currency,
             'formatted_amount' => $request->formatted_amount,
+            'binding_token' => $request->binding_token,
         ];
+    }
+
+    public function ensureBindingToken(V4PaymentRequest $request): string
+    {
+        if (empty($request->binding_token)) {
+            $request->binding_token = (string) \Illuminate\Support\Str::uuid();
+            $request->save();
+        }
+        return $request->binding_token;
     }
 
     public function confirm(V4HockeyListing $listing, V4User $actor, array $receipt): array
