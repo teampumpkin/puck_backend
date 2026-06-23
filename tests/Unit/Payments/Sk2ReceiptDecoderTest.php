@@ -30,6 +30,8 @@ class Sk2ReceiptDecoderTest extends TestCase
         $this->assertSame('2000000999', $out['transaction_id']);
         $this->assertSame('11111111-1111-4111-8111-111111111111', $out['app_account_token']);
         $this->assertSame('test_marketplace_listing_fee', $out['product_id']);
+        $this->assertSame('2000000111', $out['original_transaction_id']);
+        $this->assertSame('Sandbox', $out['environment']);
     }
 
     public function test_null_for_empty_or_malformed(): void
@@ -38,5 +40,7 @@ class Sk2ReceiptDecoderTest extends TestCase
         $this->assertNull(Sk2ReceiptDecoder::decode(''));
         $this->assertNull(Sk2ReceiptDecoder::decode('only.two'));
         $this->assertNull(Sk2ReceiptDecoder::decode('a.!!!notbase64!!!.c'));
+        $nullPayload = rtrim(strtr(base64_encode('null'), '+/', '-_'), '=');
+        $this->assertNull(Sk2ReceiptDecoder::decode("header.$nullPayload.sig"));
     }
 }

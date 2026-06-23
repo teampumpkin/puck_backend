@@ -33,8 +33,8 @@ class Sk2ReceiptDecoder
         return [
             'transaction_id' => isset($data['transactionId']) ? (string) $data['transactionId'] : null,
             'original_transaction_id' => isset($data['originalTransactionId']) ? (string) $data['originalTransactionId'] : null,
-            'product_id' => $data['productId'] ?? null,
-            'app_account_token' => $data['appAccountToken'] ?? null,
+            'product_id' => isset($data['productId']) ? (string) $data['productId'] : null,
+            'app_account_token' => isset($data['appAccountToken']) ? (string) $data['appAccountToken'] : null,
             'environment' => $data['environment'] ?? null,
         ];
     }
