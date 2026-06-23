@@ -63,8 +63,46 @@ class ReconcileHockeyListings extends Command
             }
         });
 
+        // Phase 2 — safety net for paid-but-unpublished listings: any SUCCESS
+        // transaction whose owning request maps (via meta.listing_id) to a listing
+        // that never flipped to published, including transactions recorded against a
+        // now-superseded request. Idempotent: skips already-published / missing
+        // (soft-deleted) listings. This catches any drift the live root-reconcile
+        // path could miss (e.g. a crash between recording the txn and publishing).
+        $stranded = 0;
+        V4PaymentTransaction::where('status', V4PaymentTransaction::STATUS_SUCCESS)
+            ->where('created_at', '>=', now()->subDays(30)) // bound the recurring scan
+            ->chunkById(200, function ($txns) use ($apply, &$stranded) {
+                foreach ($txns as $txn) {
+                    $request = V4PaymentRequest::find($txn->payment_request_id);
+                    if (!$request) {
+                        continue;
+                    }
+                    $listingId = data_get($request->meta, 'listing_id');
+                    $listing = $listingId ? V4HockeyListing::find($listingId) : null;
+                    if (!$listing || $listing->status === V4HockeyListing::STATUS_PUBLISHED) {
+                        continue;
+                    }
+                    $stranded++;
+                    if (!$apply) {
+                        continue;
+                    }
+                    DB::transaction(function () use ($request, $listing) {
+                        // Re-read the listing under a row lock so a concurrent live
+                        // confirm / root-reconcile cannot double-publish or clobber
+                        // listed_at. Skip if it was published in the meantime.
+                        $locked = V4HockeyListing::whereKey($listing->id)->lockForUpdate()->first();
+                        if (!$locked || $locked->status === V4HockeyListing::STATUS_PUBLISHED) {
+                            return;
+                        }
+                        $request->markPaid();
+                        $locked->markPublished();
+                    });
+                }
+            });
+
         $mode = $apply ? 'APPLIED' : 'DRY-RUN';
-        $this->info("[$mode] publish={$counts['publish']} release={$counts['release']} skip={$counts['skip']}");
+        $this->info("[$mode] publish={$counts['publish']} release={$counts['release']} skip={$counts['skip']} stranded_published={$stranded}");
         return self::SUCCESS;
     }
 }

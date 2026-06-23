@@ -34,6 +34,11 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('chat:unmute-expired')->hourly();
+
+        // Self-heal hockey listings stuck by stranded/replayed store receipts.
+        $schedule->command('hockey:reconcile-listings --apply')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
     }
 
     /**

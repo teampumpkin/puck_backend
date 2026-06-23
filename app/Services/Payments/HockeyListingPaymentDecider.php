@@ -33,17 +33,63 @@ class HockeyListingPaymentDecider
     public const RECON_RELEASE = 'release';
     public const RECON_SKIP    = 'skip';
 
+    // root-reconcile outcomes for a receipt bound to a DIFFERENT request than the
+    // one currently being confirmed (see bindingReconcile()).
+    public const RECON_BIND_PUBLISH   = 'reconcile_publish';
+    public const RECON_BIND_DUPLICATE = 'reconcile_duplicate';
+    public const RECON_BIND_ORPHAN    = 'orphan_receipt';
+
+    /**
+     * Normalize a binding token / appAccountToken for comparison and lookup.
+     * StoreKit round-trips the appAccountToken UUID and may change its case, so
+     * tokens are compared and stored case-insensitively (lowercased). Empty /
+     * whitespace-only tokens normalize to null (cannot bind).
+     */
+    public function normalizeToken(?string $token): ?string
+    {
+        if ($token === null) {
+            return null;
+        }
+        $token = strtolower(trim($token));
+        return $token === '' ? null : $token;
+    }
+
     /**
      * True when a StoreKit2 receipt's appAccountToken is present and does not
      * match the payment request it is being confirmed against. A missing token on
      * either side cannot bind (legacy/pre-feature receipts) and is NOT a mismatch.
+     * Comparison is case-insensitive (Apple may upper/lower-case the UUID).
      */
     public function bindingMismatch(?string $receiptToken, ?string $requestToken): bool
     {
-        if (empty($receiptToken) || empty($requestToken)) {
+        $receiptToken = $this->normalizeToken($receiptToken);
+        $requestToken = $this->normalizeToken($requestToken);
+        if ($receiptToken === null || $requestToken === null) {
             return false;
         }
-        return !hash_equals((string) $requestToken, (string) $receiptToken);
+        return !hash_equals($requestToken, $receiptToken);
+    }
+
+    /**
+     * Decide how to reconcile a receipt whose appAccountToken belongs to a
+     * payment request OTHER than the one on the current screen. The receipt is a
+     * real Apple charge bound (via appAccountToken == binding_token) to its owning
+     * request; rather than reject it (which loops forever), publish the listing it
+     * actually paid for, absorb duplicates idempotently, or — if no request/listing
+     * owns the token — acknowledge it as orphaned (loop ends; flag for refund).
+     *
+     * @param array $c owner_found, owner_listing_exists, owner_listing_published,
+     *                 owner_success_txn_exists
+     */
+    public function bindingReconcile(array $c): string
+    {
+        if (!($c['owner_found'] ?? false) || !($c['owner_listing_exists'] ?? false)) {
+            return self::RECON_BIND_ORPHAN;
+        }
+        if (($c['owner_listing_published'] ?? false) || ($c['owner_success_txn_exists'] ?? false)) {
+            return self::RECON_BIND_DUPLICATE;
+        }
+        return self::RECON_BIND_PUBLISH;
     }
 
     public function gatewayForSource(string $source): string

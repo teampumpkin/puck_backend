@@ -192,4 +192,71 @@ class HockeyListingPaymentDeciderTest extends TestCase
         $this->assertFalse($this->d->bindingMismatch('aaaa', null));
         $this->assertFalse($this->d->bindingMismatch('aaaa', ''));
     }
+
+    public function test_binding_mismatch_is_case_insensitive(): void
+    {
+        // Apple may upper/lower-case the appAccountToken UUID when round-tripping it;
+        // a legitimate same-request receipt must NOT be treated as a mismatch.
+        $uuid = '11111111-1111-4111-8111-111111111111';
+        $this->assertFalse($this->d->bindingMismatch(strtoupper($uuid), $uuid));
+        $this->assertFalse($this->d->bindingMismatch($uuid, strtoupper($uuid)));
+        $this->assertFalse($this->d->bindingMismatch("  $uuid  ", $uuid)); // surrounding whitespace
+        // genuinely different tokens still mismatch
+        $this->assertTrue($this->d->bindingMismatch('AAAA', 'bbbb'));
+    }
+
+    public function test_normalize_token(): void
+    {
+        $this->assertNull($this->d->normalizeToken(null));
+        $this->assertNull($this->d->normalizeToken(''));
+        $this->assertNull($this->d->normalizeToken('   '));
+        $this->assertSame('abc-123', $this->d->normalizeToken('  ABC-123 '));
+    }
+
+    private function reconBase(array $over = []): array
+    {
+        return array_merge([
+            'owner_found' => true,
+            'owner_listing_exists' => true,
+            'owner_listing_published' => false,
+            'owner_success_txn_exists' => false,
+        ], $over);
+    }
+
+    public function test_binding_reconcile_orphan_when_no_owner_request(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::RECON_BIND_ORPHAN,
+            $this->d->bindingReconcile($this->reconBase(['owner_found' => false]))
+        );
+    }
+
+    public function test_binding_reconcile_orphan_when_owner_listing_missing(): void
+    {
+        // e.g. the listing was soft-deleted after the receipt was bound to it.
+        $this->assertSame(
+            HockeyListingPaymentDecider::RECON_BIND_ORPHAN,
+            $this->d->bindingReconcile($this->reconBase(['owner_listing_exists' => false]))
+        );
+    }
+
+    public function test_binding_reconcile_duplicate_when_already_published_or_paid(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::RECON_BIND_DUPLICATE,
+            $this->d->bindingReconcile($this->reconBase(['owner_listing_published' => true]))
+        );
+        $this->assertSame(
+            HockeyListingPaymentDecider::RECON_BIND_DUPLICATE,
+            $this->d->bindingReconcile($this->reconBase(['owner_success_txn_exists' => true]))
+        );
+    }
+
+    public function test_binding_reconcile_publish_when_owner_listing_unpublished(): void
+    {
+        $this->assertSame(
+            HockeyListingPaymentDecider::RECON_BIND_PUBLISH,
+            $this->d->bindingReconcile($this->reconBase())
+        );
+    }
 }
