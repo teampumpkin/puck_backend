@@ -190,5 +190,6 @@ class HockeyListingPaymentDeciderTest extends TestCase
         $this->assertFalse($this->d->bindingMismatch('', 'bbbb'));
         // request token absent -> cannot bind, not a mismatch
         $this->assertFalse($this->d->bindingMismatch('aaaa', null));
+        $this->assertFalse($this->d->bindingMismatch('aaaa', ''));
     }
 }
