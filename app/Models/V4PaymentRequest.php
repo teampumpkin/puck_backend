@@ -47,6 +47,7 @@ class V4PaymentRequest extends Model
     protected $casts = [
         'meta' => 'array',
         'amount_cents' => 'integer',
+        'binding_token' => 'string',
         'deleted_at' => 'datetime',
     ];
 
