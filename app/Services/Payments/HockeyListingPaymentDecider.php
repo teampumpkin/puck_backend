@@ -33,6 +33,19 @@ class HockeyListingPaymentDecider
     public const RECON_RELEASE = 'release';
     public const RECON_SKIP    = 'skip';
 
+    /**
+     * True when a StoreKit2 receipt's appAccountToken is present and does not
+     * match the payment request it is being confirmed against. A missing token on
+     * either side cannot bind (legacy/pre-feature receipts) and is NOT a mismatch.
+     */
+    public function bindingMismatch(?string $receiptToken, ?string $requestToken): bool
+    {
+        if (empty($receiptToken) || empty($requestToken)) {
+            return false;
+        }
+        return !hash_equals((string) $requestToken, (string) $receiptToken);
+    }
+
     public function gatewayForSource(string $source): string
     {
         return match ($source) {

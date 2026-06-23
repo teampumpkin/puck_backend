@@ -178,4 +178,17 @@ class HockeyListingPaymentDeciderTest extends TestCase
             $this->d->initiate($this->initBase(['existing_request_status' => 'parent_rejected']))
         );
     }
+
+    public function test_binding_mismatch_true_only_when_both_present_and_differ(): void
+    {
+        // both present, differ -> mismatch
+        $this->assertTrue($this->d->bindingMismatch('aaaa', 'bbbb'));
+        // both present, equal -> no mismatch
+        $this->assertFalse($this->d->bindingMismatch('same-token', 'same-token'));
+        // receipt token absent (legacy receipt) -> cannot bind, not a mismatch
+        $this->assertFalse($this->d->bindingMismatch(null, 'bbbb'));
+        $this->assertFalse($this->d->bindingMismatch('', 'bbbb'));
+        // request token absent -> cannot bind, not a mismatch
+        $this->assertFalse($this->d->bindingMismatch('aaaa', null));
+    }
 }
