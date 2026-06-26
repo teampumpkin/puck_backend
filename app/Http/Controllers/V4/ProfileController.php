@@ -2973,11 +2973,11 @@ class ProfileController extends Controller
     public function getUserPortfolioDetailsById($id): JsonResponse
     {
         try {
+            // Admin endpoint: return ONLY this user's portfolios (public + private).
+            // The previous `is_public OR player_id` clause leaked every public
+            // portfolio into every profile, making all profiles look identical.
             $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
-                ->where(function ($q) use ($id) {
-                    $q->where('is_public', true)
-                        ->orWhere('player_id', $id);
-                })
+                ->where('player_id', $id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
