@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * Fields:
  *  id, player_id, payment_request_id (nullable), current_version_id (points to submission_versions),
- *  status [uploaded, assigned, evaluating, rejected, accepted, completed], evaluator_assignment_id (nullable),
+ *  status [pending, in_progress, uploaded, assigned, rejected, completed, request_video, request_video_accepted, request_video_rejected], evaluator_assignment_id (nullable),
  *  result_report_meta (json), meta
  */
 class EvaluationSubmission extends Model
@@ -117,6 +117,11 @@ class EvaluationSubmission extends Model
     public function scopeRejected($q)
     {
         return $q->where('status', self::STATUS_REJECTED);
+    }
+
+    public function scopePending($q)
+    {
+        return $q->where('status', self::STATUS_PENDING);
     }
 
     /* --------------------
