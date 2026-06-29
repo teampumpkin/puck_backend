@@ -79,16 +79,36 @@
                 </div>
             @endif
 
+            <p class="text-muted text-center mb-3">
+                Account deletion for <strong>Puck Recruiter</strong> by <strong>Team Pumpkin</strong>.
+            </p>
+
             <div class="warning-box">
                 <h5>⚠️ Warning: This action cannot be undone!</h5>
-                <p>Deleting your account will permanently:</p>
+                <p>Deleting your account will permanently remove the following data:</p>
                 <ul>
-                    <li>Remove all your personal information</li>
-                    <li>Delete all your posts, comments, and interactions</li>
-                    <li>Cancel any active subscriptions</li>
-                    <li>Remove your access to the platform</li>
+                    <li>Profile information (name, email address, profile photo)</li>
+                    <li>Account credentials and authentication identifiers</li>
+                    <li>Job applications, saved jobs, and activity history</li>
+                    <li>Location data and uploaded documents (e.g. resume / listings)</li>
+                    <li>Posts, comments, and interactions</li>
+                    <li>Active subscriptions are cancelled</li>
                 </ul>
+                <p class="mb-1"><strong>Data we retain after deletion:</strong></p>
+                <ul>
+                    <li>Transaction and billing records — retained for up to 7 years to meet tax and legal obligations</li>
+                    <li>Anonymized, aggregated analytics that cannot identify you — retained indefinitely</li>
+                    <li>Records we are legally required to keep — retained for the statutory period, then permanently deleted</li>
+                </ul>
+                <p class="mb-0">Your account is deactivated immediately and remaining data is permanently deleted within 30 days.</p>
             </div>
+
+            <p class="small text-muted">
+                Signed in with Google and don't have a password? Email
+                <a href="mailto:privacy@teampumpkin.com">privacy@teampumpkin.com</a>
+                from your registered email with the subject "Delete my Puck account".
+                We action requests within 30 days.
+            </p>
 
             <form method="POST" action="{{ route('account.delete') }}" id="deleteAccountForm">
                 @csrf
