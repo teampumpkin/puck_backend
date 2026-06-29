@@ -38,6 +38,7 @@ class V4PaymentRequest extends Model
         'amount_cents',
         'currency',
         'status',
+        'binding_token',
         'retry_count',
         'notes',
         'meta',
@@ -46,6 +47,7 @@ class V4PaymentRequest extends Model
     protected $casts = [
         'meta' => 'array',
         'amount_cents' => 'integer',
+        'binding_token' => 'string',
         'deleted_at' => 'datetime',
     ];
 

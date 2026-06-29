@@ -45,6 +45,7 @@ use App\Http\Controllers\V4\V4SuspendReasonController;
 use App\Http\Controllers\V4\V4SuspendedUserController;
 use App\Http\Controllers\V4\V4BanReasonController;
 use App\Http\Controllers\V4\V4BannedUserController;
+use App\Http\Controllers\V4\Admin\V4AdminHockeyListingController;
 use App\Http\Controllers\V4\Admin\V4DashboardController;
 use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
@@ -292,6 +293,11 @@ Route::prefix('v4')->group(function () {
     // Apple Sign-In redirect route for Android Web Authentication
     Route::post('auth/apple/redirect', [V4SocialAuthController::class, 'handleAppleRedirect']);
 
+    // Public hockey listing routes (no auth required)
+    Route::prefix('hockey-listings')->group(function () {
+        Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
+    });
+
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
@@ -523,6 +529,17 @@ Route::prefix('v4')->group(function () {
                 Route::put('{id}', [V4UserReportReasonController::class, 'update']);
                 Route::delete('{id}', [V4UserReportReasonController::class, 'delete']);
                 Route::get('{id}', [V4UserReportReasonController::class, 'getRejectionReason']);
+            });
+
+            // Hockey Marketplace (Admin)
+            Route::prefix('hockey-listings')->group(function () {
+                Route::get('stats', [V4AdminHockeyListingController::class, 'stats']);
+                Route::get('manage', [V4AdminHockeyListingController::class, 'manage']);
+                Route::get('/', [V4HockeyListingController::class, 'index']);
+                Route::get('{listing}', [V4HockeyListingController::class, 'show']);
+                Route::delete('{listing}', [V4AdminHockeyListingController::class, 'destroy']);
+                Route::patch('{listing}/mark-sold', [V4AdminHockeyListingController::class, 'markSold']);
+                Route::patch('{listing}/mark-available', [V4AdminHockeyListingController::class, 'markAvailable']);
             });
         });
     });
@@ -874,9 +891,14 @@ Route::prefix('v4')->group(function () {
             Route::get('my-listings', [V4HockeyListingController::class, 'myListings']);
             Route::get('/', [V4HockeyListingController::class, 'index']);
             Route::post('/', [V4HockeyListingController::class, 'store']);
+            Route::get('{listing}/parent-payment', [V4HockeyListingController::class, 'parentListingPayment']);
+            Route::get('{listing}/payment-status', [V4HockeyListingController::class, 'paymentStatus']);
+            Route::post('{listing}/confirm-payment', [V4HockeyListingController::class, 'confirmPayment']);
+            Route::post('{listing}/reject-payment', [V4HockeyListingController::class, 'rejectPayment']);
             Route::get('{listing}', [V4HockeyListingController::class, 'show']);
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
+            Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
         });
     });
 });

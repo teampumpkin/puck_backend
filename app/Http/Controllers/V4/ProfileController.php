@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class ProfileController extends Controller
@@ -194,8 +195,22 @@ class ProfileController extends Controller
                 'academy_id' => 'nullable|exists:v4_academies,id',
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
-                'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20',
+                'email' => [
+                    'nullable',
+                    'email',
+                    Rule::unique('v4_users', 'email')
+                        ->ignore($user->id)
+                        ->whereNull('deleted_at'),
+                ],
+                'phone' => [
+                    'nullable',
+                    'string',
+                    'max:20',
+                    'regex:/^\+[1-9]\d{7,14}$/',
+                    Rule::unique('v4_users', 'phone')
+                        ->ignore($user->id)
+                        ->whereNull('deleted_at'),
+                ],
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
@@ -895,7 +910,7 @@ class ProfileController extends Controller
                     case 'parent':
                         $parentData['profile'] = $parent->parentProfile;
                         break;
-                    // Add other cases if needed
+                        // Add other cases if needed
                 }
 
                 // Child will be a player, so load player profile
@@ -1134,7 +1149,7 @@ class ProfileController extends Controller
                 'country' => 'required|string|max:100',
                 'state' => 'required|string|max:100',
                 'city' => 'required|string|max:100',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
                 'email' => 'nullable|email|max:255',
                 'enable_private_account' => 'nullable|boolean'
             ];
@@ -1971,7 +1986,7 @@ class ProfileController extends Controller
 
                         // founded → academy_years_running
                         'academy_years_running' =>
-                            !empty($basic['founded']) ? (int) $basic['founded'] : null,
+                        !empty($basic['founded']) ? (int) $basic['founded'] : null,
                     ]);
                 }
             }
@@ -1982,7 +1997,7 @@ class ProfileController extends Controller
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
                 'country' => 'nullable|string|max:100',
                 'state' => 'nullable|string|max:100',
                 'city' => 'nullable|string|max:100',
@@ -2958,11 +2973,11 @@ class ProfileController extends Controller
     public function getUserPortfolioDetailsById($id): JsonResponse
     {
         try {
+            // Admin endpoint: return ONLY this user's portfolios (public + private).
+            // The previous `is_public OR player_id` clause leaked every public
+            // portfolio into every profile, making all profiles look identical.
             $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
-                ->where(function ($q) use ($id) {
-                    $q->where('is_public', true)
-                        ->orWhere('player_id', $id);
-                })
+                ->where('player_id', $id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -3760,9 +3775,9 @@ class ProfileController extends Controller
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
                     ])->post($baseUrl . '/conversation/create', [
-                                'type' => 'single',
-                                'participants' => [$user->id, $favId],
-                            ]);
+                        'type' => 'single',
+                        'participants' => [$user->id, $favId],
+                    ]);
 
                     $conversationId = null;
                     if ($response->successful() && isset($response->json()['_id'])) {
@@ -3865,7 +3880,7 @@ class ProfileController extends Controller
                 'first_name' => 'nullable|string|max:255',
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
-                'phone' => 'nullable|string|max:20',
+                'phone' => 'nullable|string|max:20|regex:/^\+[1-9]\d{7,14}$/',
             ];
 
             if ($request->hasFile('profile_photo')) {

@@ -38,7 +38,8 @@ class V4AuthController extends Controller
                 'role' => 'required|string|in:player,coach,scout,parent,team,academy,organizer,fan,adviser,evaluator,super-admin',
                 'is_child' => ['sometimes', 'required_if:role,player', 'boolean'],
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{7,14}$/',
+                'country_code' => 'required_with:phone|string|regex:/^\+[1-9]\d{0,3}$/',
             ]);
             $identifier = $validated['email'] ?? $validated['phone'];
             $field = isset($validated['email']) ? 'email' : 'phone';
@@ -48,6 +49,23 @@ class V4AuthController extends Controller
                     'success' => false,
                     'message' => 'Child players must use parent-supervised login'
                 ], 403);
+            }
+
+            // Legacy records may store the phone without the country code prefix.
+            // If the user logs in with the full number (e.g. +919318369648) but an
+            // existing record holds only the local number (e.g. 9318369648), migrate
+            // that record to the full number so we don't create a duplicate account.
+            // If the number is already stored with the country code, do nothing.
+            if ($field === 'phone' && !empty($validated['country_code'])) {
+                $countryCode = $validated['country_code'];
+                if (str_starts_with($identifier, $countryCode)) {
+                    $localNumber = substr($identifier, strlen($countryCode));
+                    if ($localNumber !== '') {
+                        V4User::where('phone', $localNumber)
+                            ->whereNull('deleted_at')
+                            ->update(['phone' => $identifier]);
+                    }
+                }
             }
 
             $user = V4User::firstOrCreate(
@@ -114,13 +132,13 @@ class V4AuthController extends Controller
             ]);
 
 
-            if ($user->email) {
+            if ($field === 'email') {
                 Mail::to($user->email)->send(new SendOtpMail($otp));
                 //SendXOtpController::sendOtp($user->email, $otp);
             } else {
                 $TwilioSmsService = new TwilioSmsService();
                 $message = "Your Puck Recruiter OTP is: $otp. It will expire in " . env('OTP_EXPIRY_TIME_MIN', 10) . " minutes.";
-                $TwilioSmsService->sendSms($user->phone, $message);
+                $TwilioSmsService->sendSms($identifier, $message);
             }
 
             return response()->json([
@@ -159,7 +177,7 @@ class V4AuthController extends Controller
         try {
             $validated = $request->validate([
                 'email' => 'required_without:phone|email',
-                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{1,14}$/',
+                'phone' => 'required_without:email|string|regex:/^\+[1-9]\d{7,14}$/',
                 'otp' => 'required|string|size:6',
             ]);
 
@@ -199,6 +217,10 @@ class V4AuthController extends Controller
             JWTAuth::factory()->setTTL(config('jwt.refresh_ttl'));
             $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
             JWTAuth::factory()->setTTL(config('jwt.ttl'));
+
+            // Ensure user exists in chat microservice (upsert) so /conversation/create
+            // does not 404 with "Users not found".
+            \App\Helpers\ChatUserSyncHelper::sync($user, $accessToken);
 
             $responseUser = [
                 'id' => $user->id,
@@ -388,6 +410,8 @@ class V4AuthController extends Controller
         JWTAuth::factory()->setTTL(config('jwt.refresh_ttl'));
         $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
         JWTAuth::factory()->setTTL(config('jwt.ttl'));
+
+        \App\Helpers\ChatUserSyncHelper::sync($user, $accessToken);
 
         return response()->json([
             'access_token' => $accessToken,

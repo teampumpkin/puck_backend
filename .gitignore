@@ -17,3 +17,5 @@ docker-compose.yml
 postgres-data/*
 
 .DS_Store
+
+/.superpowers

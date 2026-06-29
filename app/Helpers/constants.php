@@ -16,4 +16,3 @@ const ZOHO_PLAN_CREATE_API                  = 'plans';
 const ZOHO_CANCEL_PLAN_API                  = 'subscriptions/$subscription_id$/cancel?cancel_at_end=true';
 const ZOHO_OFFLINE_SUBSCRIPTION_CREATE      = 'subscriptions';
 const ZOHO_CREATE_ONE_TIME_PAYMENT_PAGE_API = 'hostedpages/buyonetimeaddon';
-

@@ -16,6 +16,7 @@ class CreateV4HockeyListingsTable extends Migration
                 ->onDelete('cascade');
 
             $table->foreignId('payment_request_id')
+                ->nullable()
                 ->constrained('v4_payment_requests')
                 ->onDelete('restrict');
 
@@ -28,18 +29,19 @@ class CreateV4HockeyListingsTable extends Migration
             $table->string('condition');
 
             // Geolocation (Google Maps)
-            $table->decimal('latitude', 10, 7);
-            $table->decimal('longitude', 10, 7);
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
             $table->string('address', 500)->nullable();
             $table->string('city', 100)->nullable();
             $table->string('state', 100)->nullable();
             $table->string('country', 100)->nullable();
+            $table->string('postal_code', 20)->nullable();
 
-            $table->unsignedInteger('sell_radius')->default(50); // in km
+            $table->unsignedInteger('sell_radius')->default(10); // in miles
 
             $table->timestamp('listed_at')->nullable();
 
-            $table->string('status')->default('pending_payment');
+            $table->string('status')->default('draft');
 
             $table->timestamps();
             $table->softDeletes();
@@ -48,6 +50,9 @@ class CreateV4HockeyListingsTable extends Migration
             $table->index(['status', 'listed_at']);
             $table->index(['category', 'status']);
             $table->index('payment_request_id');
+            $table->index('latitude');
+            $table->index('longitude');
+            $table->index('sell_radius');
         });
     }
 

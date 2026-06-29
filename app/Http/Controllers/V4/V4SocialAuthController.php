@@ -315,6 +315,16 @@ class V4SocialAuthController extends Controller
             ->first();
 
         if (! $user) {
+            if ($email && V4User::where('email', $email)->exists()) {
+                return $this->response(
+                    false,
+                    'Email already registered. Please sign in with your original method.',
+                    null,
+                    ['email' => ['This email is already registered with a different sign-in method.']],
+                    409
+                );
+            }
+
             $user = V4User::create([
                 'email'         => $email,
                 'first_name'    => $socialUser->first_name ?? '',
