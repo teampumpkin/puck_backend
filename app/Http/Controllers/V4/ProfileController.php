@@ -116,49 +116,53 @@ class ProfileController extends Controller
                 $userData['fan_profile']
             );
 
-            try {
-                $token = $request->bearerToken();
+            $baseUrl = config('services.chat.host');
 
-                $baseUrl = env('CHAT_APP_HOST');
+            if ($baseUrl) {
+                try {
+                    $token = $request->bearerToken();
 
-                $payload = [
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'phone' => $user->phone,
-                    'name' => $user->name,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'date_of_birth' => $user->date_of_birth,
-                    'country' => $user->country,
-                    'state' => $user->state,
-                    'city' => $user->city,
-                    'zip' => $user->zip,
-                    'is_child' => $user->is_child,
-                    'parent_id' => $user->parent_id,
-                    'username' => $user->username,
-                    'role' => $user->role,
-                    'age' => $user->age,
-                    'profile_photo' => $user->profile_photo,
+                    $payload = [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'phone' => $user->phone,
+                        'name' => $user->name,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'date_of_birth' => $user->date_of_birth,
+                        'country' => $user->country,
+                        'state' => $user->state,
+                        'city' => $user->city,
+                        'zip' => $user->zip,
+                        'is_child' => $user->is_child,
+                        'parent_id' => $user->parent_id,
+                        'username' => $user->username,
+                        'role' => $user->role,
+                        'age' => $user->age,
+                        'profile_photo' => $user->profile_photo,
 
-                ];
+                    ];
 
-                $response = Http::withToken($token)
-                    ->put($baseUrl . '/user/update', $payload);
+                    $response = Http::withToken($token)
+                        ->put(rtrim($baseUrl, '/') . '/user/update', $payload);
 
-                if ($response->successful() && isset($response->json()['_id'])) {
-                    Log::info('User updated successfully', $response->json());
-                } else {
-                    Log::warning('Update User API failed', [
-                        'status' => $response->status(),
-                        'body' => $response->body(),
+                    if ($response->successful() && isset($response->json()['_id'])) {
+                        Log::info('User updated successfully', $response->json());
+                    } else {
+                        Log::warning('Update User API failed', [
+                            'status' => $response->status(),
+                            'body' => $response->body(),
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    // Track error in Sentry
+                    $this->errorTracker->captureException($e, [
+                        'action' => 'unknown_method',
                     ]);
+                    Log::error('Update User Profile API error', ['error' => $e->getMessage()]);
                 }
-            } catch (\Throwable $e) {
-                // Track error in Sentry
-                $this->errorTracker->captureException($e, [
-                    'action' => 'unknown_method',
-                ]);
-                Log::error('Update User Profile API error', ['error' => $e->getMessage()]);
+            } else {
+                Log::warning('CHAT_APP_HOST not configured; skipping chat user sync', ['user_id' => $user->id]);
             }
 
             // Add the profile data under a standardized field name
@@ -304,7 +308,7 @@ class ProfileController extends Controller
                     if (!$user->is_onboarded) {
                         $v4Academy = V4Academy::create($academyValidated);
                         $token = $request->bearerToken();
-                        $baseUrl = env('CHAT_APP_HOST');
+                        $baseUrl = config('services.chat.host');
                         $requestData = [
                             'type' => 'group',
                             'participants' => [$user->id],
@@ -326,7 +330,7 @@ class ProfileController extends Controller
                         $v4Academy = V4Academy::find($validated['academy_id']);
                         if ($v4Academy) {
                             $token = $request->bearerToken();
-                            $baseUrl = env('CHAT_APP_HOST');
+                            $baseUrl = config('services.chat.host');
                             if ($v4Academy->conversation_id == null) {
                                 $requestData = [
                                     'type' => 'group',
@@ -371,7 +375,7 @@ class ProfileController extends Controller
                             // Fallback
                             $v4Academy = V4Academy::create($academyValidated);
                             $token = $request->bearerToken();
-                            $baseUrl = env('CHAT_APP_HOST');
+                            $baseUrl = config('services.chat.host');
                             $requestData = [
                                 'type' => 'group',
                                 'participants' => [$user->id],
@@ -419,7 +423,7 @@ class ProfileController extends Controller
                     if (!$user->is_onboarded) {
                         $v4team = V4Team::create($teamValidated);
                         $token = $request->bearerToken();
-                        $baseUrl = env('CHAT_APP_HOST');
+                        $baseUrl = config('services.chat.host');
                         $requestData = [
                             'type' => 'group',
                             'participants' => [$user->id],
@@ -440,7 +444,7 @@ class ProfileController extends Controller
                         $v4team = V4Team::find($teamId);
                         if ($v4team) {
                             $token = $request->bearerToken();
-                            $baseUrl = env('CHAT_APP_HOST');
+                            $baseUrl = config('services.chat.host');
 
                             if ($v4team->conversation_id == null) {
                                 $requestData = [
@@ -484,7 +488,7 @@ class ProfileController extends Controller
                             $v4team = V4Team::create($teamValidated);
 
                             $token = $request->bearerToken();
-                            $baseUrl = env('CHAT_APP_HOST');
+                            $baseUrl = config('services.chat.host');
                             $requestData = [
                                 'type' => 'group',
                                 'participants' => [$user->id],
@@ -726,7 +730,7 @@ class ProfileController extends Controller
                 $user->refresh();
 
                 // Then, soft delete user from chat backend
-                $baseUrl = env('CHAT_APP_HOST');
+                $baseUrl = config('services.chat.host');
                 $token = $request->bearerToken();
 
                 $response = Http::withToken($token)
@@ -3769,7 +3773,7 @@ class ProfileController extends Controller
 
                     $token = $request->bearerToken();
 
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
 
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,

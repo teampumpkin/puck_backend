@@ -128,7 +128,7 @@ class V4AcademyController extends Controller
                 // Try to update chat conversation (non-blocking)
                 try {
                     $token = $request->bearerToken();
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
                     Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',
@@ -163,7 +163,7 @@ class V4AcademyController extends Controller
                 // Try to update chat conversation (non-blocking)
                 try {
                     $token = $request->bearerToken();
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
                     Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,
                         'Content-Type' => 'application/json',

@@ -16,7 +16,7 @@ class ChatUserSyncHelper
 {
     public static function sync(V4User $user, ?string $token = null): bool
     {
-        $baseUrl = env('CHAT_APP_HOST');
+        $baseUrl = config('services.chat.host');
         if (!$baseUrl) {
             Log::warning('CHAT_APP_HOST not configured; skipping chat user sync', ['user_id' => $user->id]);
             return false;
@@ -51,7 +51,7 @@ class ChatUserSyncHelper
                 $request = $request->withToken($token);
             }
             // Allow local dev to bypass an expired/self-signed chat-svc cert.
-            if (filter_var(env('CHAT_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN) === false) {
+            if (filter_var(config('services.chat.verify_ssl', true), FILTER_VALIDATE_BOOLEAN) === false) {
                 $request = $request->withoutVerifying();
             }
 

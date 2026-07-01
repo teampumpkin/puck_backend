@@ -69,7 +69,7 @@ class UserBlockController extends Controller
                 ]);
 
                 // Block user in chat backend
-                $baseUrl = env('CHAT_APP_HOST');
+                $baseUrl = config('services.chat.host');
                 $token = $request->bearerToken();
 
                 $response = Http::withToken($token)
@@ -163,7 +163,7 @@ class UserBlockController extends Controller
                 ]);
 
                 // Unblock user in chat backend
-                $baseUrl = env('CHAT_APP_HOST');
+                $baseUrl = config('services.chat.host');
                 $token = $request->bearerToken();
 
                 $response = Http::withToken($token)

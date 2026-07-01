@@ -51,7 +51,7 @@ class UnmuteExpiredChats extends Command
         foreach ($muteSettings as $muteSetting) {
             $this->info("Unmuted user {$muteSetting->user_id} in chat {$muteSetting->chat_id}");
 
-            $baseUrl = env('CHAT_APP_HOST');
+            $baseUrl = config('services.chat.host');
 
             $response = Http::withHeaders([
                 'Content-Type'  => 'application/json',

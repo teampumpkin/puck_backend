@@ -82,7 +82,7 @@ class V4FollowController extends Controller
                     try {
                         $token = $request->bearerToken();
 
-                        $baseUrl = env('CHAT_APP_HOST');
+                        $baseUrl = config('services.chat.host');
 
                         $response = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
@@ -124,7 +124,7 @@ class V4FollowController extends Controller
                 try {
                     $token = $request->bearerToken();
 
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
 
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $token,

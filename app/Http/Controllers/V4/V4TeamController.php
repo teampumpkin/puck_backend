@@ -106,7 +106,7 @@ class V4TeamController extends Controller
                     if ($profilePhotoUrl) {
                         $requestData['groupImage'] = $profilePhotoUrl;
                     }
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $request->bearerToken(),
                         'Content-Type' => 'application/json',
@@ -278,7 +278,7 @@ class V4TeamController extends Controller
                     if (!empty($validated['profile_photo'])) {
                         $requestData['groupImage'] = $validated['profile_photo'];
                     }
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $request->bearerToken(),
                         'Content-Type' => 'application/json',
@@ -296,7 +296,7 @@ class V4TeamController extends Controller
                     if (!empty($validated['profile_photo'])) {
                         $requestData['groupImage'] = $validated['profile_photo'];
                     }
-                    $baseUrl = env('CHAT_APP_HOST');
+                    $baseUrl = config('services.chat.host');
                     $response = Http::withHeaders([
                         'Authorization' => 'Bearer ' . $request->bearerToken(),
                         'Content-Type' => 'application/json',
@@ -518,7 +518,7 @@ class V4TeamController extends Controller
                     ->delete();
 
                 $token = $request->bearerToken();
-                $baseUrl = env('CHAT_APP_HOST');
+                $baseUrl = config('services.chat.host');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
@@ -544,7 +544,7 @@ class V4TeamController extends Controller
                 TeamMember::insert($insertData);
 
                 $token = $request->bearerToken();
-                $baseUrl = env('CHAT_APP_HOST');
+                $baseUrl = config('services.chat.host');
                 Http::withHeaders([
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',

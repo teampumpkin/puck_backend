@@ -44,7 +44,7 @@ class V4ChatMuteSettingController extends Controller
                 ]
             );
             $token   = $request->bearerToken();
-            $baseUrl = env('CHAT_APP_HOST');
+            $baseUrl = config('services.chat.host');
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
@@ -111,7 +111,7 @@ class V4ChatMuteSettingController extends Controller
             $muteSetting->update(['active' => false]);
 
             $token   = $request->bearerToken();
-            $baseUrl = env('CHAT_APP_HOST');
+            $baseUrl = config('services.chat.host');
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
