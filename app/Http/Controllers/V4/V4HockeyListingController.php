@@ -388,15 +388,15 @@ class V4HockeyListingController extends Controller
             }
 
             if (!empty($validated['country'])) {
-                $query->where('country', $validated['country']);
+                $query->where('country', 'ilike', $validated['country']);
             }
 
             if (!empty($validated['city'])) {
-                $query->where('city', $validated['city']);
+                $query->where('city', 'ilike', $validated['city']);
             }
 
             if (!empty($validated['postal_code'])) {
-                $query->where('postal_code', $validated['postal_code']);
+                $query->where('postal_code', 'ilike', $validated['postal_code']);
             }
 
             if (isset($validated['min_price_cents'])) {
@@ -482,8 +482,8 @@ class V4HockeyListingController extends Controller
             if (!empty($validated['search'])) {
                 $search = '%' . $validated['search'] . '%';
                 $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', $search)
-                        ->orWhere('description', 'like', $search);
+                    $q->where('name', 'ilike', $search)
+                        ->orWhere('description', 'ilike', $search);
                 });
             }
 
