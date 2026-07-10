@@ -30,7 +30,7 @@ class PortfolioPayloadBuilder
                     $eval = $sub->subable;
                     $eval->loadMissing(['submission.paymentRequest.inAppPurchase.marketplaceItem']);
 
-                    $inApp = $eval->submission->paymentRequest->inAppPurchase ?? null;
+                    $inApp = $eval->submission->paymentRequest?->inAppPurchase ?? null;
                     $marketItem = $inApp->marketplaceItem ?? null;
 
                     $evaluations[] = [

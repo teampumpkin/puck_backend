@@ -58,6 +58,7 @@ use App\Http\Controllers\V4\V4FollowController;
 use App\Http\Controllers\V4\V4TeamController;
 use App\Http\Controllers\V4\V4AcademyController;
 use App\Http\Controllers\V4\V4HockeyListingController;
+use App\Http\Controllers\V4\V4ShareLinkController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -297,6 +298,10 @@ Route::prefix('v4')->group(function () {
     Route::prefix('hockey-listings')->group(function () {
         Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
     });
+
+    // Portfolio share link — public open logging (fired by link.drafthouselabs.com)
+    Route::middleware('throttle:share-open')
+        ->post('/share-links/{token}/open', [V4ShareLinkController::class, 'logOpen']);
 
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
@@ -900,6 +905,11 @@ Route::prefix('v4')->group(function () {
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
         });
+
+        // Portfolio sharing (smart links)
+        Route::post('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'sharePortfolio']);
+        Route::delete('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'revokePortfolioShare']);
+        Route::get('/shared/{token}', [V4ShareLinkController::class, 'resolveShared']);
     });
 });
 
