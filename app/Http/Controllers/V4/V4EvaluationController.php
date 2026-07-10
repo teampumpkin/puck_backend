@@ -7488,17 +7488,26 @@ class V4EvaluationController extends Controller
             $isOwnerOrParent = $portfolio->player_id === $user->id
                 || optional($portfolio->player)->parent_id === $user->id;
 
-            $payload['share_link'] = null;
             if ($isOwnerOrParent) {
+                $payload['share_link'] = null;
                 $activeLink = \App\Models\V4ShareLink::active()
                     ->where('shareable_type', 'portfolio')
                     ->where('shareable_id', $portfolio->id)
                     ->with('creator')
                     ->first();
                 if ($activeLink) {
+                    // shared_by: most recent 'shared' log actor; fallback to link creator
+                    $latestSharedLog = \App\Models\V4ShareLinkLog::where('share_link_id', $activeLink->id)
+                        ->where('action', 'shared')
+                        ->latest('created_at')
+                        ->first();
+                    $sharedBy = $latestSharedLog
+                        ? optional(\App\Models\V4User::find($latestSharedLog->user_id))->name
+                        : null;
+                    $sharedBy = $sharedBy ?? optional($activeLink->creator)->name;
                     $payload['share_link'] = [
                         'active' => true,
-                        'shared_by' => optional($activeLink->creator)->name,
+                        'shared_by' => $sharedBy,
                         'shared_at' => optional($activeLink->created_at)->toISOString(),
                     ];
                 }
