@@ -92,7 +92,7 @@ class V4ShareLinkController extends Controller
                 return response()->json(['success' => false, 'message' => 'Not found'], 404);
             }
 
-            $this->shareLinks->logOpen($token, $request->query('r'), $user->id);
+            $this->shareLinks->logOpen($token, $request->query('r'), $user?->id);
 
             // shareable_type is the morph alias ('portfolio') — never a class name
             return response()->json([

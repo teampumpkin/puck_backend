@@ -3,7 +3,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Evaluation;
 use App\Models\EvaluationSubmission;
+use App\Models\EvaluatorAssignment;
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4PlayerPortfolioSub;
 use App\Models\V4ShareLink;
@@ -148,6 +150,56 @@ class ShareLinkApiTest extends TestCase
             ->assertStatus(204);
 
         $this->assertSame(0, V4ShareLinkLog::where('action', 'opened')->count());
+    }
+
+    public function test_resolve_shared_evaluation_sub_with_null_payment_request(): void
+    {
+        $owner    = $this->makeUser();
+        $receiver = $this->makeUser();
+        $portfolio = $this->makePortfolio($owner, false);
+
+        // Build minimal Evaluation chain: evaluator user → submission → assignment → evaluation
+        $evaluator  = $this->makeUser(['role' => 'evaluator']);
+        $evalSub    = EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
+        // payment_request_id is nullable — leave NULL to exercise the ?-> path
+        $assignment = EvaluatorAssignment::forceCreate([
+            'submission_id' => $evalSub->id,
+            'evaluator_id'  => $evaluator->id,
+        ]);
+        $eval = Evaluation::forceCreate([
+            'submission_id' => $evalSub->id,
+            'assignment_id' => $assignment->id,
+            'evaluator_id'  => $evaluator->id,
+        ]);
+
+        V4PlayerPortfolioSub::create([
+            'portfolio_id' => $portfolio->id,
+            'subable_id'   => $eval->id,
+            'subable_type' => Evaluation::class,
+        ]);
+
+        $mint  = $this->withHeaders($this->authAs($owner))
+            ->postJson("/api/v4/portfolios/{$portfolio->id}/share")->json('data.url');
+        $token = basename(parse_url($mint, PHP_URL_PATH));
+
+        $response = $this->withHeaders($this->authAs($receiver))
+            ->getJson("/api/v4/shared/{$token}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.shareable_type', 'portfolio');
+
+        $evals = $response->json('data.portfolio.evaluations');
+        $this->assertNotEmpty($evals, 'evaluations must be non-empty when evaluation subs exist');
+
+        $e = $evals[0];
+        foreach (['id', 'submission_id', 'assignment_id', 'evaluator_id', 'notes', 'status',
+                  'created_at', 'updated_at', 'marketplace_title', 'marketplace_type', 'in_app_purchase_sku'] as $key) {
+            $this->assertArrayHasKey($key, $e, "evaluation item missing key: {$key}");
+        }
+        // NULL paymentRequest must not crash — these three fields default to empty strings
+        $this->assertSame('',   $e['marketplace_title'],    'marketplace_title should be empty string');
+        $this->assertSame('',   $e['marketplace_type'],     'marketplace_type should be empty string');
+        $this->assertSame('',   $e['in_app_purchase_sku'],  'in_app_purchase_sku should be empty string');
     }
 
     public function test_resolve_shared_returns_nested_video_keys(): void
