@@ -33,7 +33,11 @@ class APILogMiddleware
         $url   = $request->fullUrl();
         $route = $request->path();
 
-        if (!in_array($route, ['api-docs.json', 'api/docs', 'api/api-logs', '_ignition/execute-solution', 'api/delete-api-logs'])) {
+        $isShareRoute = $request->is('api/v4/portfolios/*/share')
+            || $request->is('api/v4/shared/*')
+            || $request->is('api/v4/share-links/*/open');
+
+        if (!$isShareRoute && !in_array($route, ['api-docs.json', 'api/docs', 'api/api-logs', '_ignition/execute-solution', 'api/delete-api-logs'])) {
             APILog::where('created_at', '<', Carbon::now()->subDays(2))
                 ->delete();
 
