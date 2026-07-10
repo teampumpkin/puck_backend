@@ -7484,6 +7484,26 @@ class V4EvaluationController extends Controller
 
             $payload = app(\App\Services\PortfolioPayloadBuilder::class)->build($portfolio);
 
+            // Share status — owner/parent only (drives the app's revoke UI + "Shared by" row)
+            $isOwnerOrParent = $portfolio->player_id === $user->id
+                || optional($portfolio->player)->parent_id === $user->id;
+
+            $payload['share_link'] = null;
+            if ($isOwnerOrParent) {
+                $activeLink = \App\Models\V4ShareLink::active()
+                    ->where('shareable_type', 'portfolio')
+                    ->where('shareable_id', $portfolio->id)
+                    ->with('creator')
+                    ->first();
+                if ($activeLink) {
+                    $payload['share_link'] = [
+                        'active' => true,
+                        'shared_by' => optional($activeLink->creator)->name,
+                        'shared_at' => optional($activeLink->created_at)->toISOString(),
+                    ];
+                }
+            }
+
             return response()->json(['success' => true, 'data' => $payload], 200);
         } catch (Exception $e) {
             Log::error('Error fetching player hockey portfolio: ' . $e->getMessage());
