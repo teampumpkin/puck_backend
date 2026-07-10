@@ -75,6 +75,7 @@ class ShareLinkServiceTest extends TestCase
         $this->assertSame($first['token'], $second['token']);
         $this->assertNotSame($first['ref_code'], $second['ref_code']);
         $this->assertSame(2, V4ShareLinkLog::where('action', 'shared')->count());
+        $this->assertSame(1, V4ShareLinkLog::where('action', 'created')->count());
     }
 
     public function test_revoke_then_mint_issues_new_token(): void
@@ -89,6 +90,20 @@ class ShareLinkServiceTest extends TestCase
         $second = $this->service->mint($portfolio, $owner);
         $this->assertTrue($second['was_created']);
         $this->assertNotSame($first['token'], $second['token']);
+    }
+
+    public function test_revoke_returns_false_when_no_active_link(): void
+    {
+        $owner = $this->makeUser();
+        $portfolio = $this->makePortfolio($owner);
+
+        // Never shared: revoke on a portfolio with no link returns false.
+        $this->assertFalse($this->service->revoke($portfolio, $owner));
+
+        // After a mint + revoke, a second revoke also returns false.
+        $this->service->mint($portfolio, $owner);
+        $this->assertTrue($this->service->revoke($portfolio, $owner));
+        $this->assertFalse($this->service->revoke($portfolio, $owner));
     }
 
     public function test_resolve_returns_null_for_soft_deleted_portfolio(): void

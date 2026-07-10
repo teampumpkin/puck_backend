@@ -29,6 +29,7 @@ class ShareLinkService
 
     /**
      * @return array{url: string, token: string, ref_code: string, was_created: bool}
+     * @throws \Illuminate\Database\QueryException if the retry insert also collides (probability ~0)
      */
     public function mint(Model $shareable, V4User $user): array
     {
@@ -52,6 +53,7 @@ class ShareLinkService
                 }
                 $link = $shareable->morphMany(V4ShareLink::class, 'shareable')->active()->first();
                 if (!$link) {
+                    // Token collision (not a concurrent-mint race); retry once — a second collision propagates by design.
                     $link = V4ShareLink::create([
                         'token' => Str::random(32),
                         'shareable_type' => $shareable->getMorphClass(),
