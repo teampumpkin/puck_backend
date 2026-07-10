@@ -108,14 +108,15 @@ class ShareLinkService
         return $link;
     }
 
-    public function logOpen(string $token, ?string $refCode, ?int $userId): void
+    public function logOpen(string $token, mixed $refCode, ?int $userId): void
     {
         $link = V4ShareLink::where('token', $token)->first();
         if (!$link) {
             return; // silent: no validity oracle
         }
 
-        if ($refCode !== null && !preg_match('/^[A-Za-z0-9]{8}$/', $refCode)) {
+        // ponytail: non-string (e.g. array from ?r[]=x) treated as absent — covers both callers
+        if (!is_string($refCode) || !preg_match('/^[A-Za-z0-9]{8}$/', $refCode)) {
             $refCode = null;
         }
 

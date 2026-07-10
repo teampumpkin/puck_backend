@@ -46,6 +46,8 @@ class ShareLinkHygieneTest extends TestCase
         $token = V4ShareLink::first()->token;
         $this->withHeaders(['Authorization' => "Bearer {$jwt}"])
             ->getJson("/api/v4/shared/{$token}")->assertStatus(200);
+        // third path: public open endpoint (no auth)
+        $this->postJson("/api/v4/share-links/{$token}/open")->assertStatus(204);
 
         $this->assertSame(0, APILog::where('url', 'like', '%share%')->count());
         $this->assertSame(0, APILog::where('url', 'like', "%{$token}%")->count());

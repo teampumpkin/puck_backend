@@ -13,6 +13,7 @@ use App\Models\V4ShareLinkLog;
 use App\Models\V4UploadedMedia;
 use App\Models\V4User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -200,6 +201,56 @@ class ShareLinkApiTest extends TestCase
         $this->assertSame('',   $e['marketplace_title'],    'marketplace_title should be empty string');
         $this->assertSame('',   $e['marketplace_type'],     'marketplace_type should be empty string');
         $this->assertSame('',   $e['in_app_purchase_sku'],  'in_app_purchase_sku should be empty string');
+    }
+
+    public function test_array_r_param_on_open_endpoint_yields_204_no_ref_logged(): void
+    {
+        $owner = $this->makeUser();
+        $portfolio = $this->makePortfolio($owner);
+        $this->withHeaders($this->authAs($owner))
+            ->postJson("/api/v4/portfolios/{$portfolio->id}/share");
+        $token = V4ShareLink::first()->token;
+
+        $this->postJson("/api/v4/share-links/{$token}/open?r[]=x")->assertStatus(204);
+
+        // opened log row exists but ref_code must be null (array input silently dropped)
+        $open = V4ShareLinkLog::where('action', 'opened')->first();
+        $this->assertNotNull($open);
+        $this->assertNull($open->ref_code);
+    }
+
+    public function test_array_r_param_on_resolve_shared_yields_200(): void
+    {
+        $owner = $this->makeUser();
+        $receiver = $this->makeUser();
+        $portfolio = $this->makePortfolio($owner, false);
+
+        $this->withHeaders($this->authAs($owner))
+            ->postJson("/api/v4/portfolios/{$portfolio->id}/share");
+        $token = V4ShareLink::first()->token;
+
+        $this->withHeaders($this->authAs($receiver))
+            ->getJson("/api/v4/shared/{$token}?r[]=x")
+            ->assertStatus(200);
+    }
+
+    public function test_open_endpoint_throttles_at_11th_request(): void
+    {
+        RateLimiter::clear('share-open');
+
+        $owner = $this->makeUser();
+        $portfolio = $this->makePortfolio($owner);
+        $this->withHeaders($this->authAs($owner))
+            ->postJson("/api/v4/portfolios/{$portfolio->id}/share");
+        $token = V4ShareLink::first()->token;
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson("/api/v4/share-links/{$token}/open")->assertStatus(204);
+        }
+
+        $this->postJson("/api/v4/share-links/{$token}/open")->assertStatus(429);
+
+        RateLimiter::clear('share-open');
     }
 
     public function test_resolve_shared_returns_nested_video_keys(): void
