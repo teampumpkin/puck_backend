@@ -63,17 +63,21 @@ class ShareLinkHygieneTest extends TestCase
         ]);
 
         V4ShareLinkLog::create(['share_link_id' => $link->id, 'user_id' => $owner->id,
-            'action' => 'created', 'created_at' => now()->subMonths(14)]);
+            'action' => 'created', 'created_at' => now()->subYears(6)]);
         V4ShareLinkLog::create(['share_link_id' => $link->id, 'user_id' => null,
-            'action' => 'opened', 'created_at' => now()->subMonths(14)]);
+            'action' => 'opened', 'created_at' => now()->subYears(6)]);
         V4ShareLinkLog::create(['share_link_id' => $link->id, 'user_id' => null,
             'action' => 'opened', 'created_at' => now()->subMonths(2)]);
 
         $this->artisan('share-links:prune-open-logs')->assertExitCode(0);
 
         $this->assertSame(0, V4ShareLinkLog::where('action', 'opened')
-            ->where('created_at', '<', now()->subMonths(12))->count());
+            ->where('created_at', '<', now()->subYears(5))->count());
         $this->assertSame(1, V4ShareLinkLog::where('action', 'opened')->count());
         $this->assertSame(1, V4ShareLinkLog::where('action', 'created')->count()); // audit rows kept
+
+        // Soft-delete, not hard: the pruned row is trashed, still recoverable
+        $this->assertSame(1, V4ShareLinkLog::onlyTrashed()->where('action', 'opened')->count());
+        $this->assertSame(2, V4ShareLinkLog::withTrashed()->where('action', 'opened')->count());
     }
 }

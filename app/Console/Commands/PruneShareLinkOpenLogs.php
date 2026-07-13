@@ -10,12 +10,12 @@ class PruneShareLinkOpenLogs extends Command
 {
     protected $signature = 'share-links:prune-open-logs';
 
-    protected $description = 'Delete share-link "opened" log rows older than 12 months (audit rows are kept)';
+    protected $description = 'Soft-delete share-link "opened" log rows older than 5 years (audit rows are kept)';
 
     public function handle(): int
     {
         $deleted = V4ShareLinkLog::where('action', 'opened')
-            ->where('created_at', '<', now()->subMonths(12))
+            ->where('created_at', '<', now()->subYears(5))
             ->delete();
 
         $this->info("Pruned {$deleted} opened rows");
