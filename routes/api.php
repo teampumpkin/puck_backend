@@ -907,8 +907,8 @@ Route::prefix('v4')->group(function () {
         });
 
         // Portfolio sharing (smart links)
-        Route::post('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'sharePortfolio']);
-        Route::delete('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'revokePortfolioShare']);
+        Route::post('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'sharePortfolio'])->whereNumber('portfolioId');
+        Route::delete('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'revokePortfolioShare'])->whereNumber('portfolioId');
         Route::get('/shared/{token}', [V4ShareLinkController::class, 'resolveShared']);
     });
 });
