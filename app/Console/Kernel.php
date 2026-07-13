@@ -39,6 +39,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('hockey:reconcile-listings --apply')
             ->everyFifteenMinutes()
             ->withoutOverlapping();
+
+        $schedule->command('share-links:prune-open-logs')->daily();
     }
 
     /**

@@ -13,6 +13,7 @@ use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\NotificationService;
+use App\Services\Payments\HockeyListingPaymentDecider;
 use App\Services\Payments\HockeyListingPaymentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -119,7 +120,7 @@ class V4HockeyListingController extends Controller
             $result = $this->hockeyPayments->confirm($record, $user, $validated);
 
             // Side-effect notifications preserved from the previous implementation.
-            if ($result['code'] === \App\Services\Payments\HockeyListingPaymentDecider::CONFIRM_PROCEED
+            if ($result['code'] === HockeyListingPaymentDecider::CONFIRM_PROCEED
                 && ($result['is_parent_payer'] ?? false)) {
                 $req = $result['request'];
                 $req->loadMissing('notification');

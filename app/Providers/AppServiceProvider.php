@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\ErrorTrackerInterface;
+use App\Models\V4PlayerPortfolio;
+use App\Services\SentryErrorTracker;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +21,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Bind ErrorTracker interface to Sentry implementation
         $this->app->bind(
-            \App\Contracts\ErrorTrackerInterface::class,
-            \App\Services\SentryErrorTracker::class
+            ErrorTrackerInterface::class,
+            SentryErrorTracker::class
         );
     }
 
@@ -30,6 +34,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         require_once app_path() . '/Helpers/helpers.php';
+
+        // morphMap (NOT enforceMorphMap — existing polymorphic rows store FQCNs and must keep resolving)
+        Relation::morphMap([
+            'portfolio' => V4PlayerPortfolio::class,
+        ]);
 
         if (env('APP_DOMAIN') === '' || empty(env('APP_DOMAIN'))) {
             URL::forceScheme('https');

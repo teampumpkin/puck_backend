@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V4;
 use App\Constants\OtpProvider;
 use App\Constants\OtpType;
 use App\Contracts\ErrorTrackerInterface;
+use App\Helpers\ChatUserSyncHelper;
 use App\Http\Controllers\Controller;
 use App\Mail\SendOtpMail;
 use App\Models\V4Otp;
@@ -220,7 +221,7 @@ class V4AuthController extends Controller
 
             // Ensure user exists in chat microservice (upsert) so /conversation/create
             // does not 404 with "Users not found".
-            \App\Helpers\ChatUserSyncHelper::sync($user, $accessToken);
+            ChatUserSyncHelper::sync($user, $accessToken);
 
             $responseUser = [
                 'id' => $user->id,
@@ -411,7 +412,7 @@ class V4AuthController extends Controller
         $refreshToken = JWTAuth::claims(['type' => 'refresh'])->fromUser($user);
         JWTAuth::factory()->setTTL(config('jwt.ttl'));
 
-        \App\Helpers\ChatUserSyncHelper::sync($user, $accessToken);
+        ChatUserSyncHelper::sync($user, $accessToken);
 
         return response()->json([
             'access_token' => $accessToken,

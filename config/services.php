@@ -71,4 +71,7 @@ return [
     'hockey_listing' => [
         'fee_sku' => env('HOCKEY_LISTING_FEE_SKU'),
     ],
+    'share_link' => [
+        'base_url' => env('SHARE_LINK_BASE_URL', 'https://link.drafthouselabs.com'),
+    ],
 ];

@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+
+use App\Events\InvalidFcmToken;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification;
 use Kreait\Firebase\Messaging;
@@ -206,7 +208,7 @@ class PushNotificationHelper
             str_contains($error, 'invalid-argument')
         ) {
             Log::warning('Invalid Token', ['token' => $this->maskToken($token)]);
-            event(new \App\Events\InvalidFcmToken($token));
+            event(new InvalidFcmToken($token));
         }
     }
 

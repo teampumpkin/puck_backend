@@ -24,6 +24,9 @@ use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4PlayerPortfolioSub;
 use App\Models\V4UploadedMedia;
+use App\Models\V4ShareLink;
+use App\Models\V4ShareLinkLog;
+use App\Services\PortfolioPayloadBuilder;
 use Carbon\Carbon;
 use App\Models\V4User;
 use App\Models\V4InAppPurchase;
@@ -7482,74 +7485,38 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
-            $evaluations = [];
-            $achievements = [];
-            $media = [];
+            $payload = app(PortfolioPayloadBuilder::class)->build($portfolio);
 
-            foreach ($portfolio->subs as $sub) {
-                if (!$sub->subable)
-                    continue;
+            // Share status — owner/parent only (drives the app's revoke UI + "Shared by" row)
+            $isOwnerOrParent = $portfolio->player_id === $user->id
+                || optional($portfolio->player)->parent_id === $user->id;
 
-                switch ($sub->subable_type) {
-                    case Evaluation::class:
-                        $eval = $sub->subable;
-                        $eval->loadMissing(['submission.paymentRequest.inAppPurchase.marketplaceItem']);
-
-                        $inApp = $eval->submission->paymentRequest->inAppPurchase ?? null;
-                        $marketItem = $inApp->marketplaceItem ?? null;
-
-                        $evaluations[] = [
-                            'id' => $eval->id,
-                            'submission_id' => $eval->submission_id,
-                            'assignment_id' => $eval->assignment_id,
-                            'evaluator_id' => $eval->evaluator_id,
-                            'notes' => $eval->notes ?? null,
-                            'status' => $eval->status,
-                            'created_at' => optional($eval->created_at)->toISOString(),
-                            'updated_at' => optional($eval->updated_at)->toISOString(),
-                            'marketplace_title' => $inApp->title ?? "",
-                            'marketplace_type' => $marketItem->type ?? "",
-                            'in_app_purchase_sku' => $inApp->sku ?? "",
-                        ];
-                        break;
-
-                    case V4PlayerAchievement::class:
-                        $achievements[] = [
-                            'id' => $sub->subable->id,
-                            'title' => $sub->subable->title ?? "",
-                            'file_path' => $sub->subable->file_path ?? "",
-                            'details' => $sub->subable->details ?? null,
-                            'description' => $sub->subable->description ?? null,
-                        ];
-                        break;
-
-                    case V4UploadedMedia::class:
-                        $media[] = [
-                            'id' => $sub->subable->id,
-                            'file_path' => $sub->subable->file_path ?? "",
-                        ];
-                        break;
+            if ($isOwnerOrParent) {
+                $payload['share_link'] = null;
+                $activeLink = V4ShareLink::active()
+                    ->where('shareable_type', 'portfolio')
+                    ->where('shareable_id', $portfolio->id)
+                    ->with('creator')
+                    ->first();
+                if ($activeLink) {
+                    // shared_by: most recent 'shared' log actor; fallback to link creator
+                    $latestSharedLog = V4ShareLinkLog::where('share_link_id', $activeLink->id)
+                        ->where('action', 'shared')
+                        ->latest('created_at')
+                        ->first();
+                    $sharedBy = $latestSharedLog
+                        ? optional(V4User::find($latestSharedLog->user_id))->name
+                        : null;
+                    $sharedBy = $sharedBy ?? optional($activeLink->creator)->name;
+                    $payload['share_link'] = [
+                        'active' => true,
+                        'shared_by' => $sharedBy,
+                        'shared_at' => optional($activeLink->created_at)->toISOString(),
+                    ];
                 }
             }
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $portfolio->id,
-                    'player_id' => $portfolio->player_id,
-                    'player_name' => optional($portfolio->player)->name,
-                    'title' => $portfolio->title,
-                    'description' => $portfolio->description,
-                    'meta' => $portfolio->meta,
-                    'thumbnail_path' => $portfolio->thumbnail_path ?? $portfolio->thumbnail ?? null,
-                    'is_public' => (bool) $portfolio->is_public,
-                    'created_at' => optional($portfolio->created_at)->toISOString(),
-                    'updated_at' => optional($portfolio->updated_at)->toISOString(),
-                    'evaluations' => $evaluations,
-                    'achievements' => $achievements,
-                    'videos' => $media,
-                ],
-            ], 200);
+            return response()->json(['success' => true, 'data' => $payload], 200);
         } catch (Exception $e) {
             Log::error('Error fetching player hockey portfolio: ' . $e->getMessage());
 
@@ -8177,7 +8144,7 @@ class V4EvaluationController extends Controller
             ])
                 ->where('player_id', $playerId)
                 ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
-                    $q->where('type', '!=', \App\Constants\MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO);
+                    $q->where('type', '!=', MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO);
                 });
 
 
