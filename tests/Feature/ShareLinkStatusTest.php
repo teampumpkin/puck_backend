@@ -4,6 +4,7 @@
 namespace Tests\Feature;
 
 use App\Contracts\ErrorTrackerInterface;
+use App\Models\EvaluationSubmission;
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4User;
 use App\Services\LogErrorTracker;
@@ -32,7 +33,7 @@ class ShareLinkStatusTest extends TestCase
 
     private function makePortfolio(V4User $owner, array $attrs = []): V4PlayerPortfolio
     {
-        $submission = \App\Models\EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
+        $submission = EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
         return V4PlayerPortfolio::create(array_merge([
             'player_id' => $owner->id, 'submission_id' => $submission->id,
             'title' => 'T', 'is_public' => true,

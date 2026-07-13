@@ -6,6 +6,7 @@ use App\Constants\MarketplaceTypes;
 use App\Http\Controllers\Controller;
 use App\Models\AcademyMember;
 use App\Models\Evaluation;
+use App\Models\PlayerProfile;
 use App\Models\EvaluationSubmission;
 use App\Models\FavouriteUser;
 use App\Models\TeamMember;
@@ -872,7 +873,7 @@ class ProfileController extends Controller
                 ]);
 
                 // Create player profile with permissions
-                $playerProfile = new \App\Models\PlayerProfile();
+                $playerProfile = new PlayerProfile();
                 $playerProfile->v4_user_id = $child->id;
                 $playerProfile->gender = $validatedData['gender'];
                 $playerProfile->position = $validatedData['position'] ?? null;

@@ -24,6 +24,9 @@ use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4PlayerPortfolioSub;
 use App\Models\V4UploadedMedia;
+use App\Models\V4ShareLink;
+use App\Models\V4ShareLinkLog;
+use App\Services\PortfolioPayloadBuilder;
 use Carbon\Carbon;
 use App\Models\V4User;
 use App\Models\V4InAppPurchase;
@@ -7482,7 +7485,7 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
-            $payload = app(\App\Services\PortfolioPayloadBuilder::class)->build($portfolio);
+            $payload = app(PortfolioPayloadBuilder::class)->build($portfolio);
 
             // Share status — owner/parent only (drives the app's revoke UI + "Shared by" row)
             $isOwnerOrParent = $portfolio->player_id === $user->id
@@ -7490,19 +7493,19 @@ class V4EvaluationController extends Controller
 
             if ($isOwnerOrParent) {
                 $payload['share_link'] = null;
-                $activeLink = \App\Models\V4ShareLink::active()
+                $activeLink = V4ShareLink::active()
                     ->where('shareable_type', 'portfolio')
                     ->where('shareable_id', $portfolio->id)
                     ->with('creator')
                     ->first();
                 if ($activeLink) {
                     // shared_by: most recent 'shared' log actor; fallback to link creator
-                    $latestSharedLog = \App\Models\V4ShareLinkLog::where('share_link_id', $activeLink->id)
+                    $latestSharedLog = V4ShareLinkLog::where('share_link_id', $activeLink->id)
                         ->where('action', 'shared')
                         ->latest('created_at')
                         ->first();
                     $sharedBy = $latestSharedLog
-                        ? optional(\App\Models\V4User::find($latestSharedLog->user_id))->name
+                        ? optional(V4User::find($latestSharedLog->user_id))->name
                         : null;
                     $sharedBy = $sharedBy ?? optional($activeLink->creator)->name;
                     $payload['share_link'] = [
@@ -8141,7 +8144,7 @@ class V4EvaluationController extends Controller
             ])
                 ->where('player_id', $playerId)
                 ->whereHas('paymentRequest.inAppPurchase.marketplaceItems', function ($q) {
-                    $q->where('type', '!=', \App\Constants\MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO);
+                    $q->where('type', '!=', MarketplaceTypes::PROFESSIONAL_HOCKEY_PORTFOLIO);
                 });
 
 

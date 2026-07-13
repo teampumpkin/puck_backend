@@ -5,6 +5,8 @@ namespace Tests\Unit;
 
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4ShareLink;
+use App\Models\V4User;
+use App\Models\EvaluationSubmission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -15,10 +17,10 @@ class ShareLinkModelTest extends TestCase
 
     private function makePortfolio(): V4PlayerPortfolio
     {
-        $user = \App\Models\V4User::forceCreate([
+        $user = V4User::forceCreate([
             'email' => Str::random(8) . '@test.io', 'role' => 'player',
         ]);
-        $submission = \App\Models\EvaluationSubmission::forceCreate([
+        $submission = EvaluationSubmission::forceCreate([
             'player_id' => $user->id,
         ]);
         return V4PlayerPortfolio::create([

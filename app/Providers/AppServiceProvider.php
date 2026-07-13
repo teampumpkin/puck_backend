@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\ErrorTrackerInterface;
 use App\Models\V4PlayerPortfolio;
+use App\Services\SentryErrorTracker;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -19,8 +21,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Bind ErrorTracker interface to Sentry implementation
         $this->app->bind(
-            \App\Contracts\ErrorTrackerInterface::class,
-            \App\Services\SentryErrorTracker::class
+            ErrorTrackerInterface::class,
+            SentryErrorTracker::class
         );
     }
 

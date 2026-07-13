@@ -6,6 +6,7 @@ namespace Tests\Unit;
 use App\Models\V4PlayerPortfolio;
 use App\Models\V4ShareLink;
 use App\Models\V4ShareLinkLog;
+use App\Models\EvaluationSubmission;
 use App\Models\V4User;
 use App\Services\ShareLinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,7 +37,7 @@ class ShareLinkServiceTest extends TestCase
     private function makePortfolio(V4User $owner, bool $public = true): V4PlayerPortfolio
     {
         // ponytail: brief used 'user_id' but the column is 'player_id' — matches ShareLinkModelTest pattern
-        $submission = \App\Models\EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
+        $submission = EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
         return V4PlayerPortfolio::create([
             'player_id' => $owner->id, 'submission_id' => $submission->id,
             'title' => 'T', 'is_public' => $public,
