@@ -303,6 +303,10 @@ Route::prefix('v4')->group(function () {
     Route::middleware('throttle:share-open')
         ->post('/share-links/{token}/open', [V4ShareLinkController::class, 'logOpen']);
 
+    // Portfolio share link — public anonymous teaser for the web share page
+    Route::middleware('throttle:share-open')
+        ->get('/shared/{token}/preview', [V4ShareLinkController::class, 'previewShared']);
+
     Route::prefix('admin')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
