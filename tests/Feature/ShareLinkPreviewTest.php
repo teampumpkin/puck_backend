@@ -58,6 +58,7 @@ class ShareLinkPreviewTest extends TestCase
             ],
         ]);
         $this->assertSame(1, $res->json('data.counts.videos'));
+        $this->assertSame('portfolio', $res->json('data.shareable_type'));
 
         // allowlist: raw payload must not leak content or identifiers
         $raw = $res->getContent();

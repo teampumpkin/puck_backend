@@ -304,7 +304,7 @@ Route::prefix('v4')->group(function () {
         ->post('/share-links/{token}/open', [V4ShareLinkController::class, 'logOpen']);
 
     // Portfolio share link — public anonymous teaser for the web share page
-    Route::middleware('throttle:share-open')
+    Route::middleware('throttle:60,1')
         ->get('/shared/{token}/preview', [V4ShareLinkController::class, 'previewShared']);
 
     Route::prefix('admin')->group(function () {
