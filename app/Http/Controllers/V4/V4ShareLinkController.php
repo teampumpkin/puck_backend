@@ -110,6 +110,54 @@ class V4ShareLinkController extends Controller
         }
     }
 
+    public function previewShared(Request $request, string $token): JsonResponse
+    {
+        try {
+            $link = $this->shareLinks->resolve($token);
+
+            if (!$link) {
+                return response()->json(['success' => false, 'message' => 'Not found'], 404);
+            }
+
+            /** @var V4PlayerPortfolio $portfolio */
+            $portfolio = $link->shareable;
+            $portfolio->loadMissing(['subs', 'player']);
+
+            $counts = ['videos' => 0, 'evaluations' => 0, 'achievements' => 0];
+            foreach ($portfolio->subs as $sub) {
+                match ($sub->subable_type) {
+                    \App\Models\V4UploadedMedia::class => $counts['videos']++,
+                    \App\Models\Evaluation::class => $counts['evaluations']++,
+                    \App\Models\V4PlayerAchievement::class => $counts['achievements']++,
+                    default => null,
+                };
+            }
+
+            // Explicit allowlist for anonymous viewers — never serialize models here.
+            // Playable media and report content must stay behind auth (see design spec).
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'shareable_type' => $link->shareable_type,
+                    'player' => [
+                        'name' => optional($portfolio->player)->name,
+                        'avatar_url' => optional($portfolio->player)->profile_photo,
+                    ],
+                    'portfolio' => [
+                        'title' => $portfolio->title,
+                        'thumbnail_url' => $portfolio->thumbnail_path ?? null,
+                    ],
+                    'counts' => $counts,
+                ],
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('Error building share preview: ' . $e->getMessage());
+            $this->errorTracker->captureException($e, ['action' => __METHOD__]);
+
+            return response()->json(['success' => false, 'message' => 'Failed to load preview'], 500);
+        }
+    }
+
     public function logOpen(Request $request, string $token): Response
     {
         try {
