@@ -121,4 +121,50 @@ class PortfolioPayloadRegressionTest extends TestCase
         $response->assertStatus(404);
         $this->assertFalse($response->json('success'));
     }
+
+    public function test_get_all_hockey_portfolios_filters_private_portfolios_for_non_owners(): void
+    {
+        // Create player and a public + private portfolio
+        $owner = V4User::forceCreate([
+            'email' => Str::random(8) . '@test.io',
+            'role' => 'player',
+        ]);
+        $sub1 = EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
+        $sub2 = EvaluationSubmission::forceCreate(['player_id' => $owner->id]);
+
+        $publicPortfolio = V4PlayerPortfolio::create([
+            'player_id' => $owner->id,
+            'submission_id' => $sub1->id,
+            'title' => 'Public Portfolio',
+            'is_public' => true,
+        ]);
+
+        $privatePortfolio = V4PlayerPortfolio::create([
+            'player_id' => $owner->id,
+            'submission_id' => $sub2->id,
+            'title' => 'Private Portfolio',
+            'is_public' => false,
+        ]);
+
+        // 1. Owner requests all portfolios: should see both (2 total)
+        $responseOwner = $this->withHeaders($this->authAs($owner))
+            ->getJson("/api/v4/evaluation/get-all-hockey-portfolios/{$owner->id}");
+
+        $responseOwner->assertStatus(200);
+        $this->assertCount(2, $responseOwner->json('data.portfolios'));
+
+        // 2. Another user requests all portfolios: should see only the public one (1 total)
+        $other = V4User::forceCreate([
+            'email' => Str::random(8) . '@test.io',
+            'role' => 'player',
+        ]);
+
+        $responseOther = $this->withHeaders($this->authAs($other))
+            ->getJson("/api/v4/evaluation/get-all-hockey-portfolios/{$owner->id}");
+
+        $responseOther->assertStatus(200);
+        $portfoliosOther = $responseOther->json('data.portfolios');
+        $this->assertCount(1, $portfoliosOther);
+        $this->assertEquals('Public Portfolio', $portfoliosOther[0]['title']);
+    }
 }

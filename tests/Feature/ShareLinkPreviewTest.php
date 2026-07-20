@@ -68,6 +68,31 @@ class ShareLinkPreviewTest extends TestCase
         $this->assertStringNotContainsString($owner->email, $raw);
     }
 
+    public function test_preview_403s_when_portfolio_flipped_private_after_minting(): void
+    {
+        $owner = $this->makeUser();
+        $portfolio = $this->makePortfolio($owner);
+        $token = $this->mintToken($portfolio, $owner);
+        $portfolio->update(['is_public' => false]);
+
+        $res = $this->getJson("/api/v4/shared/{$token}/preview");
+
+        $res->assertStatus(403)->assertJson(['success' => false, 'reason' => 'portfolio_private']);
+        $this->assertStringNotContainsString($owner->first_name, $res->getContent());
+    }
+
+    public function test_preview_403s_when_profile_is_private(): void
+    {
+        $owner = $this->makeUser(['enable_private_account' => true]);
+        $portfolio = $this->makePortfolio($owner); // is_public = true
+        $token = $this->mintToken($portfolio, $owner);
+
+        $res = $this->getJson("/api/v4/shared/{$token}/preview");
+
+        $res->assertStatus(403)->assertJson(['success' => false, 'reason' => 'profile_private']);
+        $this->assertStringNotContainsString($owner->first_name, $res->getContent());
+    }
+
     public function test_preview_404s_identically_for_revoked_and_unknown(): void
     {
         $owner = $this->makeUser();
