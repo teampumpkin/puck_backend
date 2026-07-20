@@ -18,6 +18,20 @@ class ShareLinkService
         return $portfolio->player_id === $user->id || (bool) $portfolio->is_public;
     }
 
+    /**
+     * Owner can flip the portfolio or their whole profile private after a link
+     * was minted — active tokens must then stop resolving for viewers.
+     * Returns null when viewable, else 'profile_private' | 'portfolio_private'.
+     */
+    public function blockReason(V4PlayerPortfolio $portfolio): ?string
+    {
+        if (optional($portfolio->player)->enable_private_account) {
+            return 'profile_private';
+        }
+
+        return $portfolio->is_public ? null : 'portfolio_private';
+    }
+
     public function canRevokePortfolio(V4PlayerPortfolio $portfolio, V4User $user): bool
     {
         if ($portfolio->player_id === $user->id) {

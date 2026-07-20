@@ -7546,10 +7546,13 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
             }
 
+            $authUserId = Auth::guard('v4api')->id();
+
             // Fetch portfolios that are public or belong to the authenticated user
             $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
-                ->where(function ($q) use ($user) {
-                    $q->Where('player_id', $user->id);
+                ->where('player_id', $user->id)
+                ->when($authUserId !== $user->id, function ($q) {
+                    $q->where('is_public', true);
                 })
                 ->orderBy('created_at', 'desc')
                 ->get();

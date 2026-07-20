@@ -92,6 +92,12 @@ class V4ShareLinkController extends Controller
                 return response()->json(['success' => false, 'message' => 'Not found'], 404);
             }
 
+            /** @var V4PlayerPortfolio $shared */
+            $shared = $link->shareable;
+            if ($user?->id !== $shared->player_id && ($reason = $this->shareLinks->blockReason($shared))) {
+                return $this->privateResponse($reason);
+            }
+
             $this->shareLinks->logOpen($token, $request->query('r'), $user?->id);
 
             // shareable_type is the morph alias ('portfolio') — never a class name
@@ -122,6 +128,10 @@ class V4ShareLinkController extends Controller
             /** @var V4PlayerPortfolio $portfolio */
             $portfolio = $link->shareable;
             $portfolio->loadMissing(['subs', 'player']);
+
+            if ($reason = $this->shareLinks->blockReason($portfolio)) {
+                return $this->privateResponse($reason);
+            }
 
             $counts = ['videos' => 0, 'evaluations' => 0, 'achievements' => 0];
             foreach ($portfolio->subs as $sub) {
@@ -156,6 +166,16 @@ class V4ShareLinkController extends Controller
 
             return response()->json(['success' => false, 'message' => 'Failed to load preview'], 500);
         }
+    }
+
+    // 403 body is a fixed allowlist — no player name or identifiers on private content
+    private function privateResponse(string $reason): JsonResponse
+    {
+        $message = $reason === 'profile_private'
+            ? "This player's profile is private"
+            : 'This portfolio is private';
+
+        return response()->json(['success' => false, 'message' => $message, 'reason' => $reason], 403);
     }
 
     public function logOpen(Request $request, string $token): Response
