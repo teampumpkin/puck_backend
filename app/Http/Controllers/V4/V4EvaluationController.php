@@ -7480,17 +7480,17 @@ class V4EvaluationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Portfolio not found'], 404);
             }
 
-            // Access permission: owner OR public
-            if ($portfolio->player_id !== $user->id && !(bool) $portfolio->is_public) {
+            // Access permission: owner, parent of owner, or public
+            $isOwnerOrParent = $portfolio->player_id === $user->id
+                || optional($portfolio->player)->parent_id === $user->id;
+
+            if (!$isOwnerOrParent && !(bool) $portfolio->is_public) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
             $payload = app(PortfolioPayloadBuilder::class)->build($portfolio);
 
             // Share status — owner/parent only (drives the app's revoke UI + "Shared by" row)
-            $isOwnerOrParent = $portfolio->player_id === $user->id
-                || optional($portfolio->player)->parent_id === $user->id;
-
             if ($isOwnerOrParent) {
                 $payload['share_link'] = null;
                 $activeLink = V4ShareLink::active()
@@ -7548,10 +7548,12 @@ class V4EvaluationController extends Controller
 
             $authUserId = Auth::guard('v4api')->id();
 
-            // Fetch portfolios that are public or belong to the authenticated user
+            // Owner and their parent see private portfolios; everyone else public only
+            $isOwnerOrParent = $authUserId === $user->id || $user->parent_id === $authUserId;
+
             $portfolios = V4PlayerPortfolio::with(['subs.subable', 'player'])
                 ->where('player_id', $user->id)
-                ->when($authUserId !== $user->id, function ($q) {
+                ->when(!$isOwnerOrParent, function ($q) {
                     $q->where('is_public', true);
                 })
                 ->orderBy('created_at', 'desc')

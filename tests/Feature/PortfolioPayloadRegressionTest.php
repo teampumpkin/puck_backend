@@ -167,4 +167,52 @@ class PortfolioPayloadRegressionTest extends TestCase
         $this->assertCount(1, $portfoliosOther);
         $this->assertEquals('Public Portfolio', $portfoliosOther[0]['title']);
     }
+
+    public function test_parent_sees_private_portfolios_of_their_child(): void
+    {
+        [$owner, $portfolio] = $this->makeOwnerWithPortfolio();
+        $portfolio->update(['is_public' => false]);
+
+        $parent = V4User::forceCreate([
+            'email' => Str::random(8) . '@test.io',
+            'role' => 'parent',
+        ]);
+        $owner->update(['parent_id' => $parent->id]);
+
+        // List: parent sees the private portfolio
+        $responseList = $this->withHeaders($this->authAs($parent))
+            ->getJson("/api/v4/evaluation/get-all-hockey-portfolios/{$owner->id}");
+
+        $responseList->assertStatus(200);
+        $this->assertCount(1, $responseList->json('data.portfolios'));
+
+        // Detail: parent gets 200, not 403
+        $responseDetail = $this->withHeaders($this->authAs($parent))
+            ->getJson("/api/v4/evaluation/get-hockey-portfolio/{$portfolio->id}");
+
+        $responseDetail->assertStatus(200);
+        $this->assertSame($portfolio->id, $responseDetail->json('data.id'));
+    }
+
+    public function test_unrelated_parent_cannot_see_private_portfolios(): void
+    {
+        [$owner, $portfolio] = $this->makeOwnerWithPortfolio();
+        $portfolio->update(['is_public' => false]);
+
+        $stranger = V4User::forceCreate([
+            'email' => Str::random(8) . '@test.io',
+            'role' => 'parent',
+        ]);
+
+        $responseList = $this->withHeaders($this->authAs($stranger))
+            ->getJson("/api/v4/evaluation/get-all-hockey-portfolios/{$owner->id}");
+
+        $responseList->assertStatus(200);
+        $this->assertCount(0, $responseList->json('data.portfolios'));
+
+        $responseDetail = $this->withHeaders($this->authAs($stranger))
+            ->getJson("/api/v4/evaluation/get-hockey-portfolio/{$portfolio->id}");
+
+        $responseDetail->assertStatus(403);
+    }
 }
