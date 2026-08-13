@@ -550,6 +550,17 @@ Route::prefix('v4')->group(function () {
                 Route::patch('{listing}/mark-sold', [V4AdminHockeyListingController::class, 'markSold']);
                 Route::patch('{listing}/mark-available', [V4AdminHockeyListingController::class, 'markAvailable']);
             });
+
+            // Events (Admin)
+            Route::prefix('events')->group(function () {
+                Route::get('stats', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'stats']);
+                Route::get('/', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'index']);
+                Route::get('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'show']);
+                Route::get('{id}/members', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'members']);
+                Route::post('{id}/cancel', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'cancel']);
+                Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'destroy']);
+                Route::post('{id}/restore', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'restore']);
+            });
         });
     });
 
