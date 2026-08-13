@@ -6,6 +6,7 @@ use App\Constants\EventTypes;
 use App\Http\Controllers\Controller;
 use App\Models\V4Event;
 use App\Models\V4EventMedia;
+use App\Models\V4EventMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -89,6 +90,83 @@ class V4EventController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $q = V4Event::query()->published()->where('user_id', '!=', $user->id);
+
+        if ($s = $request->input('search')) {
+            $q->where(function ($w) use ($s) {
+                $w->where('name', 'ilike', "%$s%")
+                    ->orWhere('city', 'ilike', "%$s%")
+                    ->orWhere('event_type', 'ilike', "%$s%");
+            });
+        }
+        if ($t = $request->input('event_type')) {
+            $q->where('event_type', $t);
+        }
+        foreach (['country', 'province', 'city'] as $f) {
+            if ($v = $request->input($f)) {
+                $q->where($f, $v);
+            }
+        }
+        foreach (['scout_leagues', 'positions'] as $col) {
+            $vals = (array) $request->input($col, []);
+            if ($vals) {
+                $q->where(function ($w) use ($col, $vals) {
+                    foreach ($vals as $v) {
+                        $w->orWhereJsonContains($col, $v);
+                    }
+                });
+            }
+        }
+        $tab = $request->input('tab', 'ongoing');
+        $q->where('end_at', $tab === 'completed' ? '<=' : '>', now());
+
+        return $this->paginatedResponse($q->orderByDesc('start_at')->paginate((int) $request->input('per_page', 15)));
+    }
+
+    public function myEvents(Request $request): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $status = $request->input('status', 'ongoing');
+        $q = V4Event::query()->where('user_id', $user->id);
+        if ($status === 'completed') {
+            $q->where(function ($w) {
+                $w->where('end_at', '<=', now())->orWhere('status', V4Event::STATUS_CANCELLED);
+            });
+        } else {
+            $q->where('end_at', '>', now())->where('status', '!=', V4Event::STATUS_CANCELLED);
+        }
+
+        return $this->paginatedResponse($q->orderByDesc('start_at')->paginate((int) $request->input('per_page', 15)));
+    }
+
+    public function show(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $data = $this->formatEvent($event->load('media'));
+        $data['is_owner'] = $event->user_id === $user->id;
+        $data['is_joined'] = $event->latestActionFor($user->id) === V4EventMember::ACTION_JOIN;
+        $data['joined_count'] = $event->attendeeCount();
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    private function paginatedResponse($page): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => collect($page->items())->map(fn ($e) => $this->formatEvent($e->load('media')))->all(),
+            'pagination' => [
+                'current_page' => $page->currentPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+                'has_more_pages' => $page->hasMorePages(),
+            ],
+        ]);
     }
 
     public function formatEvent(V4Event $e): array
