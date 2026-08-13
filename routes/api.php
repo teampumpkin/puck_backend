@@ -910,6 +910,25 @@ Route::prefix('v4')->group(function () {
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
         });
 
+        // Events
+        Route::prefix('events')->group(function () {
+            Route::get('/', [\App\Http\Controllers\V4\V4EventController::class, 'index']);
+            Route::get('my-events', [\App\Http\Controllers\V4\V4EventController::class, 'myEvents']);
+            Route::post('/', [\App\Http\Controllers\V4\V4EventController::class, 'store']);
+            Route::get('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'show']);
+            Route::put('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'update']);
+            Route::delete('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'destroy']);
+            Route::post('{event}/cancel', [\App\Http\Controllers\V4\V4EventController::class, 'cancel']);
+            Route::post('{event}/join', [\App\Http\Controllers\V4\V4EventController::class, 'join']);
+            Route::post('{event}/leave', [\App\Http\Controllers\V4\V4EventController::class, 'leave']);
+            Route::get('{event}/members', [\App\Http\Controllers\V4\V4EventController::class, 'members']);
+            Route::post('{event}/initiate-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'initiatePayment']);
+            Route::post('{event}/confirm-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'confirmPayment']);
+            Route::post('{event}/reject-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'rejectPayment']);
+            Route::get('{event}/payment-status', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'paymentStatus']);
+            Route::get('{event}/parent-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'parentPayment']);
+        });
+
         // Portfolio sharing (smart links)
         Route::post('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'sharePortfolio'])->whereNumber('portfolioId');
         Route::delete('/portfolios/{portfolioId}/share', [V4ShareLinkController::class, 'revokePortfolioShare'])->whereNumber('portfolioId');
