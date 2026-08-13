@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V4;
 
 use App\Constants\EventTypes;
 use App\Http\Controllers\Controller;
+use App\Jobs\NotifyEventMembers;
 use App\Models\V4Event;
 use App\Models\V4EventMedia;
 use App\Models\V4EventMember;
@@ -169,6 +170,94 @@ class V4EventController extends Controller
                 'has_more_pages' => $page->hasMorePages(),
             ],
         ]);
+    }
+
+    private function assertOwner(V4Event $event, $user): void
+    {
+        abort_if($event->user_id !== $user->id, 403, 'Forbidden.');
+    }
+
+    public function update(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $this->assertOwner($event, $user);
+        try {
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'description' => 'sometimes|string',
+                'start_at' => 'sometimes|date',
+                'end_at' => 'sometimes|date|after:start_at',
+                'registration_deadline' => 'nullable|date|before_or_equal:start_at',
+                'venue' => 'nullable|string',
+                'cost_person_cents' => 'nullable|integer|min:0',
+                'scout_leagues' => 'nullable|array',
+                'positions' => 'nullable|array',
+                'birth_years' => 'nullable|array',
+                'add_media' => 'nullable|array',
+                'add_media.*' => 'file|max:102400',
+                'add_media_types' => 'nullable|array',
+                'remove_media_ids' => 'nullable|array',
+            ]);
+
+            $keep = $event->media()->whereNotIn('id', (array) $request->input('remove_media_ids', []))->count();
+            $adding = count((array) $request->file('add_media', []));
+            if ($keep + $adding > 10) {
+                return response()->json(['success' => false, 'message' => 'Media limit is 10.'], 422);
+            }
+
+            DB::beginTransaction();
+            $event->update(collect($validated)->except(['add_media', 'add_media_types', 'remove_media_ids'])->toArray());
+            if ($ids = (array) $request->input('remove_media_ids', [])) {
+                $event->media()->whereIn('id', $ids)->delete();
+            }
+            foreach ((array) $request->file('add_media', []) as $i => $file) {
+                $path = $file->store("events/{$event->id}", 's3');
+                V4EventMedia::create([
+                    'event_id' => $event->id,
+                    'media_type' => $request->input("add_media_types.$i", 'image'),
+                    'url' => Storage::disk('s3')->url($path),
+                    'sort_order' => ((int) $event->media()->max('sort_order')) + 1,
+                ]);
+            }
+            DB::commit();
+
+            return response()->json(['success' => true, 'data' => $this->formatEvent($event->fresh('media'))]);
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Event update failed', ['e' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Failed to update event.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+        }
+    }
+
+    public function cancel(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $this->assertOwner($event, $user);
+        $validated = $request->validate(['reason' => 'required|string|max:1000']);
+        $event->update([
+            'status' => V4Event::STATUS_CANCELLED,
+            'cancelled_at' => now(),
+            'cancel_reason' => $validated['reason'],
+        ]);
+        NotifyEventMembers::dispatch($event->id, 'event_cancelled', $validated['reason']);
+
+        return response()->json(['success' => true, 'message' => 'Event cancelled.']);
+    }
+
+    public function destroy(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $this->assertOwner($event, $user);
+        $validated = $request->validate(['reason' => 'required|string|max:1000']);
+        $event->update(['delete_reason' => $validated['reason']]);
+        NotifyEventMembers::dispatch($event->id, 'event_deleted', $validated['reason']);
+        $event->delete();
+
+        return response()->json(['success' => true, 'message' => 'Event deleted.']);
     }
 
     public function join(Request $request, V4Event $event): JsonResponse
