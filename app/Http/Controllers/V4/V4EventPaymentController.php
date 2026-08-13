@@ -59,6 +59,11 @@ class V4EventPaymentController extends Controller
 
     public function paymentStatus(Request $request, V4Event $event): JsonResponse
     {
+        $user = Auth::guard('v4api')->user();
+        $parentId = (int) optional($event->paymentRequest)->parent_id;
+        if ((int) $event->user_id !== (int) $user->id && $parentId !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
+        }
         $result = $this->service->status($event);
 
         return response()->json($result['payload'], $result['http']);

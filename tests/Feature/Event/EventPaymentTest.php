@@ -102,6 +102,19 @@ class EventPaymentTest extends TestCase
         $this->assertSame(V4Event::STATUS_PUBLISHED, $event->fresh()->status);
     }
 
+    public function test_payment_status_requires_owner_or_parent(): void
+    {
+        $owner = $this->makeUser();
+        $event = $this->draftEvent($owner);
+
+        $this->withHeaders($this->authAs($owner))
+            ->getJson("/api/v4/events/{$event->id}/payment-status")->assertStatus(200);
+
+        // a stranger cannot read another user's event payment status
+        $this->withHeaders($this->authAs($this->makeUser()))
+            ->getJson("/api/v4/events/{$event->id}/payment-status")->assertStatus(403);
+    }
+
     public function test_reject_keeps_event_unpublished(): void
     {
         $parent = $this->makeUser();
