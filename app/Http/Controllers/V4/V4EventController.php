@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\V4Event;
 use App\Models\V4EventMedia;
 use App\Models\V4EventMember;
+use App\Models\V4User;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -167,6 +169,80 @@ class V4EventController extends Controller
                 'has_more_pages' => $page->hasMorePages(),
             ],
         ]);
+    }
+
+    public function join(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        if ($event->user_id === $user->id) {
+            return response()->json(['success' => false, 'message' => "You can't join your own event."], 403);
+        }
+        if ($event->status !== V4Event::STATUS_PUBLISHED) {
+            return response()->json(['success' => false, 'message' => 'Event is not open to join.'], 409);
+        }
+        if ($event->end_at && $event->end_at->isPast()) {
+            return response()->json(['success' => false, 'message' => 'Event has ended.'], 409);
+        }
+        $cutoff = $event->registration_deadline ?? $event->end_at;
+        if ($cutoff && now()->greaterThanOrEqualTo($cutoff)) {
+            return response()->json(['success' => false, 'message' => 'Registration is closed.'], 409);
+        }
+
+        $everJoined = $event->memberActions()->where('user_id', $user->id)
+            ->where('action', V4EventMember::ACTION_JOIN)->exists();
+
+        if ($event->latestActionFor($user->id) !== V4EventMember::ACTION_JOIN) {
+            V4EventMember::create(['event_id' => $event->id, 'user_id' => $user->id, 'action' => V4EventMember::ACTION_JOIN]);
+            if (! $everJoined) {
+                try {
+                    app(NotificationService::class)->sendToUserWithImage(
+                        $event->creator,
+                        'New event join',
+                        "{$user->first_name} joined \"{$event->name}\".",
+                        $event->media()->first()->url ?? '',
+                        [],
+                        'event_member_joined',
+                        "/events/detail/{$event->id}"
+                    );
+                } catch (\Exception $e) {
+                    Log::error('Event join notify failed', ['e' => $e->getMessage()]);
+                }
+            }
+        }
+
+        return response()->json(['success' => true, 'data' => [
+            'member_state' => 'joined', 'is_joined' => true, 'joined_count' => $event->attendeeCount(),
+        ]]);
+    }
+
+    public function leave(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        if ($event->status === V4Event::STATUS_CANCELLED) {
+            return response()->json(['success' => false, 'message' => 'Event is cancelled.'], 409);
+        }
+        if ($event->latestActionFor($user->id) !== V4EventMember::ACTION_JOIN) {
+            return response()->json(['success' => false, 'message' => 'You are not a member.'], 409);
+        }
+        V4EventMember::create(['event_id' => $event->id, 'user_id' => $user->id, 'action' => V4EventMember::ACTION_LEAVE]);
+
+        return response()->json(['success' => true, 'data' => [
+            'member_state' => 'left', 'is_joined' => false, 'joined_count' => $event->attendeeCount(),
+        ]]);
+    }
+
+    public function members(Request $request, V4Event $event): JsonResponse
+    {
+        $user = Auth::guard('v4api')->user();
+        $isAdmin = ($user->role ?? null) === 'admin';
+        if ($event->user_id !== $user->id && ! $isAdmin) {
+            return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
+        }
+        $current = V4User::whereIn('id', $event->currentMemberIds())->get(['id', 'first_name', 'last_name', 'email']);
+        $history = $event->memberActions()->with('user:id,first_name,last_name')
+            ->orderByDesc('id')->get(['id', 'user_id', 'action', 'created_at']);
+
+        return response()->json(['success' => true, 'data' => ['current' => $current, 'history' => $history]]);
     }
 
     public function formatEvent(V4Event $e): array
