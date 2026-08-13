@@ -73,4 +73,34 @@ class V4Event extends Model
     {
         return $query->where('status', self::STATUS_PUBLISHED);
     }
+
+    /**
+     * user_ids whose latest action row is a join (Postgres distinct-on).
+     *
+     * @return array<int>
+     */
+    public function currentMemberIds(): array
+    {
+        return $this->memberActions()
+            ->selectRaw('distinct on (user_id) user_id, action')
+            ->orderBy('user_id')
+            ->orderByDesc('id')
+            ->get()
+            ->where('action', V4EventMember::ACTION_JOIN)
+            ->pluck('user_id')
+            ->all();
+    }
+
+    public function attendeeCount(): int
+    {
+        return count($this->currentMemberIds());
+    }
+
+    public function latestActionFor(int $userId): ?string
+    {
+        return $this->memberActions()
+            ->where('user_id', $userId)
+            ->orderByDesc('id')
+            ->value('action');
+    }
 }
