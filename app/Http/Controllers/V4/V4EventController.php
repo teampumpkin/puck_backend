@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\V4;
 
-use App\Constants\EventTypes;
 use App\Http\Controllers\Controller;
 use App\Jobs\NotifyEventMembers;
 use App\Models\V4Event;
 use App\Models\V4EventMedia;
 use App\Models\V4EventMember;
+use App\Models\V4EventType;
 use App\Models\V4User;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -16,16 +16,23 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class V4EventController extends Controller
 {
+    /** Active event type names (cached). Mobile fetches + caches this. */
+    public function types(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => V4EventType::activeNames()]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         try {
             $user = Auth::guard('v4api')->user();
             $validated = $request->validate([
-                'event_type' => 'required|string|in:'.implode(',', EventTypes::all()),
+                'event_type' => ['required', 'string', Rule::in(V4EventType::activeNames())],
                 'name' => 'required|string|max:255',
                 'description' => 'required|string',
                 'start_at' => 'required|date',

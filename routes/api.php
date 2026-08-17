@@ -561,6 +561,14 @@ Route::prefix('v4')->group(function () {
                 Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'destroy']);
                 Route::post('{id}/restore', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'restore']);
             });
+
+            // Event Types (Admin, editable lookup)
+            Route::prefix('event-types')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'index']);
+                Route::post('/', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'store']);
+                Route::put('{id}', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'update']);
+                Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'destroy']);
+            });
         });
     });
 
@@ -924,6 +932,7 @@ Route::prefix('v4')->group(function () {
         // Events
         Route::prefix('events')->group(function () {
             Route::get('/', [\App\Http\Controllers\V4\V4EventController::class, 'index']);
+            Route::get('types', [\App\Http\Controllers\V4\V4EventController::class, 'types']);
             Route::get('my-events', [\App\Http\Controllers\V4\V4EventController::class, 'myEvents']);
             Route::post('/', [\App\Http\Controllers\V4\V4EventController::class, 'store']);
             Route::get('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'show']);

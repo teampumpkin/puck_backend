@@ -35,5 +35,6 @@ class DatabaseSeeder extends Seeder
         $this->call(V4BanReasonSeeder::class);
         $this->call(V4SuspendReasonSeeder::class);
         $this->call(HockeyListingFeeSeeder::class);
+        $this->call(V4EventTypeSeeder::class);
     }
 }
