@@ -151,7 +151,16 @@ class V4EventController extends Controller
             $q->where('end_at', '>', now())->where('status', '!=', V4Event::STATUS_CANCELLED);
         }
 
-        return $this->paginatedResponse($q->orderByDesc('start_at')->paginate((int) $request->input('per_page', 15)));
+        // Whitelisted sort; default = newest created first. `id` tiebreaker keeps
+        // pagination stable when two rows share a created_at.
+        [$col, $dir] = match ($request->input('sort', 'created_desc')) {
+            'created_asc' => ['created_at', 'asc'],
+            default => ['created_at', 'desc'],
+        };
+
+        return $this->paginatedResponse(
+            $q->orderBy($col, $dir)->orderByDesc('id')->paginate((int) $request->input('per_page', 15))
+        );
     }
 
     public function show(Request $request, V4Event $event): JsonResponse
@@ -167,9 +176,24 @@ class V4EventController extends Controller
 
     private function paginatedResponse($page): JsonResponse
     {
+        // Stamp is_owner/is_joined on every list item (same as show()) so the
+        // detail page, which paints the passed list model before its own fresh
+        // fetch resolves, never flashes the wrong CTA (e.g. Apply on your own
+        // event). formatEvent alone omits these viewer-relative flags.
+        // ponytail: is_joined is one latestActionFor query per row (page size
+        // ~15); batch by event if a page ever grows large.
+        $userId = optional(Auth::guard('v4api')->user())->id;
+
         return response()->json([
             'success' => true,
-            'data' => collect($page->items())->map(fn ($e) => $this->formatEvent($e->load('media')))->all(),
+            'data' => collect($page->items())->map(function ($e) use ($userId) {
+                $d = $this->formatEvent($e->load('media'));
+                $d['is_owner'] = $userId !== null && $e->user_id === $userId;
+                $d['is_joined'] = $userId !== null
+                    && $e->latestActionFor($userId) === V4EventMember::ACTION_JOIN;
+
+                return $d;
+            })->all(),
             'pagination' => [
                 'current_page' => $page->currentPage(),
                 'per_page' => $page->perPage(),

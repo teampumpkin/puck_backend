@@ -73,7 +73,6 @@ return [
     ],
     'event' => [
         'fee_sku' => env('EVENT_PLATFORM_FEE_SKU', 'event_platform_fee'),
-        'fee_amount_cents' => (int) env('EVENT_PLATFORM_FEE_AMOUNT_CENTS', 0),
     ],
     'share_link' => [
         'base_url' => env('SHARE_LINK_BASE_URL', 'https://link.drafthouselabs.com'),
