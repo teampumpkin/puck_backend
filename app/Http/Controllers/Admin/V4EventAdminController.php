@@ -13,9 +13,20 @@ class V4EventAdminController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = $request->boolean('include_deleted') ? V4Event::withTrashed() : V4Event::query();
+        if ($request->boolean('deleted_only')) {
+            $q = V4Event::onlyTrashed();
+        } elseif ($request->boolean('include_deleted')) {
+            $q = V4Event::withTrashed();
+        } else {
+            $q = V4Event::query();
+        }
         if ($s = $request->input('search')) {
-            $q->where('name', 'ilike', "%$s%");
+            $q->where(function ($w) use ($s) {
+                $w->where('name', 'ilike', "%$s%")
+                    ->orWhere('city', 'ilike', "%$s%")
+                    ->orWhere('province', 'ilike', "%$s%")
+                    ->orWhere('event_type', 'ilike', "%$s%");
+            });
         }
         if ($status = $request->input('status')) {
             $q->where('status', $status);
@@ -70,6 +81,29 @@ class V4EventAdminController extends Controller
             'current' => V4User::whereIn('id', $event->currentMemberIds())->get(['id', 'first_name', 'last_name', 'email']),
             'history' => $event->memberActions()->orderByDesc('id')->get(['id', 'user_id', 'action', 'created_at']),
         ]]);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $event = V4Event::withTrashed()->findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'event_type' => 'sometimes|string|max:255',
+            'description' => 'sometimes|nullable|string',
+            'start_at' => 'sometimes|date',
+            'end_at' => 'sometimes|date|after:start_at',
+            'registration_deadline' => 'sometimes|nullable|date|before_or_equal:start_at',
+            'country' => 'sometimes|nullable|string|max:255',
+            'province' => 'sometimes|nullable|string|max:255',
+            'city' => 'sometimes|nullable|string|max:255',
+            'venue' => 'sometimes|nullable|string|max:255',
+            'cost_person_cents' => 'sometimes|nullable|integer|min:0',
+            'age_min' => 'sometimes|nullable|integer|min:0',
+            'age_max' => 'sometimes|nullable|integer|min:0|gte:age_min',
+        ]);
+        $event->update($validated);
+
+        return response()->json(['success' => true, 'data' => $event->fresh()]);
     }
 
     public function cancel(Request $request, int $id): JsonResponse

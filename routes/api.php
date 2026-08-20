@@ -557,6 +557,7 @@ Route::prefix('v4')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'index']);
                 Route::get('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'show']);
                 Route::get('{id}/members', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'members']);
+                Route::put('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'update']);
                 Route::post('{id}/cancel', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'cancel']);
                 Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'destroy']);
                 Route::post('{id}/restore', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'restore']);
