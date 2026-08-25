@@ -97,11 +97,12 @@ class V4AuthController extends Controller
                 'player1@yopmail.com',
                 'team1@yopmail.com',
                 'coach1@yopmail.com',
+                'coach1@tp.com',
                 'scout1@yopmail.com',
                 'organizer1@yopmail.com',
                 'parent1@yopmail.com',
                 'fan1@yopmail.com',
-                'academy1@yopmail.com',
+                'academy1@yopmail.com', // used by academy_*.yaml Maestro suite (academy Events tab)
                 'advisor1@yopmail.com',
                 'justpraveen55@gmail.com',
                 'praveenpandiyan1704@gmail.com',
@@ -109,7 +110,9 @@ class V4AuthController extends Controller
                 'praveenjp1704@gmail.com',
                 'evaluator1@yopmail.com',
                 'play26@gmail.com',
-                'player13@gmail.com'
+                'player13@gmail.com',
+                'scout13@gmail.com', // added for scout_*.yaml Maestro suite (scout Events tab)
+                'team1@tp.com' // added for team_*.yaml Maestro suite (onboarded team, owns seeded events)
                 // Add more test emails here as needed
             ];
 

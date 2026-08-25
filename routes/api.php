@@ -299,6 +299,13 @@ Route::prefix('v4')->group(function () {
         Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
     });
 
+    // Public events browse (no auth required) — mirrors hockey-listings/nearby
+    // so guests can browse events before signing up. Detail/join/etc. stay authed.
+    Route::prefix('events')->group(function () {
+        Route::get('/', [\App\Http\Controllers\V4\V4EventController::class, 'index']);
+        Route::get('types', [\App\Http\Controllers\V4\V4EventController::class, 'types']);
+    });
+
     // Portfolio share link — public open logging (fired by link.drafthouselabs.com)
     Route::middleware('throttle:share-open')
         ->post('/share-links/{token}/open', [V4ShareLinkController::class, 'logOpen']);
@@ -930,10 +937,8 @@ Route::prefix('v4')->group(function () {
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
         });
 
-        // Events
+        // Events (index + types are registered publicly above)
         Route::prefix('events')->group(function () {
-            Route::get('/', [\App\Http\Controllers\V4\V4EventController::class, 'index']);
-            Route::get('types', [\App\Http\Controllers\V4\V4EventController::class, 'types']);
             Route::get('my-events', [\App\Http\Controllers\V4\V4EventController::class, 'myEvents']);
             Route::post('/', [\App\Http\Controllers\V4\V4EventController::class, 'store']);
             Route::get('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'show']);

@@ -36,7 +36,7 @@ class V4EventController extends Controller
                 'name' => 'required|string|max:255',
                 'description' => 'required|string',
                 'start_at' => 'required|date',
-                'end_at' => 'required|date|after:start_at',
+                'end_at' => 'required|date|after_or_equal:start_at',
                 'registration_deadline' => 'nullable|date|before_or_equal:start_at',
                 'payment_deadline' => 'nullable|date|before_or_equal:start_at',
                 'country' => 'required|string',
@@ -104,8 +104,13 @@ class V4EventController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        // Browse is public (guests can view before signing up), so $user may be
+        // null — only exclude the viewer's own events when logged in.
         $user = Auth::guard('v4api')->user();
-        $q = V4Event::query()->published()->where('user_id', '!=', $user->id);
+        $q = V4Event::query()->published();
+        if ($user) {
+            $q->where('user_id', '!=', $user->id);
+        }
 
         if ($s = $request->input('search')) {
             $q->where(function ($w) use ($s) {
@@ -214,16 +219,35 @@ class V4EventController extends Controller
         $this->assertOwner($event, $user);
         try {
             $validated = $request->validate([
+                'event_type' => ['sometimes', 'string', Rule::in(V4EventType::activeNames())],
                 'name' => 'sometimes|string|max:255',
                 'description' => 'sometimes|string',
                 'start_at' => 'sometimes|date',
-                'end_at' => 'sometimes|date|after:start_at',
+                'end_at' => 'sometimes|date|after_or_equal:start_at',
                 'registration_deadline' => 'nullable|date|before_or_equal:start_at',
+                'payment_deadline' => 'nullable|date|before_or_equal:start_at',
+                'country' => 'sometimes|string',
+                'province' => 'sometimes|string',
+                'city' => 'sometimes|string',
                 'venue' => 'nullable|string',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
+                'age_min' => 'nullable|integer',
+                'age_max' => 'nullable|integer',
+                'age_division' => 'nullable|string',
                 'cost_person_cents' => 'nullable|integer|min:0',
+                'special_qualification' => 'nullable|string',
+                'coordinator_name' => 'nullable|string',
+                'business_name' => 'nullable|string',
+                'contact_email' => 'nullable|email',
+                'contact_phone' => 'nullable|string',
+                'website_url' => 'nullable|string',
+                'social_links' => 'nullable|array',
                 'scout_leagues' => 'nullable|array',
                 'positions' => 'nullable|array',
                 'birth_years' => 'nullable|array',
+                'league' => 'nullable|string',
+                'team' => 'nullable|string',
                 'add_media' => 'nullable|array',
                 'add_media.*' => 'file|max:102400',
                 'add_media_types' => 'nullable|array',

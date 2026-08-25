@@ -78,7 +78,7 @@ class EventPaymentService
         if ($isChild) {
             $this->notify($actor->parent, 'Event payment request',
                 "{$actor->first_name} needs approval to publish \"{$event->name}\".",
-                $event, 'event_payment_request', "/events/parent-payment/{$event->id}");
+                $event, 'event_payment_request', "/events/parent-payment/{$event->id}", $request);
         }
 
         return ['http' => 200, 'payload' => ['success' => true, 'data' => [
@@ -108,7 +108,15 @@ class EventPaymentService
             return ['http' => 403, 'payload' => ['success' => false, 'message' => 'Unauthorized.']];
         }
 
-        $source = $receipt['source'] ?? 'internal';
+        // Terminal states are not confirmable — a declined/failed request must be
+        // restarted via initiate, never re-confirmed into a published event.
+        if (in_array($request->status, [V4PaymentRequest::STATUS_PARENT_REJECTED, V4PaymentRequest::STATUS_FAILED], true)) {
+            return ['http' => 409, 'payload' => ['success' => false, 'message' => 'This payment request was declined or failed. Please start a new payment.']];
+        }
+
+        // Client always sends a real platform (ios/android/web/...); mirror its own
+        // fallback rather than fabricating a non-platform 'internal' value.
+        $source = $receipt['source'] ?? 'android';
         $purchaseId = $receipt['purchase_id'] ?? null;
 
         // Idempotent: already published.
@@ -139,6 +147,17 @@ class EventPaymentService
         });
 
         if ($request->parent_id) {
+            // Clear the parent's pending approval notification (mirrors hockey/marketplace),
+            // then record the approval for BOTH the parent (approver) and child (creator).
+            $request->loadMissing('notification');
+            if ($request->notification) {
+                $request->notification->delete();
+            }
+            // Approved record -> parent (approver)
+            $this->notify($request->parent, 'Event payment approved',
+                "You approved the fee for \"{$event->name}\". It is now live.",
+                $event, 'event_payment_approved', "/events/detail/{$event->id}");
+            // Published record -> child (creator)
             $this->notify($event->creator, 'Event published',
                 "Your event \"{$event->name}\" is now live.",
                 $event, 'event_payment_approved', "/events/detail/{$event->id}");
@@ -164,6 +183,11 @@ class EventPaymentService
             $request->notification->delete();
         }
 
+        // Record the decline for BOTH the parent (rejecter) and child (creator),
+        // mirroring the approval path.
+        $this->notify($request->parent, 'Event payment declined',
+            "You declined the fee for \"{$event->name}\".",
+            $event, 'event_payment_rejected', "/events/detail/{$event->id}");
         $this->notify($event->creator, 'Event payment declined',
             "Your request to publish \"{$event->name}\" was declined.",
             $event, 'event_payment_rejected', "/events/detail/{$event->id}");
@@ -279,16 +303,19 @@ class EventPaymentService
         return $source === 'ios' ? 'app_store' : ($source === 'android' ? 'play_store' : 'internal');
     }
 
-    private function notify(?V4User $user, string $title, string $message, V4Event $event, string $type, string $redirectUrl): void
+    private function notify(?V4User $user, string $title, string $message, V4Event $event, string $type, string $redirectUrl, ?V4PaymentRequest $reference = null): void
     {
         if (! $user) {
             return;
         }
         try {
+            // $reference links the notification to the payment request (morphOne
+            // `notification`) so confirm/reject can clear the parent's pending
+            // approval notification — matching hockey/marketplace.
             $this->notifications->sendToUserWithImage(
                 $user, $title, $message,
                 optional($event->media()->first())->url ?? '',
-                [], $type, $redirectUrl
+                [], $type, $redirectUrl, $reference ? 'payment_request_action' : null, $reference
             );
         } catch (\Exception $e) {
             Log::error('Event payment notify failed', ['type' => $type, 'e' => $e->getMessage()]);
