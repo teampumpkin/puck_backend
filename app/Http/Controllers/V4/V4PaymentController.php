@@ -305,7 +305,18 @@ class V4PaymentController extends Controller
             ]);
                 }
             } else {
-                // Create new payment request - wrapped in transaction
+                // A minor's payment must originate from an explicit parent-approval
+                // request (requestPaymentToParent -> pending), which the parent then
+                // approves via the pending branch above. Never create-and-pay a
+                // child's request in one shot here — that bypasses parent approval.
+                if ($player->is_child && $player->parent_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This payment needs parent approval. Send a request to the parent first.',
+                    ], 403);
+                }
+
+                // Create new payment request - wrapped in transaction (adult self-pay)
                 DB::beginTransaction();
                 try {
                     $paymentRequestData = [
@@ -316,11 +327,6 @@ class V4PaymentController extends Controller
                         'currency' => $inAppPurchase->currency,
                         'status' => V4PaymentRequest::STATUS_PAYMENT_INITIATED,
                     ];
-
-                    // Only add parent_id if player is a child
-                    if ($player->is_child && $player->parent_id) {
-                        $paymentRequestData['parent_id'] = $player->parent_id;
-                    }
 
                     $paymentRequest = V4PaymentRequest::create($paymentRequestData);
 

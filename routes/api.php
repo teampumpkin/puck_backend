@@ -299,6 +299,13 @@ Route::prefix('v4')->group(function () {
         Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
     });
 
+    // Public events browse (no auth required) — mirrors hockey-listings/nearby
+    // so guests can browse events before signing up. Detail/join/etc. stay authed.
+    Route::prefix('events')->group(function () {
+        Route::get('/', [\App\Http\Controllers\V4\V4EventController::class, 'index']);
+        Route::get('types', [\App\Http\Controllers\V4\V4EventController::class, 'types']);
+    });
+
     // Portfolio share link — public open logging (fired by link.drafthouselabs.com)
     Route::middleware('throttle:share-open')
         ->post('/share-links/{token}/open', [V4ShareLinkController::class, 'logOpen']);
@@ -313,7 +320,7 @@ Route::prefix('v4')->group(function () {
 
 
 
-        Route::middleware('auth:v4api')->group(function () {
+        Route::middleware(['auth:v4api', 'admin'])->group(function () {
 
             Route::prefix('profile')->group(function () {
                 Route::put('/', [ProfileController::class, 'updateSuperAdminProfile']);
@@ -549,6 +556,28 @@ Route::prefix('v4')->group(function () {
                 Route::delete('{listing}', [V4AdminHockeyListingController::class, 'destroy']);
                 Route::patch('{listing}/mark-sold', [V4AdminHockeyListingController::class, 'markSold']);
                 Route::patch('{listing}/mark-available', [V4AdminHockeyListingController::class, 'markAvailable']);
+            });
+
+            // Events (Admin)
+            Route::prefix('events')->group(function () {
+                Route::get('stats', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'stats']);
+                Route::get('platform-fee', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'getFeeSetting']);
+                Route::put('platform-fee', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'setFeeSetting']);
+                Route::get('/', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'index']);
+                Route::get('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'show']);
+                Route::get('{id}/members', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'members']);
+                Route::put('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'update']);
+                Route::post('{id}/cancel', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'cancel']);
+                Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'destroy']);
+                Route::post('{id}/restore', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'restore']);
+            });
+
+            // Event Types (Admin, editable lookup)
+            Route::prefix('event-types')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'index']);
+                Route::post('/', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'store']);
+                Route::put('{id}', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'update']);
+                Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'destroy']);
             });
         });
     });
@@ -908,6 +937,24 @@ Route::prefix('v4')->group(function () {
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
+        });
+
+        // Events (index + types are registered publicly above)
+        Route::prefix('events')->group(function () {
+            Route::get('my-events', [\App\Http\Controllers\V4\V4EventController::class, 'myEvents']);
+            Route::post('/', [\App\Http\Controllers\V4\V4EventController::class, 'store']);
+            Route::get('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'show']);
+            Route::put('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'update']);
+            Route::delete('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'destroy']);
+            Route::post('{event}/cancel', [\App\Http\Controllers\V4\V4EventController::class, 'cancel']);
+            Route::post('{event}/join', [\App\Http\Controllers\V4\V4EventController::class, 'join']);
+            Route::post('{event}/leave', [\App\Http\Controllers\V4\V4EventController::class, 'leave']);
+            Route::get('{event}/members', [\App\Http\Controllers\V4\V4EventController::class, 'members']);
+            Route::post('{event}/initiate-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'initiatePayment']);
+            Route::post('{event}/confirm-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'confirmPayment']);
+            Route::post('{event}/reject-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'rejectPayment']);
+            Route::get('{event}/payment-status', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'paymentStatus']);
+            Route::get('{event}/parent-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'parentPayment']);
         });
 
         // Portfolio sharing (smart links)

@@ -57,7 +57,11 @@ class RouteServiceProvider extends ServiceProvider
     protected function configureRateLimiting()
     {
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
+            // Local/testing drives the app + E2E hard (FCM/feeds polling plus
+            // repeated Maestro runs) and trips the 60/min limit as 429s; keep
+            // the production limit but lift it for non-production envs.
+            $perMinute = app()->environment('production') ? 60 : 100000;
+            return Limit::perMinute($perMinute)->by(optional($request->user())->id ?: $request->ip());
         });
 
         RateLimiter::for('share-open', function (Request $request) {
