@@ -320,7 +320,7 @@ Route::prefix('v4')->group(function () {
 
 
 
-        Route::middleware('auth:v4api')->group(function () {
+        Route::middleware(['auth:v4api', 'admin'])->group(function () {
 
             Route::prefix('profile')->group(function () {
                 Route::put('/', [ProfileController::class, 'updateSuperAdminProfile']);
@@ -561,6 +561,8 @@ Route::prefix('v4')->group(function () {
             // Events (Admin)
             Route::prefix('events')->group(function () {
                 Route::get('stats', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'stats']);
+                Route::get('platform-fee', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'getFeeSetting']);
+                Route::put('platform-fee', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'setFeeSetting']);
                 Route::get('/', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'index']);
                 Route::get('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'show']);
                 Route::get('{id}/members', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'members']);

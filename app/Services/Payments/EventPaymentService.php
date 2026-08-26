@@ -2,6 +2,7 @@
 
 namespace App\Services\Payments;
 
+use App\Models\V4AppSetting;
 use App\Models\V4Event;
 use App\Models\V4InAppPurchase;
 use App\Models\V4PaymentRequest;
@@ -26,8 +27,24 @@ use Illuminate\Support\Str;
  */
 class EventPaymentService
 {
+    /** v4_app_settings key for the global events platform-fee switch. Missing row = ON (fee required). */
+    public const FEE_SETTING_KEY = 'event_platform_fee_enabled';
+
     public function __construct(private NotificationService $notifications)
     {
+    }
+
+    /** Global switch. Absent setting defaults to ON so current behaviour is preserved. */
+    public static function feeEnabled(): bool
+    {
+        $row = V4AppSetting::where('name', self::FEE_SETTING_KEY)->first();
+
+        return $row === null ? true : $row->value === '1';
+    }
+
+    public static function setFeeEnabled(bool $on): void
+    {
+        V4AppSetting::updateOrCreate(['name' => self::FEE_SETTING_KEY], ['value' => $on ? '1' : '0']);
     }
 
     public function feeProduct(): ?V4InAppPurchase
@@ -39,6 +56,22 @@ class EventPaymentService
 
     public function initiate(V4Event $event, V4User $actor): array
     {
+        // Global fee switch OFF: no role pays. Publish immediately, no payment request,
+        // no SKU, no parent approval. Runs before any child/parent branch so it covers all roles.
+        if (! self::feeEnabled()) {
+            if ($event->status !== V4Event::STATUS_PUBLISHED) {
+                $event->update(['status' => V4Event::STATUS_PUBLISHED, 'published_at' => now()]);
+            }
+
+            return ['http' => 200, 'payload' => ['success' => true, 'data' => [
+                'fee_waived' => true,
+                'awaiting_parent' => false,
+                'payment_request_id' => null,
+                'sku' => null,
+                'status' => V4Event::STATUS_PUBLISHED,
+            ]]];
+        }
+
         $fee = $this->feeProduct();
         if (! $fee) {
             return ['http' => 404, 'payload' => ['success' => false, 'message' => 'Event fee product not found or inactive.']];

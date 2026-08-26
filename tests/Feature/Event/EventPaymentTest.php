@@ -115,6 +115,39 @@ class EventPaymentTest extends TestCase
             ->getJson("/api/v4/events/{$event->id}/payment-status")->assertStatus(403);
     }
 
+    public function test_fee_disabled_publishes_adult_event_without_payment_request(): void
+    {
+        \App\Services\Payments\EventPaymentService::setFeeEnabled(false);
+        $owner = $this->makeUser();
+        $event = $this->draftEvent($owner);
+
+        $this->withHeaders($this->authAs($owner))->postJson("/api/v4/events/{$event->id}/initiate-payment")
+            ->assertStatus(200)
+            ->assertJsonPath('data.fee_waived', true)
+            ->assertJsonPath('data.payment_request_id', null)
+            ->assertJsonPath('data.sku', null);
+
+        $this->assertSame(V4Event::STATUS_PUBLISHED, $event->fresh()->status);
+        $this->assertNull($event->fresh()->payment_request_id);
+        $this->assertDatabaseCount('v4_payment_requests', 0);
+    }
+
+    public function test_fee_disabled_publishes_child_event_without_parent_request(): void
+    {
+        \App\Services\Payments\EventPaymentService::setFeeEnabled(false);
+        $parent = $this->makeUser();
+        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $event = $this->draftEvent($child);
+
+        $this->withHeaders($this->authAs($child))->postJson("/api/v4/events/{$event->id}/initiate-payment")
+            ->assertStatus(200)
+            ->assertJsonPath('data.awaiting_parent', false)
+            ->assertJsonPath('data.fee_waived', true);
+
+        $this->assertSame(V4Event::STATUS_PUBLISHED, $event->fresh()->status);
+        $this->assertDatabaseCount('v4_payment_requests', 0);
+    }
+
     public function test_reject_keeps_event_unpublished(): void
     {
         $parent = $this->makeUser();

@@ -6,6 +6,7 @@ use App\Http\Middleware\APILogMiddleware;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\CheckUser;
 use App\Http\Middleware\EncryptCookies;
+use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\TrimStrings;
@@ -86,6 +87,7 @@ class Kernel extends HttpKernel
         'signed'           => ValidateSignature::class,
         'throttle'         => ThrottleRequests::class,
         'verified'         => EnsureEmailIsVerified::class,
-        'login.check'      => CheckUser::class
+        'login.check'      => CheckUser::class,
+        'admin'            => EnsureAdmin::class,
     ];
 }

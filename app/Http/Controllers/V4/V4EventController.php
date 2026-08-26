@@ -138,9 +138,14 @@ class V4EventController extends Controller
             }
         }
         $tab = $request->input('tab', 'ongoing');
-        $q->where('end_at', $tab === 'completed' ? '<=' : '>', now());
+        // Events are all-day (date-only picker → end_at stored at midnight), so an
+        // event ending "today" is still ongoing all day. Compare by date, not time,
+        // else a same-day event reads as completed the moment now() passes midnight.
+        $q->whereDate('end_at', $tab === 'completed' ? '<' : '>=', now()->toDateString());
 
-        return $this->paginatedResponse($q->orderByDesc('start_at')->paginate((int) $request->input('per_page', 15)));
+        // Newest-created first; id tiebreaker keeps pagination stable when two
+        // rows share a created_at.
+        return $this->paginatedResponse($q->orderByDesc('created_at')->orderByDesc('id')->paginate((int) $request->input('per_page', 15)));
     }
 
     public function myEvents(Request $request): JsonResponse
@@ -150,10 +155,10 @@ class V4EventController extends Controller
         $q = V4Event::query()->where('user_id', $user->id);
         if ($status === 'completed') {
             $q->where(function ($w) {
-                $w->where('end_at', '<=', now())->orWhere('status', V4Event::STATUS_CANCELLED);
+                $w->whereDate('end_at', '<', now()->toDateString())->orWhere('status', V4Event::STATUS_CANCELLED);
             });
         } else {
-            $q->where('end_at', '>', now())->where('status', '!=', V4Event::STATUS_CANCELLED);
+            $q->whereDate('end_at', '>=', now()->toDateString())->where('status', '!=', V4Event::STATUS_CANCELLED);
         }
 
         // Whitelisted sort; default = newest created first. `id` tiebreaker keeps
@@ -324,11 +329,16 @@ class V4EventController extends Controller
         if ($event->status !== V4Event::STATUS_PUBLISHED) {
             return response()->json(['success' => false, 'message' => 'Event is not open to join.'], 409);
         }
-        if ($event->end_at && $event->end_at->isPast()) {
+        // All-day event: ended only once its end day is fully past (compare dates,
+        // not the midnight instant), so a same-day event stays joinable all day.
+        if ($event->end_at && $event->end_at->lt(now()->startOfDay())) {
             return response()->json(['success' => false, 'message' => 'Event has ended.'], 409);
         }
-        $cutoff = $event->registration_deadline ?? $event->end_at;
-        if ($cutoff && now()->greaterThanOrEqualTo($cutoff)) {
+        // Deadline is date-only (midnight); registration stays open through the
+        // whole deadline day, closed only once that day is past. No explicit
+        // deadline → the end-day check above governs.
+        if ($event->registration_deadline
+            && $event->registration_deadline->lt(now()->startOfDay())) {
             return response()->json(['success' => false, 'message' => 'Registration is closed.'], 409);
         }
 
@@ -382,7 +392,7 @@ class V4EventController extends Controller
         if ($event->user_id !== $user->id && ! $isAdmin) {
             return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
         }
-        $current = V4User::whereIn('id', $event->currentMemberIds())->get(['id', 'first_name', 'last_name', 'email']);
+        $current = V4User::whereIn('id', $event->currentMemberIds())->get(['id', 'first_name', 'last_name', 'profile_photo']);
         $history = $event->memberActions()->with('user:id,first_name,last_name')
             ->orderByDesc('id')->get(['id', 'user_id', 'action', 'created_at']);
 
