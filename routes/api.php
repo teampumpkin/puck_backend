@@ -23,42 +23,44 @@ use App\Http\Controllers\AuthController as ControllersAuthController;
 use App\Http\Controllers\GuardianController;
 use App\Http\Controllers\PlayableController;
 use App\Http\Controllers\StripeController;
+use App\Http\Controllers\V4\Admin\V4AdminHockeyListingController;
+use App\Http\Controllers\V4\Admin\V4DashboardController;
 use App\Http\Controllers\V4\Chat\V4ChatMediaController;
 use App\Http\Controllers\V4\EvaluationRejectionReasonController;
-use App\Http\Controllers\V4\V4UserFcmTokenController;
 use App\Http\Controllers\V4\NotificationController;
 use App\Http\Controllers\V4\ProfileController;
 use App\Http\Controllers\V4\UserBlockController;
-use App\Http\Controllers\V4\V4SocialAuthController;
-use App\Http\Controllers\V4\V4UserReportReasonController;
-use App\Http\Controllers\V4\V4UserReportController;
+use App\Http\Controllers\V4\V4AcademyController;
 use App\Http\Controllers\V4\V4AuthController;
+use App\Http\Controllers\V4\V4BannedUserController;
+use App\Http\Controllers\V4\V4BanReasonController;
+use App\Http\Controllers\V4\V4ChatMuteSettingController;
 use App\Http\Controllers\V4\V4EvaluationController;
+use App\Http\Controllers\V4\V4EventController;
+use App\Http\Controllers\V4\V4EventPaymentController;
 use App\Http\Controllers\V4\V4FaqController;
 use App\Http\Controllers\V4\V4FcmTestController;
 use App\Http\Controllers\V4\V4FeedController;
-use App\Http\Controllers\V4\V4ChatMuteSettingController;
+use App\Http\Controllers\V4\V4FollowController;
+use App\Http\Controllers\V4\V4HockeyListingController;
+use App\Http\Controllers\V4\V4InAppPurchaseController;
+use App\Http\Controllers\V4\V4MarketplaceController;
 use App\Http\Controllers\V4\V4MediaController;
+use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4ParentalControlController;
 use App\Http\Controllers\V4\V4PaymentController;
-use App\Http\Controllers\V4\V4SuspendReasonController;
-use App\Http\Controllers\V4\V4SuspendedUserController;
-use App\Http\Controllers\V4\V4BanReasonController;
-use App\Http\Controllers\V4\V4BannedUserController;
-use App\Http\Controllers\V4\Admin\V4AdminHockeyListingController;
-use App\Http\Controllers\V4\Admin\V4DashboardController;
-use App\Http\Controllers\V4\V4NotificationPreferenceController;
 use App\Http\Controllers\V4\V4PostCommentController;
 use App\Http\Controllers\V4\V4PostController;
 use App\Http\Controllers\V4\V4PostLikeController;
 use App\Http\Controllers\V4\V4PostShareController;
-use App\Http\Controllers\V4\V4MarketplaceController;
-use App\Http\Controllers\V4\V4InAppPurchaseController;
-use App\Http\Controllers\V4\V4FollowController;
-use App\Http\Controllers\V4\V4TeamController;
-use App\Http\Controllers\V4\V4AcademyController;
-use App\Http\Controllers\V4\V4HockeyListingController;
 use App\Http\Controllers\V4\V4ShareLinkController;
+use App\Http\Controllers\V4\V4SocialAuthController;
+use App\Http\Controllers\V4\V4SuspendedUserController;
+use App\Http\Controllers\V4\V4SuspendReasonController;
+use App\Http\Controllers\V4\V4TeamController;
+use App\Http\Controllers\V4\V4UserFcmTokenController;
+use App\Http\Controllers\V4\V4UserReportController;
+use App\Http\Controllers\V4\V4UserReportReasonController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -93,9 +95,9 @@ Route::get('terms-and-conditions', function () {
 // Broadcasting authentication route (dev-only bypass if WS_AUTH_BYPASS=true)
 if (env('WS_AUTH_BYPASS', false)) {
     Route::post('broadcasting/auth', function (Request $request) {
-        $channel = $request->input('channel_name');
+        $channel  = $request->input('channel_name');
         $socketId = $request->input('socket_id');
-        $sig = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
+        $sig      = hash_hmac('sha256', $socketId . ':' . $channel, env('PUSHER_APP_SECRET'));
         return response()->json(['auth' => env('PUSHER_APP_KEY') . ':' . $sig]);
     });
 }
@@ -302,8 +304,8 @@ Route::prefix('v4')->group(function () {
     // Public events browse (no auth required) — mirrors hockey-listings/nearby
     // so guests can browse events before signing up. Detail/join/etc. stay authed.
     Route::prefix('events')->group(function () {
-        Route::get('/', [\App\Http\Controllers\V4\V4EventController::class, 'index']);
-        Route::get('types', [\App\Http\Controllers\V4\V4EventController::class, 'types']);
+        Route::get('/', [V4EventController::class, 'index']);
+        Route::get('types', [V4EventController::class, 'types']);
     });
 
     // Portfolio share link — public open logging (fired by link.drafthouselabs.com)
@@ -318,8 +320,6 @@ Route::prefix('v4')->group(function () {
         Route::post('/register', [V4AuthController::class, 'adminRegister']);
         Route::post('/login', [V4AuthController::class, 'adminLogin']);
 
-
-
         Route::middleware(['auth:v4api', 'admin'])->group(function () {
 
             Route::prefix('profile')->group(function () {
@@ -329,7 +329,6 @@ Route::prefix('v4')->group(function () {
             Route::prefix('security')->group(function () {
                 Route::put('/password', [ProfileController::class, 'updateSuperAdminPassword']);
             });
-
 
             Route::prefix('dashboard')->group(function () {
                 Route::get('user-distribution', [V4DashboardController::class, 'getUserDistribution']);
@@ -423,7 +422,6 @@ Route::prefix('v4')->group(function () {
                 Route::delete('/{id}', [V4SuspendedUserController::class, 'destroy']);
             });
 
-
             Route::prefix('banned-users')->group(function () {
                 Route::get('/', [V4BannedUserController::class, 'index']);
                 Route::get('/{id}', [V4BannedUserController::class, 'show']);
@@ -443,7 +441,6 @@ Route::prefix('v4')->group(function () {
                     Route::post('/unban', [V4BannedUserController::class, 'unban']);
                 });
             });
-
 
             Route::prefix('posts')->group(function () {
                 Route::get('stats', [V4PostController::class, 'getPostStats']);
@@ -598,11 +595,9 @@ Route::prefix('v4')->group(function () {
             Route::post('/store', [V4UserFcmTokenController::class, 'store']);
             Route::delete('/remove', [V4UserFcmTokenController::class, 'destroy']);
 
-
             Route::get('/fcm-test', [V4FcmTestController::class, 'sendTestNotification']);
             Route::get('/fcm-config-test', [V4FcmTestController::class, 'testConfig']);
         });
-
 
         Route::prefix('users')->group(function () {
 
@@ -659,7 +654,6 @@ Route::prefix('v4')->group(function () {
             Route::post('/{academyId}/admins/{id}', [V4AcademyController::class, 'updateAcademyAdmin']);
             Route::delete('/{academyId}/admins/{id}', [V4AcademyController::class, 'deleteAcademyAdmin']);
         });
-
 
         // Evaluation
         Route::prefix('evaluation')->group(function () {
@@ -769,7 +763,6 @@ Route::prefix('v4')->group(function () {
             Route::post('/mute/{chatId}', [V4ChatMuteSettingController::class, 'mute']);
             Route::delete('/unmute/{chatId}', [V4ChatMuteSettingController::class, 'unmute']);
             Route::get('/mute-settings/{chatId?}', [V4ChatMuteSettingController::class, 'getUserMuteSettings']);
-
 
             // Direct chat routes (keeping commented for now)
             // Route::get('/get-chat-id', [\App\Http\Controllers\V4\Chat\V4ChatController::class, 'getChatId']);
@@ -941,20 +934,20 @@ Route::prefix('v4')->group(function () {
 
         // Events (index + types are registered publicly above)
         Route::prefix('events')->group(function () {
-            Route::get('my-events', [\App\Http\Controllers\V4\V4EventController::class, 'myEvents']);
-            Route::post('/', [\App\Http\Controllers\V4\V4EventController::class, 'store']);
-            Route::get('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'show']);
-            Route::put('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'update']);
-            Route::delete('{event}', [\App\Http\Controllers\V4\V4EventController::class, 'destroy']);
-            Route::post('{event}/cancel', [\App\Http\Controllers\V4\V4EventController::class, 'cancel']);
-            Route::post('{event}/join', [\App\Http\Controllers\V4\V4EventController::class, 'join']);
-            Route::post('{event}/leave', [\App\Http\Controllers\V4\V4EventController::class, 'leave']);
-            Route::get('{event}/members', [\App\Http\Controllers\V4\V4EventController::class, 'members']);
-            Route::post('{event}/initiate-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'initiatePayment']);
-            Route::post('{event}/confirm-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'confirmPayment']);
-            Route::post('{event}/reject-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'rejectPayment']);
-            Route::get('{event}/payment-status', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'paymentStatus']);
-            Route::get('{event}/parent-payment', [\App\Http\Controllers\V4\V4EventPaymentController::class, 'parentPayment']);
+            Route::get('my-events', [V4EventController::class, 'myEvents']);
+            Route::post('/', [V4EventController::class, 'store']);
+            Route::get('{event}', [V4EventController::class, 'show']);
+            Route::put('{event}', [V4EventController::class, 'update']);
+            Route::delete('{event}', [V4EventController::class, 'destroy']);
+            Route::post('{event}/cancel', [V4EventController::class, 'cancel']);
+            Route::post('{event}/join', [V4EventController::class, 'join']);
+            Route::post('{event}/leave', [V4EventController::class, 'leave']);
+            Route::get('{event}/members', [V4EventController::class, 'members']);
+            Route::post('{event}/initiate-payment', [V4EventPaymentController::class, 'initiatePayment']);
+            Route::post('{event}/confirm-payment', [V4EventPaymentController::class, 'confirmPayment']);
+            Route::post('{event}/reject-payment', [V4EventPaymentController::class, 'rejectPayment']);
+            Route::get('{event}/payment-status', [V4EventPaymentController::class, 'paymentStatus']);
+            Route::get('{event}/parent-payment', [V4EventPaymentController::class, 'parentPayment']);
         });
 
         // Portfolio sharing (smart links)
