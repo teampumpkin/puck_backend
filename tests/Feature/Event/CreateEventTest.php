@@ -14,6 +14,14 @@ class CreateEventTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // store() validates event_type against active V4EventType names, so the
+        // lookup must be seeded before hitting the create endpoint.
+        $this->seed(\Database\Seeders\V4EventTypeSeeder::class);
+    }
+
     private function makeUser(array $a = []): V4User
     {
         return V4User::forceCreate(array_merge([

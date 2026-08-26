@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\NotifyEventMembers;
 use App\Models\V4Event;
 use App\Models\V4User;
+use App\Services\Payments\EventPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -133,5 +134,19 @@ class V4EventAdminController extends Controller
         $event->restore();
 
         return response()->json(['success' => true]);
+    }
+
+    /** Global events platform-fee switch. Admin-gated by the route group's `admin` middleware. */
+    public function getFeeSetting(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => EventPaymentService::feeEnabled()]]);
+    }
+
+    public function setFeeSetting(Request $request): JsonResponse
+    {
+        $enabled = $request->validate(['platform_fee_enabled' => 'required|boolean'])['platform_fee_enabled'];
+        EventPaymentService::setFeeEnabled($enabled);
+
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => EventPaymentService::feeEnabled()]]);
     }
 }

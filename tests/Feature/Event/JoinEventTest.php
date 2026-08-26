@@ -69,6 +69,18 @@ class JoinEventTest extends TestCase
         $this->assertSame('leave', $event->latestActionFor($me->id));
     }
 
+    public function test_can_join_same_day_event_with_today_deadline(): void
+    {
+        // All-day event happening today, registration deadline today: date-only
+        // rules keep it joinable all day (was wrongly 409 once now() passed midnight).
+        $me = $this->makeUser();
+        $event = $this->publishedEvent($this->makeUser(), [
+            'start_at' => today(), 'end_at' => today(), 'registration_deadline' => today(),
+        ]);
+        $this->withHeaders($this->authAs($me))->postJson("/api/v4/events/{$event->id}/join")
+            ->assertStatus(200)->assertJsonPath('data.is_joined', true);
+    }
+
     public function test_non_owner_cannot_view_members(): void
     {
         $owner = $this->makeUser();
