@@ -87,6 +87,48 @@ class BrowseEventTest extends TestCase
         $this->assertCount(0, $completed->json('data'), 'same-day event must not be completed');
     }
 
+    public function test_age_range_filter_overlaps_not_exact(): void
+    {
+        $me = $this->makeUser();
+        $owner = $this->makeUser();
+        $this->publishedEvent($owner, ['name' => 'Youth', 'age_min' => 13, 'age_max' => 45]);
+        $this->publishedEvent($owner, ['name' => 'Masters', 'age_min' => 80, 'age_max' => 100]);
+
+        // Selecting 82-100 must exclude the 13-45 event, include the 80-100 one.
+        $res = $this->withHeaders($this->authAs($me))
+            ->getJson('/api/v4/events?age_min=82&age_max=100');
+        $res->assertStatus(200);
+        $names = array_column($res->json('data'), 'name');
+        $this->assertContains('Masters', $names);
+        $this->assertNotContains('Youth', $names);
+    }
+
+    public function test_league_filter_multi_value(): void
+    {
+        $me = $this->makeUser();
+        $owner = $this->makeUser();
+        // league is now a multi-value jsonb array (parity with profile chips).
+        $this->publishedEvent($owner, ['name' => 'AHLteam', 'league' => ['AHL', 'ECHL']]);
+        $this->publishedEvent($owner, ['name' => 'NHLteam', 'league' => ['NHL']]);
+
+        $res = $this->withHeaders($this->authAs($me))
+            ->getJson('/api/v4/events?'.http_build_query(['league' => ['AHL']]));
+        $res->assertStatus(200);
+        $names = array_column($res->json('data'), 'name');
+        $this->assertSame(['AHLteam'], $names);
+    }
+
+    public function test_fee_status_reflects_admin_switch(): void
+    {
+        \App\Services\Payments\EventPaymentService::setFeeEnabled(false);
+        $this->getJson('/api/v4/events/fee-status')
+            ->assertStatus(200)->assertJsonPath('data.platform_fee_enabled', false);
+
+        \App\Services\Payments\EventPaymentService::setFeeEnabled(true);
+        $this->getJson('/api/v4/events/fee-status')
+            ->assertStatus(200)->assertJsonPath('data.platform_fee_enabled', true);
+    }
+
     public function test_my_events_same_day_is_ongoing(): void
     {
         $me = $this->makeUser();

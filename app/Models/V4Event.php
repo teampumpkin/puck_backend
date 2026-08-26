@@ -47,6 +47,8 @@ class V4Event extends Model
         'scout_leagues' => 'array',
         'positions' => 'array',
         'birth_years' => 'array',
+        'league' => 'array',
+        'team' => 'array',
     ];
 
     public function creator()

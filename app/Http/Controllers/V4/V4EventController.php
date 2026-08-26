@@ -27,6 +27,15 @@ class V4EventController extends Controller
         return response()->json(['success' => true, 'data' => V4EventType::activeNames()]);
     }
 
+    /**
+     * Global platform-fee switch, so the create wizard can label its CTA
+     * "Publish" (fee off) vs "Pay & Publish" (fee on) before submitting.
+     */
+    public function feeStatus(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => \App\Services\Payments\EventPaymentService::feeEnabled()]]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         try {
@@ -59,8 +68,10 @@ class V4EventController extends Controller
                 'scout_leagues' => 'nullable|array',
                 'positions' => 'nullable|array',
                 'birth_years' => 'nullable|array',
-                'league' => 'nullable|string',
-                'team' => 'nullable|string',
+                'league' => 'nullable|array',
+                'league.*' => 'string',
+                'team' => 'nullable|array',
+                'team.*' => 'string',
                 'media' => 'nullable|array|max:10',
                 'media.*' => 'file|max:102400',
                 'media_types' => 'nullable|array',
@@ -136,6 +147,46 @@ class V4EventController extends Controller
                     }
                 });
             }
+        }
+        if ($div = $request->input('age_division')) {
+            $q->where('age_division', $div);
+        }
+        foreach (['league', 'team'] as $col) {
+            $vals = (array) $request->input($col, []);
+            if ($vals) {
+                $q->where(function ($w) use ($col, $vals) {
+                    foreach ($vals as $v) {
+                        $w->orWhereJsonContains($col, $v);
+                    }
+                });
+            }
+        }
+        // Age-range overlap: keep events whose [age_min, age_max] intersects the
+        // selected range. A null event bound is open-ended (matches anything).
+        if (($selMin = $request->input('age_min')) !== null) {
+            $q->where(function ($w) use ($selMin) {
+                $w->whereNull('age_max')->orWhere('age_max', '>=', (int) $selMin);
+            });
+        }
+        if (($selMax = $request->input('age_max')) !== null) {
+            $q->where(function ($w) use ($selMax) {
+                $w->whereNull('age_min')->orWhere('age_min', '<=', (int) $selMax);
+            });
+        }
+        $birthYears = (array) $request->input('birth_years', []);
+        if ($birthYears) {
+            $q->where(function ($w) use ($birthYears) {
+                foreach ($birthYears as $y) {
+                    $w->orWhereJsonContains('birth_years', (int) $y);
+                }
+            });
+        }
+        // Date window filters the event's start day (all-day → compare by date).
+        if ($from = $request->input('date_from')) {
+            $q->whereDate('start_at', '>=', $from);
+        }
+        if ($to = $request->input('date_to')) {
+            $q->whereDate('start_at', '<=', $to);
         }
         $tab = $request->input('tab', 'ongoing');
         // Events are all-day (date-only picker → end_at stored at midnight), so an
@@ -251,8 +302,10 @@ class V4EventController extends Controller
                 'scout_leagues' => 'nullable|array',
                 'positions' => 'nullable|array',
                 'birth_years' => 'nullable|array',
-                'league' => 'nullable|string',
-                'team' => 'nullable|string',
+                'league' => 'nullable|array',
+                'league.*' => 'string',
+                'team' => 'nullable|array',
+                'team.*' => 'string',
                 'add_media' => 'nullable|array',
                 'add_media.*' => 'file|max:102400',
                 'add_media_types' => 'nullable|array',
@@ -425,8 +478,8 @@ class V4EventController extends Controller
             'scout_leagues' => $e->scout_leagues ?? [],
             'positions' => $e->positions ?? [],
             'birth_years' => $e->birth_years ?? [],
-            'league' => $e->league,
-            'team' => $e->team,
+            'league' => $e->league ?? [],
+            'team' => $e->team ?? [],
             'special_qualification' => $e->special_qualification,
             'coordinator_name' => $e->coordinator_name,
             'business_name' => $e->business_name,
