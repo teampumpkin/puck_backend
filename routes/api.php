@@ -306,6 +306,7 @@ Route::prefix('v4')->group(function () {
     Route::prefix('events')->group(function () {
         Route::get('/', [V4EventController::class, 'index']);
         Route::get('types', [V4EventController::class, 'types']);
+        Route::get('fee-status', [V4EventController::class, 'feeStatus']);
     });
 
     // Portfolio share link — public open logging (fired by link.drafthouselabs.com)
