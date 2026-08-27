@@ -109,8 +109,8 @@ class EventPaymentService
         });
 
         if ($isChild) {
-            $this->notify($actor->parent, 'Event payment request',
-                "{$actor->first_name} needs approval to publish \"{$event->name}\".",
+            $this->notify($actor->parent, 'Approval needed',
+                ($actor->first_name ?: 'Your child')." wants to publish the event \"{$event->name}\". Approve the fee to make it live.",
                 $event, 'event_payment_request', "/events/parent-payment/{$event->id}", $request);
         }
 
@@ -187,8 +187,8 @@ class EventPaymentService
                 $request->notification->delete();
             }
             // Approved record -> parent (approver)
-            $this->notify($request->parent, 'Event payment approved',
-                "You approved the fee for \"{$event->name}\". It is now live.",
+            $this->notify($request->parent, 'Payment approved',
+                "You approved the fee. The event \"{$event->name}\" is now live.",
                 $event, 'event_payment_approved', "/events/detail/{$event->id}");
             // Published record -> child (creator)
             $this->notify($event->creator, 'Event published',
@@ -218,11 +218,11 @@ class EventPaymentService
 
         // Record the decline for BOTH the parent (rejecter) and child (creator),
         // mirroring the approval path.
-        $this->notify($request->parent, 'Event payment declined',
-            "You declined the fee for \"{$event->name}\".",
+        $this->notify($request->parent, 'Payment declined',
+            "You declined the fee for the event \"{$event->name}\".",
             $event, 'event_payment_rejected', "/events/detail/{$event->id}");
-        $this->notify($event->creator, 'Event payment declined',
-            "Your request to publish \"{$event->name}\" was declined.",
+        $this->notify($event->creator, 'Payment declined',
+            "Your parent declined the fee, so the event \"{$event->name}\" isn't live yet.",
             $event, 'event_payment_rejected', "/events/detail/{$event->id}");
 
         return ['http' => 200, 'payload' => ['success' => true, 'message' => 'Payment request rejected.']];
