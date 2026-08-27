@@ -75,21 +75,30 @@ class V4EventController extends Controller
                 'media' => 'nullable|array|max:10',
                 'media.*' => 'file|max:102400',
                 'media_types' => 'nullable|array',
+                'thumbnails' => 'nullable|array',
+                'thumbnails.*' => 'nullable|image|max:10240',
             ]);
 
             DB::beginTransaction();
             $event = V4Event::create(array_merge(
-                collect($validated)->except(['media', 'media_types'])->toArray(),
+                collect($validated)->except(['media', 'media_types', 'thumbnails'])->toArray(),
                 ['user_id' => $user->id, 'status' => V4Event::STATUS_PENDING_PAYMENT]
             ));
 
             foreach ((array) $request->file('media', []) as $i => $file) {
                 $type = $request->input("media_types.$i", 'image');
                 $path = $file->store("events/{$event->id}", 's3');
+                // Video poster uploaded by the client alongside the video (keyed by
+                // the same index). Images render their own url, so no thumb needed.
+                $thumbUrl = null;
+                if ($type === 'video' && ($thumb = $request->file("thumbnails.$i"))) {
+                    $thumbUrl = Storage::disk('s3')->url($thumb->store("events/{$event->id}/thumbs", 's3'));
+                }
                 V4EventMedia::create([
                     'event_id' => $event->id,
                     'media_type' => $type,
                     'url' => Storage::disk('s3')->url($path),
+                    'thumbnail_url' => $thumbUrl,
                     'sort_order' => $i,
                 ]);
             }
@@ -314,6 +323,8 @@ class V4EventController extends Controller
                 'add_media' => 'nullable|array',
                 'add_media.*' => 'file|max:102400',
                 'add_media_types' => 'nullable|array',
+                'add_thumbnails' => 'nullable|array',
+                'add_thumbnails.*' => 'nullable|image|max:10240',
                 'remove_media_ids' => 'nullable|array',
             ]);
 
@@ -324,16 +335,22 @@ class V4EventController extends Controller
             }
 
             DB::beginTransaction();
-            $event->update(collect($validated)->except(['add_media', 'add_media_types', 'remove_media_ids'])->toArray());
+            $event->update(collect($validated)->except(['add_media', 'add_media_types', 'add_thumbnails', 'remove_media_ids'])->toArray());
             if ($ids = (array) $request->input('remove_media_ids', [])) {
                 $event->media()->whereIn('id', $ids)->delete();
             }
             foreach ((array) $request->file('add_media', []) as $i => $file) {
+                $type = $request->input("add_media_types.$i", 'image');
                 $path = $file->store("events/{$event->id}", 's3');
+                $thumbUrl = null;
+                if ($type === 'video' && ($thumb = $request->file("add_thumbnails.$i"))) {
+                    $thumbUrl = Storage::disk('s3')->url($thumb->store("events/{$event->id}/thumbs", 's3'));
+                }
                 V4EventMedia::create([
                     'event_id' => $event->id,
-                    'media_type' => $request->input("add_media_types.$i", 'image'),
+                    'media_type' => $type,
                     'url' => Storage::disk('s3')->url($path),
+                    'thumbnail_url' => $thumbUrl,
                     'sort_order' => ((int) $event->media()->max('sort_order')) + 1,
                 ]);
             }

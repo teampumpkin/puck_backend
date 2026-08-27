@@ -63,6 +63,50 @@ class CreateEventTest extends TestCase
         $this->assertSame(1, $event->media()->count());
     }
 
+    public function test_create_event_stores_video_thumbnail(): void
+    {
+        Storage::fake('s3');
+        $user = $this->makeUser();
+
+        $res = $this->withHeaders($this->authAs($user))->postJson('/api/v4/events', [
+            'event_type' => 'ID Camp',
+            'name' => 'Camp with video',
+            'description' => 'desc',
+            'start_at' => now()->addDays(5)->toISOString(),
+            'end_at' => now()->addDays(6)->toISOString(),
+            'country' => 'Canada', 'province' => 'ON', 'city' => 'Ontario',
+            'media' => [UploadedFile::fake()->create('clip.mp4', 100, 'video/mp4')],
+            'media_types' => ['video'],
+            'thumbnails' => [UploadedFile::fake()->image('poster.jpg')],
+        ]);
+
+        $res->assertStatus(201);
+
+        $media = V4Event::first()->media()->first();
+        $this->assertSame('video', $media->media_type);
+        $this->assertNotNull($media->thumbnail_url);
+        $this->assertStringContainsString('/thumbs/', $media->thumbnail_url);
+    }
+
+    public function test_create_event_video_without_thumbnail_leaves_null(): void
+    {
+        Storage::fake('s3');
+        $user = $this->makeUser();
+
+        $this->withHeaders($this->authAs($user))->postJson('/api/v4/events', [
+            'event_type' => 'ID Camp',
+            'name' => 'Camp no poster',
+            'description' => 'desc',
+            'start_at' => now()->addDays(5)->toISOString(),
+            'end_at' => now()->addDays(6)->toISOString(),
+            'country' => 'Canada', 'province' => 'ON', 'city' => 'Ontario',
+            'media' => [UploadedFile::fake()->create('clip.mp4', 100, 'video/mp4')],
+            'media_types' => ['video'],
+        ])->assertStatus(201);
+
+        $this->assertNull(V4Event::first()->media()->first()->thumbnail_url);
+    }
+
     public function test_create_rejects_bad_dates(): void
     {
         $user = $this->makeUser();

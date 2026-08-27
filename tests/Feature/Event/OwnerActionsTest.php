@@ -93,4 +93,24 @@ class OwnerActionsTest extends TestCase
                 'add_media_types' => ['image'],
             ])->assertStatus(422);
     }
+
+    public function test_edit_stores_added_video_thumbnail(): void
+    {
+        Storage::fake('s3');
+        $owner = $this->makeUser();
+        $event = $this->publishedEvent($owner);
+
+        $this->withHeaders($this->authAs($owner))
+            ->postJson("/api/v4/events/{$event->id}", [
+                '_method' => 'PUT',
+                'add_media' => [UploadedFile::fake()->create('clip.mp4', 100, 'video/mp4')],
+                'add_media_types' => ['video'],
+                'add_thumbnails' => [UploadedFile::fake()->image('poster.jpg')],
+            ])->assertStatus(200);
+
+        $media = $event->media()->where('media_type', 'video')->first();
+        $this->assertNotNull($media);
+        $this->assertNotNull($media->thumbnail_url);
+        $this->assertStringContainsString('/thumbs/', $media->thumbnail_url);
+    }
 }
