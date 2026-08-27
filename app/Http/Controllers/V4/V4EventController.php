@@ -410,9 +410,9 @@ class V4EventController extends Controller
                 try {
                     app(NotificationService::class)->sendToUserWithImage(
                         $event->creator,
-                        'New event join',
-                        "{$user->first_name} joined \"{$event->name}\".",
-                        $event->media()->first()->url ?? '',
+                        'New RSVP',
+                        ($user->first_name ?: 'Someone')." joined your event \"{$event->name}\".",
+                        optional($event->media()->first())->url ?? '',
                         [],
                         'event_member_joined',
                         "/events/detail/{$event->id}"

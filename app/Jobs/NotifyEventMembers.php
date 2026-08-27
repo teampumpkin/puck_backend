@@ -29,15 +29,15 @@ class NotifyEventMembers implements ShouldQueue
         if (! $event) {
             return;
         }
-        $title = $this->type === 'event_cancelled' ? 'Event cancelled' : 'Event removed';
+        $title = $this->type === 'event_cancelled' ? 'Event cancelled' : 'Event deleted';
         $imageUrl = optional($event->media()->first())->url ?? '';
 
         $organizer = optional($event->creator)->name ?? 'The organizer';
-        $verb = $this->type === 'event_cancelled' ? 'cancelled' : 'removed';
+        $verb = $this->type === 'event_cancelled' ? 'cancelled' : 'deleted';
         $reason = trim($this->reason);
         $body = $reason !== ''
-            ? "{$organizer} {$verb} \"{$event->name}\". Reason: {$reason}"
-            : "{$organizer} {$verb} \"{$event->name}\".";
+            ? "{$organizer} {$verb} the event \"{$event->name}\". Reason: {$reason}"
+            : "{$organizer} {$verb} the event \"{$event->name}\".";
 
         foreach (V4User::whereIn('id', $event->currentMemberIds())->get() as $member) {
             try {
