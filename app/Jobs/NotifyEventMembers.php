@@ -32,12 +32,19 @@ class NotifyEventMembers implements ShouldQueue
         $title = $this->type === 'event_cancelled' ? 'Event cancelled' : 'Event removed';
         $imageUrl = optional($event->media()->first())->url ?? '';
 
+        $organizer = optional($event->creator)->name ?? 'The organizer';
+        $verb = $this->type === 'event_cancelled' ? 'cancelled' : 'removed';
+        $reason = trim($this->reason);
+        $body = $reason !== ''
+            ? "{$organizer} {$verb} \"{$event->name}\". Reason: {$reason}"
+            : "{$organizer} {$verb} \"{$event->name}\".";
+
         foreach (V4User::whereIn('id', $event->currentMemberIds())->get() as $member) {
             try {
                 $notifications->sendToUserWithImage(
                     $member,
                     $title,
-                    "\"{$event->name}\": {$this->reason}",
+                    $body,
                     $imageUrl,
                     [],
                     $this->type,

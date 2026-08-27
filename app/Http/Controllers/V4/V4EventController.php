@@ -204,13 +204,17 @@ class V4EventController extends Controller
     {
         $user = Auth::guard('v4api')->user();
         $status = $request->input('status', 'ongoing');
-        $q = V4Event::query()->where('user_id', $user->id);
+        // Hide events still awaiting platform-fee payment (pending_payment /
+        // payment_requested) from both tabs: My Events only lists live events.
+        $q = V4Event::query()
+            ->where('user_id', $user->id)
+            ->whereNotIn('status', [V4Event::STATUS_PENDING_PAYMENT, V4Event::STATUS_PAYMENT_REQUESTED]);
         if ($status === 'completed') {
             $q->where(function ($w) {
                 $w->whereDate('end_at', '<', now()->toDateString())->orWhere('status', V4Event::STATUS_CANCELLED);
             });
         } else {
-            $q->whereDate('end_at', '>=', now()->toDateString())->where('status', '!=', V4Event::STATUS_CANCELLED);
+            $q->whereDate('end_at', '>=', now()->toDateString())->where('status', V4Event::STATUS_PUBLISHED);
         }
 
         // Whitelisted sort; default = newest created first. `id` tiebreaker keeps
