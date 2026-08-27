@@ -104,6 +104,7 @@ class V4EventController extends Controller
             return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
             DB::rollBack();
+            report($e);
             Log::error('Event create failed', ['e' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
@@ -339,6 +340,7 @@ class V4EventController extends Controller
             return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
             DB::rollBack();
+            report($e);
             Log::error('Event update failed', ['e' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Failed to update event.',
