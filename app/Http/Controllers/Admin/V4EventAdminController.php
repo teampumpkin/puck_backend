@@ -60,15 +60,22 @@ class V4EventAdminController extends Controller
 
     public function stats(): JsonResponse
     {
-        [$revenueCents, , $revenueFormatted] = $this->revenueByPurpose('event');
+        [$feesCents, , $feesFormatted] = $this->revenueByPurpose('event');
+
+        // Paid vs free are scoped to PUBLISHED so paid + free = published.
+        $published = V4Event::where('status', V4Event::STATUS_PUBLISHED)->count();
+        $paidEvents = V4Event::where('status', V4Event::STATUS_PUBLISHED)
+            ->whereIn('payment_request_id', $this->paidRequestIds('event'))
+            ->count();
 
         return response()->json(['success' => true, 'data' => [
             'total' => V4Event::withTrashed()->count(),
-            'published' => V4Event::where('status', V4Event::STATUS_PUBLISHED)->count(),
+            'published' => $published,
             'cancelled' => V4Event::where('status', V4Event::STATUS_CANCELLED)->count(),
             'deleted' => V4Event::onlyTrashed()->count(),
-            'total_revenue_cents' => $revenueCents,
-            'total_revenue_formatted' => $revenueFormatted,
+            'free_events' => max(0, $published - $paidEvents),
+            'fees_collected_cents' => $feesCents,
+            'fees_collected_formatted' => $feesFormatted,
         ]]);
     }
 
@@ -79,19 +86,33 @@ class V4EventAdminController extends Controller
      * undercounts) and never mixes domains. Currencies are summed separately so mixed
      * currencies are not added as one unit. Returns [dominantCents, dominantCurrency, formatted].
      */
-    private function revenueByPurpose(string $purpose): array
+    /** Payment-request ids that collected a successful fee for the given purpose. */
+    private function paidRequestIds(string $purpose): array
     {
-        $byCurrency = V4PaymentTransaction::query()
+        return V4PaymentTransaction::query()
             ->from('v4_payment_transactions as t')
             ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
             ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
             ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
+            ->distinct()->pluck('t.payment_request_id')->all();
+    }
+
+    private function revenueByPurpose(string $purpose): array
+    {
+        $base = fn () => V4PaymentTransaction::query()
+            ->from('v4_payment_transactions as t')
+            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
+            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
+            ->whereRaw("r.meta->>'purpose' = ?", [$purpose]);
+
+        $paidCount = $base()->count();
+        $byCurrency = $base()
             ->groupBy('t.currency')
             ->selectRaw('UPPER(t.currency) as currency, SUM(t.amount_cents) as cents')
             ->pluck('cents', 'currency');
 
         if ($byCurrency->isEmpty()) {
-            return [0, 'USD', 'USD 0.00'];
+            return [0, 'USD', 'USD 0.00', 0];
         }
 
         $dominant = $byCurrency->sortDesc()->keys()->first();
@@ -99,7 +120,7 @@ class V4EventAdminController extends Controller
             ->map(fn ($cents, $cur) => $cur . ' ' . number_format(((int) $cents) / 100, 2))
             ->values()->implode(' + ');
 
-        return [(int) $byCurrency[$dominant], $dominant, $formatted];
+        return [(int) $byCurrency[$dominant], $dominant, $formatted, $paidCount];
     }
 
     public function show(int $id): JsonResponse
