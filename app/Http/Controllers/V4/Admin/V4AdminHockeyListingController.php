@@ -31,6 +31,36 @@ class V4AdminHockeyListingController extends V4HockeyListingController
         return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => HockeyListingPaymentService::feeEnabled()]]);
     }
 
+    /**
+     * Total revenue = successful transactions whose payment request had the given
+     * meta.purpose ('hockey_listing'), summed per currency. Purpose-scoping is
+     * sku-agnostic (survives fee-sku renames/variants — a single-sku filter silently
+     * undercounts) and never mixes domains. Currencies are summed separately so mixed
+     * currencies are not added as one unit. Returns [dominantCents, dominantCurrency, formatted].
+     */
+    private function revenueByPurpose(string $purpose): array
+    {
+        $byCurrency = V4PaymentTransaction::query()
+            ->from('v4_payment_transactions as t')
+            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
+            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
+            ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
+            ->groupBy('t.currency')
+            ->selectRaw('UPPER(t.currency) as currency, SUM(t.amount_cents) as cents')
+            ->pluck('cents', 'currency');
+
+        if ($byCurrency->isEmpty()) {
+            return [0, 'USD', 'USD 0.00'];
+        }
+
+        $dominant = $byCurrency->sortDesc()->keys()->first();
+        $formatted = $byCurrency
+            ->map(fn ($cents, $cur) => $cur . ' ' . number_format(((int) $cents) / 100, 2))
+            ->values()->implode(' + ');
+
+        return [(int) $byCurrency[$dominant], $dominant, $formatted];
+    }
+
     public function stats(): JsonResponse
     {
         try {
@@ -50,17 +80,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 ->where('active', true)
                 ->first(['amount_cents', 'currency']);
 
-            $revenueRow = V4PaymentTransaction::query()
-                ->from('v4_payment_transactions as t')
-                ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
-                ->join('v4_in_app_purchases as p', 'p.id', '=', 'r.in_app_purchase_id')
-                ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-                ->where('p.sku', $feeSku)
-                ->selectRaw('COALESCE(SUM(t.amount_cents), 0) as total_revenue_cents, MAX(t.currency) as currency')
-                ->first();
-
-            $revenueCents = (int) ($revenueRow->total_revenue_cents ?? 0);
-            $currency     = $revenueRow->currency ?? ($listingFee->currency ?? 'USD');
+            [$revenueCents, , $revenueFormatted] = $this->revenueByPurpose('hockey_listing');
 
             return response()->json([
                 'success' => true,
@@ -69,7 +89,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                     'active_listings'         => (int) $row->active_listings,
                     'sold_listings'           => (int) $row->sold_listings,
                     'total_revenue_cents'     => $revenueCents,
-                    'total_revenue_formatted' => strtoupper($currency) . ' ' . number_format($revenueCents / 100, 2),
+                    'total_revenue_formatted' => $revenueFormatted,
                     'listing_fee_cents'       => $listingFee?->amount_cents,
                     'listing_fee_formatted'   => $listingFee
                         ? strtoupper($listingFee->currency) . ' ' . number_format($listingFee->amount_cents / 100, 2)
