@@ -38,29 +38,34 @@ class V4AdminHockeyListingController extends V4HockeyListingController
      * undercounts) and never mixes domains. Currencies are summed separately so mixed
      * currencies are not added as one unit. Returns [dominantCents, dominantCurrency, formatted].
      */
-    /** Payment-request ids that collected a successful fee for the given purpose. */
+    /**
+     * Payment-request ids marked paid for the given purpose. Authoritative "fee paid"
+     * signal is v4_payment_requests.status = 'paid' (a success transaction row is not
+     * always written — legacy/manual rows), so paid/free and revenue key off this.
+     */
     private function paidRequestIds(string $purpose): array
     {
-        return V4PaymentTransaction::query()
-            ->from('v4_payment_transactions as t')
-            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
-            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-            ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
-            ->distinct()->pluck('t.payment_request_id')->all();
+        return V4PaymentRequest::query()
+            ->where('status', V4PaymentRequest::STATUS_PAID)
+            ->whereRaw("meta->>'purpose' = ?", [$purpose])
+            ->pluck('id')->all();
     }
 
+    /**
+     * Fees collected = SUM(amount_cents) of PAID payment requests for the purpose,
+     * grouped per currency (mixed currencies never summed as one unit).
+     * Returns [dominantCents, dominantCurrency, formatted, paidCount].
+     */
     private function revenueByPurpose(string $purpose): array
     {
-        $base = fn () => V4PaymentTransaction::query()
-            ->from('v4_payment_transactions as t')
-            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
-            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-            ->whereRaw("r.meta->>'purpose' = ?", [$purpose]);
+        $base = fn () => V4PaymentRequest::query()
+            ->where('status', V4PaymentRequest::STATUS_PAID)
+            ->whereRaw("meta->>'purpose' = ?", [$purpose]);
 
         $paidCount = $base()->count();
         $byCurrency = $base()
-            ->groupBy('t.currency')
-            ->selectRaw('UPPER(t.currency) as currency, SUM(t.amount_cents) as cents')
+            ->groupBy('currency')
+            ->selectRaw('UPPER(currency) as currency, SUM(amount_cents) as cents')
             ->pluck('cents', 'currency');
 
         if ($byCurrency->isEmpty()) {
