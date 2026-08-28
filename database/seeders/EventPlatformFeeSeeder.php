@@ -14,7 +14,7 @@ class EventPlatformFeeSeeder extends Seeder
             [
                 'title' => 'Event Platform Fee',
                 'product_type' => 'consumable',
-                'amount_cents' => 999,
+                'amount_cents' => 99,
                 'currency' => 'CAD',
                 'active' => true,
             ]

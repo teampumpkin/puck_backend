@@ -15,7 +15,7 @@ class HockeyListingFeeSeeder extends Seeder
                 'sku' => 'hockey_listing_fee',
                 'title' => 'Hockey Marketplace Listing',
                 'product_type' => V4InAppPurchase::PRODUCT_TYPE_CONSUMABLE,
-                'amount_cents' => 999,
+                'amount_cents' => 99,
                 'currency' => 'CAD',
                 'meta' => null,
                 'active' => true,

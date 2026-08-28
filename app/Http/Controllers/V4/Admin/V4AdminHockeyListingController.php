@@ -38,6 +38,17 @@ class V4AdminHockeyListingController extends V4HockeyListingController
      * undercounts) and never mixes domains. Currencies are summed separately so mixed
      * currencies are not added as one unit. Returns [dominantCents, dominantCurrency, formatted].
      */
+    /** Payment-request ids that collected a successful fee for the given purpose. */
+    private function paidRequestIds(string $purpose): array
+    {
+        return V4PaymentTransaction::query()
+            ->from('v4_payment_transactions as t')
+            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
+            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
+            ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
+            ->distinct()->pluck('t.payment_request_id')->all();
+    }
+
     private function revenueByPurpose(string $purpose): array
     {
         $base = fn () => V4PaymentTransaction::query()
@@ -83,17 +94,24 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 ->where('active', true)
                 ->first(['amount_cents', 'currency']);
 
-            [$revenueCents, , $revenueFormatted, $paidListings] = $this->revenueByPurpose('hockey_listing');
+            [$feesCents, , $feesFormatted] = $this->revenueByPurpose('hockey_listing');
+
+            // Paid vs free are scoped to published+sold so paid + free = total_listings.
+            $totalItems   = (int) $row->total_listings;
+            $paidListings = V4HockeyListing::whereIn('status', [$published, $sold])
+                ->whereIn('payment_request_id', $this->paidRequestIds('hockey_listing'))
+                ->count();
+            $freeListings = max(0, $totalItems - $paidListings);
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_listings'          => (int) $row->total_listings,
+                    'total_listings'          => $totalItems,
                     'active_listings'         => (int) $row->active_listings,
                     'sold_listings'           => (int) $row->sold_listings,
-                    'paid_listings'           => $paidListings,
-                    'total_revenue_cents'     => $revenueCents,
-                    'total_revenue_formatted' => $revenueFormatted,
+                    'free_listings'           => $freeListings,
+                    'fees_collected_cents'    => $feesCents,
+                    'fees_collected_formatted' => $feesFormatted,
                     'listing_fee_cents'       => $listingFee?->amount_cents,
                     'listing_fee_formatted'   => $listingFee
                         ? strtoupper($listingFee->currency) . ' ' . number_format($listingFee->amount_cents / 100, 2)
