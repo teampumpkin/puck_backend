@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\NotifyEventMembers;
 use App\Models\V4Event;
+use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\Payments\EventPaymentService;
 use Illuminate\Http\JsonResponse;
@@ -59,11 +60,26 @@ class V4EventAdminController extends Controller
 
     public function stats(): JsonResponse
     {
+        // Revenue = sum of successful event-fee transactions (mirrors the hockey-listing stats).
+        $feeSku = config('services.event.fee_sku');
+        $revenueRow = V4PaymentTransaction::query()
+            ->from('v4_payment_transactions as t')
+            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
+            ->join('v4_in_app_purchases as p', 'p.id', '=', 'r.in_app_purchase_id')
+            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
+            ->where('p.sku', $feeSku)
+            ->selectRaw('COALESCE(SUM(t.amount_cents), 0) as total_revenue_cents, MAX(t.currency) as currency')
+            ->first();
+        $revenueCents = (int) ($revenueRow->total_revenue_cents ?? 0);
+        $currency = $revenueRow->currency ?? 'USD';
+
         return response()->json(['success' => true, 'data' => [
             'total' => V4Event::withTrashed()->count(),
             'published' => V4Event::where('status', V4Event::STATUS_PUBLISHED)->count(),
             'cancelled' => V4Event::where('status', V4Event::STATUS_CANCELLED)->count(),
             'deleted' => V4Event::onlyTrashed()->count(),
+            'total_revenue_cents' => $revenueCents,
+            'total_revenue_formatted' => strtoupper($currency) . ' ' . number_format($revenueCents / 100, 2),
         ]]);
     }
 
