@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\NotifyEventMembers;
 use App\Models\V4Event;
-use App\Models\V4PaymentTransaction;
+use App\Models\V4PaymentRequest;
 use App\Models\V4User;
 use App\Services\Payments\EventPaymentService;
 use Illuminate\Http\JsonResponse;
@@ -61,19 +61,31 @@ class V4EventAdminController extends Controller
     public function stats(): JsonResponse
     {
         [$feesCents, , $feesFormatted] = $this->revenueByPurpose('event');
+        $paidReqIds = $this->paidRequestIds('event');
 
-        // Paid vs free are scoped to PUBLISHED so paid + free = published.
+        $total     = V4Event::withTrashed()->count();
         $published = V4Event::where('status', V4Event::STATUS_PUBLISHED)->count();
+        $cancelled = V4Event::where('status', V4Event::STATUS_CANCELLED)->count();
+        $deleted   = V4Event::onlyTrashed()->count();
+        // Pending = created but not yet published/cancelled (draft/awaiting payment), excluding deleted.
+        $pending   = max(0, ($total - $deleted) - $published - $cancelled);
+
+        // Paid + Free are scoped to PUBLISHED so paid + free = published.
         $paidEvents = V4Event::where('status', V4Event::STATUS_PUBLISHED)
-            ->whereIn('payment_request_id', $this->paidRequestIds('event'))
+            ->whereIn('payment_request_id', $paidReqIds)
             ->count();
 
         return response()->json(['success' => true, 'data' => [
-            'total' => V4Event::withTrashed()->count(),
+            'total' => $total,
             'published' => $published,
-            'cancelled' => V4Event::where('status', V4Event::STATUS_CANCELLED)->count(),
-            'deleted' => V4Event::onlyTrashed()->count(),
+            'pending' => $pending,
+            'cancelled' => $cancelled,
+            'deleted' => $deleted,
+            'paid_events' => $paidEvents,
             'free_events' => max(0, $published - $paidEvents),
+            // fees_charges_count = every successful fee charge (any status), so
+            // charges x fee = fees collected. Differs from paid_events (published only).
+            'fees_charges_count' => count($paidReqIds),
             'fees_collected_cents' => $feesCents,
             'fees_collected_formatted' => $feesFormatted,
         ]]);
@@ -86,29 +98,34 @@ class V4EventAdminController extends Controller
      * undercounts) and never mixes domains. Currencies are summed separately so mixed
      * currencies are not added as one unit. Returns [dominantCents, dominantCurrency, formatted].
      */
-    /** Payment-request ids that collected a successful fee for the given purpose. */
+    /**
+     * Payment-request ids marked paid for the given purpose. Authoritative "fee paid"
+     * signal is v4_payment_requests.status = 'paid' (a success transaction row is not
+     * always written — legacy/manual rows), so paid/free and revenue key off this.
+     */
     private function paidRequestIds(string $purpose): array
     {
-        return V4PaymentTransaction::query()
-            ->from('v4_payment_transactions as t')
-            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
-            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-            ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
-            ->distinct()->pluck('t.payment_request_id')->all();
+        return V4PaymentRequest::query()
+            ->where('status', V4PaymentRequest::STATUS_PAID)
+            ->whereRaw("meta->>'purpose' = ?", [$purpose])
+            ->pluck('id')->all();
     }
 
+    /**
+     * Fees collected = SUM(amount_cents) of PAID payment requests for the purpose,
+     * grouped per currency (mixed currencies never summed as one unit).
+     * Returns [dominantCents, dominantCurrency, formatted, paidCount].
+     */
     private function revenueByPurpose(string $purpose): array
     {
-        $base = fn () => V4PaymentTransaction::query()
-            ->from('v4_payment_transactions as t')
-            ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
-            ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-            ->whereRaw("r.meta->>'purpose' = ?", [$purpose]);
+        $base = fn () => V4PaymentRequest::query()
+            ->where('status', V4PaymentRequest::STATUS_PAID)
+            ->whereRaw("meta->>'purpose' = ?", [$purpose]);
 
         $paidCount = $base()->count();
         $byCurrency = $base()
-            ->groupBy('t.currency')
-            ->selectRaw('UPPER(t.currency) as currency, SUM(t.amount_cents) as cents')
+            ->groupBy('currency')
+            ->selectRaw('UPPER(currency) as currency, SUM(amount_cents) as cents')
             ->pluck('cents', 'currency');
 
         if ($byCurrency->isEmpty()) {
