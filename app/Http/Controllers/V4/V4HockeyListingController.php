@@ -33,6 +33,14 @@ class V4HockeyListingController extends Controller
         $this->notificationService = $notificationService;
     }
 
+    /**
+     * Global platform-fee switch, so the sell-item wizard can label its CTA
+     * "Publish" (fee off) vs "Pay & Publish" (fee on) before submitting.
+     */
+    public function feeStatus(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => HockeyListingPaymentService::feeEnabled()]]);
+    }
 
     /**
      * Create a payment request tied to a specific draft listing.
@@ -86,6 +94,10 @@ class V4HockeyListingController extends Controller
         // Success results carry a data payload; error results carry a message.
         if (isset($result['payload']['message']) && $result['http'] >= 400) {
             return ['message' => $result['payload']['message']];
+        }
+        // Global fee switch OFF: listing published free, no purchase to complete.
+        if (($result['code'] ?? null) === 'fee_waived') {
+            return ['message' => 'Listing published. No fee required.', 'data' => $result['payload']];
         }
         $message = $result['http'] === 201
             ? (($result['is_child'] ?? false) ? 'Payment request sent to parent.' : 'Payment initiated. Complete purchase then call confirm-payment.')

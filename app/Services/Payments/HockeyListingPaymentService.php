@@ -2,6 +2,7 @@
 
 namespace App\Services\Payments;
 
+use App\Models\V4AppSetting;
 use App\Models\V4HockeyListing;
 use App\Models\V4InAppPurchase;
 use App\Models\V4PaymentRequest;
@@ -16,8 +17,24 @@ use LogicException;
 
 class HockeyListingPaymentService
 {
+    /** v4_app_settings key for the global hockey-listing platform-fee switch. Missing row = ON (fee required). */
+    public const FEE_SETTING_KEY = 'hockey_listing_platform_fee_enabled';
+
     public function __construct(private HockeyListingPaymentDecider $decider)
     {
+    }
+
+    /** Global switch. Absent setting defaults to ON so current pay-to-publish behaviour is preserved. */
+    public static function feeEnabled(): bool
+    {
+        $row = V4AppSetting::where('name', self::FEE_SETTING_KEY)->first();
+
+        return $row === null ? true : $row->value === '1';
+    }
+
+    public static function setFeeEnabled(bool $on): void
+    {
+        V4AppSetting::updateOrCreate(['name' => self::FEE_SETTING_KEY], ['value' => $on ? '1' : '0']);
     }
 
     public function feeProduct(): ?V4InAppPurchase
@@ -29,6 +46,27 @@ class HockeyListingPaymentService
 
     public function initiate(V4HockeyListing $listing, V4User $actor): array
     {
+        // Global fee switch OFF: no role pays. Publish immediately, no payment request,
+        // no SKU, no parent approval. Runs before any child/parent branch so it covers all roles.
+        // Idempotent: if already published, just report the waived state.
+        if (! self::feeEnabled()) {
+            if ($listing->status !== V4HockeyListing::STATUS_PUBLISHED) {
+                $listing->markPublished();
+            }
+
+            return [
+                'code' => 'fee_waived',
+                'http' => 200,
+                'payload' => [
+                    'fee_waived' => true,
+                    'awaiting_parent' => false,
+                    'payment_request_id' => null,
+                    'sku' => null,
+                    'listing_status' => $listing->status,
+                ],
+            ];
+        }
+
         $isChild = (bool) ($actor->is_child ?? false);
         $parentId = $isChild ? $actor->parent_id : null;
 

@@ -299,6 +299,7 @@ Route::prefix('v4')->group(function () {
     // Public hockey listing routes (no auth required)
     Route::prefix('hockey-listings')->group(function () {
         Route::get('nearby', [V4HockeyListingController::class, 'nearby']);
+        Route::get('fee-status', [V4HockeyListingController::class, 'feeStatus']);
     });
 
     // Public events browse (no auth required) — mirrors hockey-listings/nearby
@@ -548,6 +549,8 @@ Route::prefix('v4')->group(function () {
             // Hockey Marketplace (Admin)
             Route::prefix('hockey-listings')->group(function () {
                 Route::get('stats', [V4AdminHockeyListingController::class, 'stats']);
+                Route::get('platform-fee', [V4AdminHockeyListingController::class, 'getFeeSetting']);
+                Route::put('platform-fee', [V4AdminHockeyListingController::class, 'setFeeSetting']);
                 Route::get('manage', [V4AdminHockeyListingController::class, 'manage']);
                 Route::get('/', [V4HockeyListingController::class, 'index']);
                 Route::get('{listing}', [V4HockeyListingController::class, 'show']);

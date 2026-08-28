@@ -8,6 +8,7 @@ use App\Models\V4HockeyListing;
 use App\Models\V4InAppPurchase;
 use App\Models\V4PaymentRequest;
 use App\Models\V4PaymentTransaction;
+use App\Services\Payments\HockeyListingPaymentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,20 @@ use Illuminate\Validation\ValidationException;
 
 class V4AdminHockeyListingController extends V4HockeyListingController
 {
+    /** Global hockey-listing platform-fee switch. Admin-gated by the route group's `admin` middleware. */
+    public function getFeeSetting(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => HockeyListingPaymentService::feeEnabled()]]);
+    }
+
+    public function setFeeSetting(Request $request): JsonResponse
+    {
+        $enabled = $request->validate(['platform_fee_enabled' => 'required|boolean'])['platform_fee_enabled'];
+        HockeyListingPaymentService::setFeeEnabled($enabled);
+
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => HockeyListingPaymentService::feeEnabled()]]);
+    }
+
     public function stats(): JsonResponse
     {
         try {
