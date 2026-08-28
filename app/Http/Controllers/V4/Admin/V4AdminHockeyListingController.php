@@ -40,17 +40,20 @@ class V4AdminHockeyListingController extends V4HockeyListingController
      */
     private function revenueByPurpose(string $purpose): array
     {
-        $byCurrency = V4PaymentTransaction::query()
+        $base = fn () => V4PaymentTransaction::query()
             ->from('v4_payment_transactions as t')
             ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
             ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-            ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
+            ->whereRaw("r.meta->>'purpose' = ?", [$purpose]);
+
+        $paidCount = $base()->count();
+        $byCurrency = $base()
             ->groupBy('t.currency')
             ->selectRaw('UPPER(t.currency) as currency, SUM(t.amount_cents) as cents')
             ->pluck('cents', 'currency');
 
         if ($byCurrency->isEmpty()) {
-            return [0, 'USD', 'USD 0.00'];
+            return [0, 'USD', 'USD 0.00', 0];
         }
 
         $dominant = $byCurrency->sortDesc()->keys()->first();
@@ -58,7 +61,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
             ->map(fn ($cents, $cur) => $cur . ' ' . number_format(((int) $cents) / 100, 2))
             ->values()->implode(' + ');
 
-        return [(int) $byCurrency[$dominant], $dominant, $formatted];
+        return [(int) $byCurrency[$dominant], $dominant, $formatted, $paidCount];
     }
 
     public function stats(): JsonResponse
@@ -80,7 +83,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                 ->where('active', true)
                 ->first(['amount_cents', 'currency']);
 
-            [$revenueCents, , $revenueFormatted] = $this->revenueByPurpose('hockey_listing');
+            [$revenueCents, , $revenueFormatted, $paidListings] = $this->revenueByPurpose('hockey_listing');
 
             return response()->json([
                 'success' => true,
@@ -88,6 +91,7 @@ class V4AdminHockeyListingController extends V4HockeyListingController
                     'total_listings'          => (int) $row->total_listings,
                     'active_listings'         => (int) $row->active_listings,
                     'sold_listings'           => (int) $row->sold_listings,
+                    'paid_listings'           => $paidListings,
                     'total_revenue_cents'     => $revenueCents,
                     'total_revenue_formatted' => $revenueFormatted,
                     'listing_fee_cents'       => $listingFee?->amount_cents,

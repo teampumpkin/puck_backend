@@ -60,13 +60,14 @@ class V4EventAdminController extends Controller
 
     public function stats(): JsonResponse
     {
-        [$revenueCents, , $revenueFormatted] = $this->revenueByPurpose('event');
+        [$revenueCents, , $revenueFormatted, $paidEvents] = $this->revenueByPurpose('event');
 
         return response()->json(['success' => true, 'data' => [
             'total' => V4Event::withTrashed()->count(),
             'published' => V4Event::where('status', V4Event::STATUS_PUBLISHED)->count(),
             'cancelled' => V4Event::where('status', V4Event::STATUS_CANCELLED)->count(),
             'deleted' => V4Event::onlyTrashed()->count(),
+            'paid_events' => $paidEvents,
             'total_revenue_cents' => $revenueCents,
             'total_revenue_formatted' => $revenueFormatted,
         ]]);
@@ -81,17 +82,20 @@ class V4EventAdminController extends Controller
      */
     private function revenueByPurpose(string $purpose): array
     {
-        $byCurrency = V4PaymentTransaction::query()
+        $base = fn () => V4PaymentTransaction::query()
             ->from('v4_payment_transactions as t')
             ->join('v4_payment_requests as r', 'r.id', '=', 't.payment_request_id')
             ->where('t.status', V4PaymentTransaction::STATUS_SUCCESS)
-            ->whereRaw("r.meta->>'purpose' = ?", [$purpose])
+            ->whereRaw("r.meta->>'purpose' = ?", [$purpose]);
+
+        $paidCount = $base()->count();
+        $byCurrency = $base()
             ->groupBy('t.currency')
             ->selectRaw('UPPER(t.currency) as currency, SUM(t.amount_cents) as cents')
             ->pluck('cents', 'currency');
 
         if ($byCurrency->isEmpty()) {
-            return [0, 'USD', 'USD 0.00'];
+            return [0, 'USD', 'USD 0.00', 0];
         }
 
         $dominant = $byCurrency->sortDesc()->keys()->first();
@@ -99,7 +103,7 @@ class V4EventAdminController extends Controller
             ->map(fn ($cents, $cur) => $cur . ' ' . number_format(((int) $cents) / 100, 2))
             ->values()->implode(' + ');
 
-        return [(int) $byCurrency[$dominant], $dominant, $formatted];
+        return [(int) $byCurrency[$dominant], $dominant, $formatted, $paidCount];
     }
 
     public function show(int $id): JsonResponse
