@@ -19,7 +19,7 @@ class NotifyEventMembers implements ShouldQueue
     public function __construct(
         public int $eventId,
         public string $type,
-        public string $reason
+        public ?string $reason = null
     ) {
     }
 
@@ -29,15 +29,20 @@ class NotifyEventMembers implements ShouldQueue
         if (! $event) {
             return;
         }
-        $title = $this->type === 'event_cancelled' ? 'Event cancelled' : 'Event deleted';
         $imageUrl = optional($event->media()->first())->url ?? '';
 
         $organizer = optional($event->creator)->name ?? 'The organizer';
         $verb = $this->type === 'event_cancelled' ? 'cancelled' : 'deleted';
-        $reason = trim($this->reason);
-        $body = $reason !== ''
-            ? "{$organizer} {$verb} the event \"{$event->name}\". Reason: {$reason}"
-            : "{$organizer} {$verb} the event \"{$event->name}\".";
+        $reason = trim((string) $this->reason);
+
+        if ($reason !== '') {
+            $title = $this->type === 'event_cancelled' ? 'Event cancelled' : 'Event deleted';
+            $body = "{$organizer} {$verb} the event \"{$event->name}\". Reason: {$reason}";
+        } else {
+            // No reason given — self-contained title/body instead of a bare "Reason:".
+            $title = "\"{$event->name}\" {$verb}";
+            $body = "{$organizer} {$verb} this event.";
+        }
 
         foreach (V4User::whereIn('id', $event->currentMemberIds())->get() as $member) {
             try {

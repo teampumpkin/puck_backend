@@ -384,9 +384,10 @@ class V4EventController extends Controller
     {
         $user = Auth::guard('v4api')->user();
         $this->assertOwner($event, $user);
-        $validated = $request->validate(['reason' => 'required|string|max:1000']);
-        $event->update(['delete_reason' => $validated['reason']]);
-        NotifyEventMembers::dispatch($event->id, 'event_deleted', $validated['reason']);
+        $validated = $request->validate(['reason' => 'nullable|string|max:1000']);
+        $reason = $validated['reason'] ?? null;
+        $event->update(['delete_reason' => $reason]);
+        NotifyEventMembers::dispatch($event->id, 'event_deleted', $reason);
         $event->delete();
 
         return response()->json(['success' => true, 'message' => 'Event deleted.']);
