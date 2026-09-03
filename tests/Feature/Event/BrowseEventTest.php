@@ -33,17 +33,22 @@ class BrowseEventTest extends TestCase
         ], $a));
     }
 
-    public function test_browse_excludes_own_and_unpublished(): void
+    public function test_browse_includes_own_excludes_unpublished(): void
     {
         $me = $this->makeUser();
         $other = $this->makeUser();
         $this->publishedEvent($other);                                              // shown
-        $this->publishedEvent($me);                                                 // hidden (own)
+        $mine = $this->publishedEvent($me);                                         // shown (own — now visible)
         $this->publishedEvent($other, ['status' => V4Event::STATUS_PENDING_PAYMENT]); // hidden (draft)
 
         $res = $this->withHeaders($this->authAs($me))->getJson('/api/v4/events');
         $res->assertStatus(200);
-        $this->assertCount(1, $res->json('data'));
+
+        $data = collect($res->json('data'));
+        $this->assertCount(2, $data);                                               // both published, own included
+        $own = $data->firstWhere('id', $mine->id);
+        $this->assertNotNull($own, 'own event should appear in the browse feed');
+        $this->assertTrue($own['is_owner']);                                        // flagged so UI can badge it
     }
 
     public function test_detail_reports_join_flags(): void

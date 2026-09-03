@@ -125,13 +125,9 @@ class V4EventController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        // Browse is public (guests can view before signing up), so $user may be
-        // null — only exclude the viewer's own events when logged in.
-        $user = Auth::guard('v4api')->user();
+        // Browse is public (guests can view before signing up). Owners now see
+        // their own events in the feed too — is_owner flags them in the response.
         $q = V4Event::query()->published();
-        if ($user) {
-            $q->where('user_id', '!=', $user->id);
-        }
 
         if ($s = $request->input('search')) {
             $q->where(function ($w) use ($s) {

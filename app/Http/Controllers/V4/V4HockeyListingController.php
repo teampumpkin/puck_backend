@@ -470,8 +470,6 @@ class V4HockeyListingController extends Controller
             $lng = $validated['longitude'];
             $perPage = max(1, min((int) ($validated['per_page'] ?? 12), 50));
 
-            $user = Auth::guard('v4api')->user();
-
             // Bounding box pre-filter using indexes (500 miles max covers all realistic sell_radius values)
             $maxMiles = 500;
             $latDelta = $maxMiles / 69.0;
@@ -481,7 +479,6 @@ class V4HockeyListingController extends Controller
 
             $query = V4HockeyListing::active()
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
-                ->when($user, fn($q) => $q->where('user_id', '!=', $user->id))
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
                 ->whereNotNull('sell_radius')
