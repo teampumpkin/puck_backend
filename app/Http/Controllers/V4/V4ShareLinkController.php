@@ -5,9 +5,12 @@ namespace App\Http\Controllers\V4;
 
 use App\Contracts\ErrorTrackerInterface;
 use App\Http\Controllers\Controller;
+use App\Models\Evaluation;
 use App\Models\V4Event;
 use App\Models\V4HockeyListing;
+use App\Models\V4PlayerAchievement;
 use App\Models\V4PlayerPortfolio;
+use App\Models\V4UploadedMedia;
 use App\Models\V4User;
 use App\Services\EventPayloadBuilder;
 use App\Services\HockeyListingPayloadBuilder;
@@ -29,20 +32,19 @@ class V4ShareLinkController extends Controller
         private PortfolioPayloadBuilder $payloadBuilder,
         private EventPayloadBuilder $eventBuilder,
         private HockeyListingPayloadBuilder $listingBuilder,
-    ) {
-    }
+    ) {}
 
     public function sharePortfolio(Request $request, int $portfolioId): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
+            $user      = Auth::guard('v4api')->user();
             $portfolio = V4PlayerPortfolio::with('player')->find($portfolioId);
 
-            if (!$portfolio) {
+            if (! $portfolio) {
                 return response()->json(['success' => false, 'message' => 'Portfolio not found'], 404);
             }
 
-            if (!$this->shareLinks->canViewPortfolio($portfolio, $user)) {
+            if (! $this->shareLinks->canViewPortfolio($portfolio, $user)) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -52,13 +54,13 @@ class V4ShareLinkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'url' => $result['url'],
+                'data'    => [
+                    'url'       => $result['url'],
                     'is_public' => (bool) $portfolio->is_public,
                 ],
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error minting share link: ' . $e->getMessage());
+            Log::error('Error minting share link: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to create share link'], 500);
@@ -68,14 +70,14 @@ class V4ShareLinkController extends Controller
     public function revokePortfolioShare(Request $request, int $portfolioId): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
+            $user      = Auth::guard('v4api')->user();
             $portfolio = V4PlayerPortfolio::with('player')->find($portfolioId);
 
-            if (!$portfolio) {
+            if (! $portfolio) {
                 return response()->json(['success' => false, 'message' => 'Portfolio not found'], 404);
             }
 
-            if (!$this->shareLinks->canRevokePortfolio($portfolio, $user)) {
+            if (! $this->shareLinks->canRevokePortfolio($portfolio, $user)) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -83,7 +85,7 @@ class V4ShareLinkController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Sharing stopped'], 200);
         } catch (Exception $e) {
-            Log::error('Error revoking share link: ' . $e->getMessage());
+            Log::error('Error revoking share link: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to stop sharing'], 500);
@@ -96,13 +98,15 @@ class V4ShareLinkController extends Controller
             $user = Auth::guard('v4api')->user();
             $link = $this->shareLinks->resolve($token);
 
-            if (!$link) {
+            if (! $link) {
                 return response()->json(['success' => false, 'message' => 'Not found'], 404);
             }
 
             $shared = $link->shareable;
-            if ($user?->id !== $this->shareLinks->ownerId($shared)
-                && ($reason = $this->shareLinks->blockReasonFor($shared))) {
+            if (
+                $user?->id !== $this->shareLinks->ownerId($shared)
+                && ($reason = $this->shareLinks->blockReasonFor($shared))
+            ) {
                 return $this->privateResponse($reason);
             }
 
@@ -111,13 +115,13 @@ class V4ShareLinkController extends Controller
             // shareable_type is the morph alias ('portfolio'|'event'|'hockey_listing') — never a class name
             return response()->json([
                 'success' => true,
-                'data' => array_merge(
+                'data'    => array_merge(
                     ['shareable_type' => $link->shareable_type],
                     $this->fullBlock($link->shareable_type, $shared, $user),
                 ),
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error resolving share token: ' . $e->getMessage());
+            Log::error('Error resolving share token: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to open shared content'], 500);
@@ -129,7 +133,7 @@ class V4ShareLinkController extends Controller
         try {
             $link = $this->shareLinks->resolve($token);
 
-            if (!$link) {
+            if (! $link) {
                 return response()->json(['success' => false, 'message' => 'Not found'], 404);
             }
 
@@ -143,13 +147,13 @@ class V4ShareLinkController extends Controller
             // Playable media / contact PII / exact location stay behind auth (see design spec).
             return response()->json([
                 'success' => true,
-                'data' => array_merge(
+                'data'    => array_merge(
                     ['shareable_type' => $link->shareable_type],
                     $this->previewBlock($link->shareable_type, $shared),
                 ),
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error building share preview: ' . $e->getMessage());
+            Log::error('Error building share preview: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to load preview'], 500);
@@ -160,10 +164,10 @@ class V4ShareLinkController extends Controller
     private function fullBlock(string $type, Model $shared, ?V4User $user): array
     {
         return match ($type) {
-            'portfolio' => ['portfolio' => $this->payloadBuilder->build($shared)],
-            'event' => ['event' => $this->eventBuilder->buildFull($shared, $user)],
+            'portfolio'      => ['portfolio' => $this->payloadBuilder->build($shared)],
+            'event'          => ['event' => $this->eventBuilder->buildFull($shared, $user)],
             'hockey_listing' => ['hockey_listing' => $this->listingBuilder->buildFull($shared)],
-            default => [],
+            default          => [],
         };
     }
 
@@ -171,10 +175,10 @@ class V4ShareLinkController extends Controller
     private function previewBlock(string $type, Model $shared): array
     {
         return match ($type) {
-            'portfolio' => $this->portfolioPreview($shared),
-            'event' => $this->eventBuilder->buildPreview($shared->loadMissing('media')),
+            'portfolio'      => $this->portfolioPreview($shared),
+            'event'          => $this->eventBuilder->buildPreview($shared->loadMissing('media')),
             'hockey_listing' => $this->listingBuilder->buildPreview($shared),
-            default => [],
+            default          => [],
         };
     }
 
@@ -186,23 +190,23 @@ class V4ShareLinkController extends Controller
         $counts = ['videos' => 0, 'evaluations' => 0, 'achievements' => 0];
         foreach ($portfolio->subs as $sub) {
             match ($sub->subable_type) {
-                \App\Models\V4UploadedMedia::class => $counts['videos']++,
-                \App\Models\Evaluation::class => $counts['evaluations']++,
-                \App\Models\V4PlayerAchievement::class => $counts['achievements']++,
-                default => null,
+                V4UploadedMedia::class     => $counts['videos']++,
+                Evaluation::class          => $counts['evaluations']++,
+                V4PlayerAchievement::class => $counts['achievements']++,
+                default                    => null,
             };
         }
 
         return [
-            'player' => [
-                'name' => optional($portfolio->player)->name,
+            'player'    => [
+                'name'       => optional($portfolio->player)->name,
                 'avatar_url' => optional($portfolio->player)->profile_photo,
             ],
             'portfolio' => [
-                'title' => $portfolio->title,
+                'title'         => $portfolio->title,
                 'thumbnail_url' => $portfolio->thumbnail_path ?? null,
             ],
-            'counts' => $counts,
+            'counts'    => $counts,
         ];
     }
 
@@ -210,13 +214,13 @@ class V4ShareLinkController extends Controller
     private function privateResponse(string $reason): JsonResponse
     {
         $message = match ($reason) {
-            'profile_private' => "This player's profile is private",
-            'portfolio_private' => 'This portfolio is private',
-            'event_cancelled' => 'This event has been cancelled',
-            'event_unavailable' => 'This event is no longer available',
-            'listing_sold' => 'This item has been sold',
+            'profile_private'     => "This player's profile is private",
+            'portfolio_private'   => 'This portfolio is private',
+            'event_cancelled'     => 'This event has been cancelled',
+            'event_unavailable'   => 'This event is no longer available',
+            'listing_sold'        => 'This item has been sold',
             'listing_unavailable' => 'This listing is no longer available',
-            default => 'This content is unavailable',
+            default               => 'This content is unavailable',
         };
 
         return response()->json(['success' => false, 'message' => $message, 'reason' => $reason], 403);
@@ -227,7 +231,7 @@ class V4ShareLinkController extends Controller
         try {
             $user = Auth::guard('v4api')->user();
 
-            if (!$this->shareLinks->canView($event, $user)) {
+            if (! $this->shareLinks->canView($event, $user)) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -235,10 +239,10 @@ class V4ShareLinkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => ['url' => $result['url'], 'is_public' => $event->status === 'published'],
+                'data'    => ['url' => $result['url'], 'is_public' => $event->status === 'published'],
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error minting event share link: ' . $e->getMessage());
+            Log::error('Error minting event share link: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to create share link'], 500);
@@ -250,7 +254,7 @@ class V4ShareLinkController extends Controller
         try {
             $user = Auth::guard('v4api')->user();
 
-            if (!$this->shareLinks->canRevoke($event, $user)) {
+            if (! $this->shareLinks->canRevoke($event, $user)) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -258,7 +262,7 @@ class V4ShareLinkController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Sharing stopped'], 200);
         } catch (Exception $e) {
-            Log::error('Error revoking event share link: ' . $e->getMessage());
+            Log::error('Error revoking event share link: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to stop sharing'], 500);
@@ -268,14 +272,14 @@ class V4ShareLinkController extends Controller
     public function shareListing(Request $request, int $listing): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
+            $user   = Auth::guard('v4api')->user();
             $record = V4HockeyListing::find($listing);
 
-            if (!$record) {
+            if (! $record) {
                 return response()->json(['success' => false, 'message' => 'Listing not found'], 404);
             }
 
-            if (!$this->shareLinks->canView($record, $user)) {
+            if (! $this->shareLinks->canView($record, $user)) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -283,10 +287,10 @@ class V4ShareLinkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => ['url' => $result['url'], 'is_public' => $record->status === 'published'],
+                'data'    => ['url' => $result['url'], 'is_public' => $record->status === 'published'],
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error minting listing share link: ' . $e->getMessage());
+            Log::error('Error minting listing share link: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to create share link'], 500);
@@ -296,14 +300,14 @@ class V4ShareLinkController extends Controller
     public function revokeListingShare(Request $request, int $listing): JsonResponse
     {
         try {
-            $user = Auth::guard('v4api')->user();
+            $user   = Auth::guard('v4api')->user();
             $record = V4HockeyListing::find($listing);
 
-            if (!$record) {
+            if (! $record) {
                 return response()->json(['success' => false, 'message' => 'Listing not found'], 404);
             }
 
-            if (!$this->shareLinks->canRevoke($record, $user)) {
+            if (! $this->shareLinks->canRevoke($record, $user)) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -311,7 +315,7 @@ class V4ShareLinkController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Sharing stopped'], 200);
         } catch (Exception $e) {
-            Log::error('Error revoking listing share link: ' . $e->getMessage());
+            Log::error('Error revoking listing share link: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
 
             return response()->json(['success' => false, 'message' => 'Failed to stop sharing'], 500);
@@ -330,7 +334,7 @@ class V4ShareLinkController extends Controller
 
             $this->shareLinks->logOpen($token, $request->input('r'), null);
         } catch (Exception $e) {
-            Log::error('Error logging share open: ' . $e->getMessage());
+            Log::error('Error logging share open: '.$e->getMessage());
             $this->errorTracker->captureException($e, ['action' => __METHOD__]);
         }
 

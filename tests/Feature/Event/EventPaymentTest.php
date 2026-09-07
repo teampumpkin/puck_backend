@@ -4,7 +4,9 @@ namespace Tests\Feature\Event;
 
 use App\Models\V4Event;
 use App\Models\V4InAppPurchase;
+use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
+use App\Services\Payments\EventPaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -26,9 +28,15 @@ class EventPaymentTest extends TestCase
     private function draftEvent(V4User $o): V4Event
     {
         return V4Event::create([
-            'user_id' => $o->id, 'event_type' => 'ID Camp', 'name' => 'E', 'description' => 'd',
-            'start_at' => now()->addDay(), 'end_at' => now()->addDays(2),
-            'country' => 'Canada', 'province' => 'ON', 'city' => 'Ontario',
+            'user_id'     => $o->id,
+            'event_type'  => 'ID Camp',
+            'name'        => 'E',
+            'description' => 'd',
+            'start_at'    => now()->addDay(),
+            'end_at'      => now()->addDays(2),
+            'country'     => 'Canada',
+            'province'    => 'ON',
+            'city'        => 'Ontario',
         ]);
     }
 
@@ -36,8 +44,12 @@ class EventPaymentTest extends TestCase
     {
         parent::setUp();
         V4InAppPurchase::create([
-            'sku' => 'event_platform_fee', 'title' => 'Fee', 'product_type' => 'consumable',
-            'amount_cents' => 999, 'currency' => 'CAD', 'active' => true,
+            'sku'          => 'event_platform_fee',
+            'title'        => 'Fee',
+            'product_type' => 'consumable',
+            'amount_cents' => 999,
+            'currency'     => 'CAD',
+            'active'       => true,
         ]);
         config(['services.event.fee_sku' => 'event_platform_fee']);
     }
@@ -55,8 +67,8 @@ class EventPaymentTest extends TestCase
     public function test_child_initiate_creates_parent_request(): void
     {
         $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
-        $event = $this->draftEvent($child);
+        $child  = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $event  = $this->draftEvent($child);
 
         $this->withHeaders($this->authAs($child))->postJson("/api/v4/events/{$event->id}/initiate-payment")
             ->assertStatus(200)
@@ -70,7 +82,7 @@ class EventPaymentTest extends TestCase
     {
         $owner = $this->makeUser();
         $event = $this->draftEvent($owner);
-        $h = $this->authAs($owner);
+        $h     = $this->authAs($owner);
 
         $this->withHeaders($h)->postJson("/api/v4/events/{$event->id}/initiate-payment")->assertStatus(200);
 
@@ -81,14 +93,14 @@ class EventPaymentTest extends TestCase
 
         // replay same receipt -> idempotent, still exactly one success txn
         $this->withHeaders($h)->postJson("/api/v4/events/{$event->id}/confirm-payment", $body)->assertStatus(200);
-        $this->assertSame(1, \App\Models\V4PaymentTransaction::where('status', 'success')->count());
+        $this->assertSame(1, V4PaymentTransaction::where('status', 'success')->count());
     }
 
     public function test_only_parent_can_confirm_child_request(): void
     {
         $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
-        $event = $this->draftEvent($child);
+        $child  = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $event  = $this->draftEvent($child);
         $this->withHeaders($this->authAs($child))->postJson("/api/v4/events/{$event->id}/initiate-payment")->assertStatus(200);
 
         $body = ['source' => 'android', 'purchase_id' => 'gpa.'.Str::random(8)];
@@ -117,7 +129,7 @@ class EventPaymentTest extends TestCase
 
     public function test_fee_disabled_publishes_adult_event_without_payment_request(): void
     {
-        \App\Services\Payments\EventPaymentService::setFeeEnabled(false);
+        EventPaymentService::setFeeEnabled(false);
         $owner = $this->makeUser();
         $event = $this->draftEvent($owner);
 
@@ -134,10 +146,10 @@ class EventPaymentTest extends TestCase
 
     public function test_fee_disabled_publishes_child_event_without_parent_request(): void
     {
-        \App\Services\Payments\EventPaymentService::setFeeEnabled(false);
+        EventPaymentService::setFeeEnabled(false);
         $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
-        $event = $this->draftEvent($child);
+        $child  = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $event  = $this->draftEvent($child);
 
         $this->withHeaders($this->authAs($child))->postJson("/api/v4/events/{$event->id}/initiate-payment")
             ->assertStatus(200)
@@ -151,8 +163,8 @@ class EventPaymentTest extends TestCase
     public function test_reject_keeps_event_unpublished(): void
     {
         $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
-        $event = $this->draftEvent($child);
+        $child  = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $event  = $this->draftEvent($child);
         $this->withHeaders($this->authAs($child))->postJson("/api/v4/events/{$event->id}/initiate-payment")->assertStatus(200);
 
         $this->withHeaders($this->authAs($parent))

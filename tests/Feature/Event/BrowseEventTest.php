@@ -5,6 +5,7 @@ namespace Tests\Feature\Event;
 use App\Models\V4Event;
 use App\Models\V4EventMember;
 use App\Models\V4User;
+use App\Services\Payments\EventPaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -26,34 +27,41 @@ class BrowseEventTest extends TestCase
     private function publishedEvent(V4User $owner, array $a = []): V4Event
     {
         return V4Event::create(array_merge([
-            'user_id' => $owner->id, 'event_type' => 'ID Camp', 'name' => 'E'.Str::random(3), 'description' => 'd',
-            'start_at' => now()->addDay(), 'end_at' => now()->addDays(2),
-            'country' => 'Canada', 'province' => 'ON', 'city' => 'Ontario',
-            'status' => V4Event::STATUS_PUBLISHED, 'published_at' => now(),
+            'user_id'      => $owner->id,
+            'event_type'   => 'ID Camp',
+            'name'         => 'E'.Str::random(3),
+            'description'  => 'd',
+            'start_at'     => now()->addDay(),
+            'end_at'       => now()->addDays(2),
+            'country'      => 'Canada',
+            'province'     => 'ON',
+            'city'         => 'Ontario',
+            'status'       => V4Event::STATUS_PUBLISHED,
+            'published_at' => now(),
         ], $a));
     }
 
     public function test_browse_includes_own_excludes_unpublished(): void
     {
-        $me = $this->makeUser();
+        $me    = $this->makeUser();
         $other = $this->makeUser();
-        $this->publishedEvent($other);                                              // shown
-        $mine = $this->publishedEvent($me);                                         // shown (own — now visible)
+        $this->publishedEvent($other);                                                // shown
+        $mine = $this->publishedEvent($me);                                           // shown (own — now visible)
         $this->publishedEvent($other, ['status' => V4Event::STATUS_PENDING_PAYMENT]); // hidden (draft)
 
         $res = $this->withHeaders($this->authAs($me))->getJson('/api/v4/events');
         $res->assertStatus(200);
 
         $data = collect($res->json('data'));
-        $this->assertCount(2, $data);                                               // both published, own included
+        $this->assertCount(2, $data); // both published, own included
         $own = $data->firstWhere('id', $mine->id);
         $this->assertNotNull($own, 'own event should appear in the browse feed');
-        $this->assertTrue($own['is_owner']);                                        // flagged so UI can badge it
+        $this->assertTrue($own['is_owner']); // flagged so UI can badge it
     }
 
     public function test_detail_reports_join_flags(): void
     {
-        $me = $this->makeUser();
+        $me    = $this->makeUser();
         $owner = $this->makeUser();
         $event = $this->publishedEvent($owner);
         V4EventMember::create(['event_id' => $event->id, 'user_id' => $me->id, 'action' => 'join']);
@@ -79,7 +87,7 @@ class BrowseEventTest extends TestCase
     {
         // Date-only picker stores end_at at midnight; an event ending "today" must
         // stay ongoing all day, not flip to completed once now() passes midnight.
-        $me = $this->makeUser();
+        $me    = $this->makeUser();
         $other = $this->makeUser();
         $this->publishedEvent($other, ['start_at' => today(), 'end_at' => today()]);
 
@@ -94,7 +102,7 @@ class BrowseEventTest extends TestCase
 
     public function test_age_range_filter_overlaps_not_exact(): void
     {
-        $me = $this->makeUser();
+        $me    = $this->makeUser();
         $owner = $this->makeUser();
         $this->publishedEvent($owner, ['name' => 'Youth', 'age_min' => 13, 'age_max' => 45]);
         $this->publishedEvent($owner, ['name' => 'Masters', 'age_min' => 80, 'age_max' => 100]);
@@ -110,7 +118,7 @@ class BrowseEventTest extends TestCase
 
     public function test_league_filter_multi_value(): void
     {
-        $me = $this->makeUser();
+        $me    = $this->makeUser();
         $owner = $this->makeUser();
         // league is now a multi-value jsonb array (parity with profile chips).
         $this->publishedEvent($owner, ['name' => 'AHLteam', 'league' => ['AHL', 'ECHL']]);
@@ -125,11 +133,11 @@ class BrowseEventTest extends TestCase
 
     public function test_fee_status_reflects_admin_switch(): void
     {
-        \App\Services\Payments\EventPaymentService::setFeeEnabled(false);
+        EventPaymentService::setFeeEnabled(false);
         $this->getJson('/api/v4/events/fee-status')
             ->assertStatus(200)->assertJsonPath('data.platform_fee_enabled', false);
 
-        \App\Services\Payments\EventPaymentService::setFeeEnabled(true);
+        EventPaymentService::setFeeEnabled(true);
         $this->getJson('/api/v4/events/fee-status')
             ->assertStatus(200)->assertJsonPath('data.platform_fee_enabled', true);
     }
