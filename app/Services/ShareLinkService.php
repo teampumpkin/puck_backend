@@ -41,6 +41,63 @@ class ShareLinkService
         return optional($portfolio->player)->parent_id === $user->id;
     }
 
+    // --- Per-entity dispatch (keyed on the morphMap alias) ---------------------------------
+    // The three portfolio methods above have entity-specific privacy semantics that don't
+    // generalize, so each shareable type gets its own gate. mint/revoke/resolve stay generic.
+
+    /** Mint gate: owner, or the entity is publicly viewable (mirrors canViewPortfolio). */
+    public function canView(Model $shareable, V4User $user): bool
+    {
+        return match ($shareable->getMorphClass()) {
+            'portfolio' => $this->canViewPortfolio($shareable, $user),
+            'event', 'hockey_listing' => $shareable->user_id === $user->id
+                || $shareable->status === 'published',
+            default => false,
+        };
+    }
+
+    /** Revoke gate. Events/listings: owner only (no parent concept). */
+    public function canRevoke(Model $shareable, V4User $user): bool
+    {
+        return match ($shareable->getMorphClass()) {
+            'portfolio' => $this->canRevokePortfolio($shareable, $user),
+            'event', 'hockey_listing' => $shareable->user_id === $user->id,
+            default => false,
+        };
+    }
+
+    /** Owner id for the "viewer is owner → bypass block" check in resolveShared. */
+    public function ownerId(Model $shareable): ?int
+    {
+        return match ($shareable->getMorphClass()) {
+            'portfolio' => $shareable->player_id,
+            'event', 'hockey_listing' => $shareable->user_id,
+            default => null,
+        };
+    }
+
+    /**
+     * Post-mint visibility re-check for viewers — an owner can flip state after minting and
+     * live tokens must stop resolving. Null = viewable; else a reason string for a 403.
+     */
+    public function blockReasonFor(Model $shareable): ?string
+    {
+        return match ($shareable->getMorphClass()) {
+            'portfolio' => $this->blockReason($shareable),
+            'event' => match ($shareable->status) {
+                'published' => null,
+                'cancelled' => 'event_cancelled',
+                default => 'event_unavailable', // pending_payment | payment_requested
+            },
+            'hockey_listing' => match ($shareable->status) {
+                'published' => null,
+                'sold' => 'listing_sold',
+                default => 'listing_unavailable', // draft | payment_*
+            },
+            default => 'unavailable',
+        };
+    }
+
     /**
      * @return array{url: string, token: string, ref_code: string, was_created: bool}
      * @throws \Illuminate\Database\QueryException if the retry insert also collides (probability ~0)

@@ -3,12 +3,13 @@
 namespace App\Providers;
 
 use App\Contracts\ErrorTrackerInterface;
+use App\Models\V4Event;
+use App\Models\V4HockeyListing;
 use App\Models\V4PlayerPortfolio;
 use App\Services\SentryErrorTracker;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\DB;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,7 +38,9 @@ class AppServiceProvider extends ServiceProvider
 
         // morphMap (NOT enforceMorphMap — existing polymorphic rows store FQCNs and must keep resolving)
         Relation::morphMap([
-            'portfolio' => V4PlayerPortfolio::class,
+            'portfolio'      => V4PlayerPortfolio::class,
+            'event'          => V4Event::class,
+            'hockey_listing' => V4HockeyListing::class,
         ]);
 
         if (env('APP_DOMAIN') === '' || empty(env('APP_DOMAIN'))) {

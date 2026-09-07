@@ -34,6 +34,8 @@ class APILogMiddleware
         $route = $request->path();
 
         $isShareRoute = $request->is('api/v4/portfolios/*/share')
+            || $request->is('api/v4/events/*/share')
+            || $request->is('api/v4/hockey-listings/*/share')
             || $request->is('api/v4/shared/*')
             || $request->is('api/v4/share-links/*/open');
 

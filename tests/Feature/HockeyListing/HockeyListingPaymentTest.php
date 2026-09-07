@@ -4,6 +4,7 @@ namespace Tests\Feature\HockeyListing;
 
 use App\Models\V4HockeyListing;
 use App\Models\V4InAppPurchase;
+use App\Models\V4PaymentTransaction;
 use App\Models\V4User;
 use App\Services\Payments\HockeyListingPaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,8 +28,13 @@ class HockeyListingPaymentTest extends TestCase
     private function draftListing(V4User $o): V4HockeyListing
     {
         return V4HockeyListing::create([
-            'user_id' => $o->id, 'name' => 'Stick', 'description' => 'd',
-            'category' => 'sticks', 'condition' => 'new', 'price_cents' => 5000, 'currency' => 'CAD',
+            'user_id'     => $o->id,
+            'name'        => 'Stick',
+            'description' => 'd',
+            'category'    => 'sticks',
+            'condition'   => 'new',
+            'price_cents' => 5000,
+            'currency'    => 'CAD',
         ]);
     }
 
@@ -36,8 +42,12 @@ class HockeyListingPaymentTest extends TestCase
     {
         parent::setUp();
         V4InAppPurchase::create([
-            'sku' => 'hockey_listing_fee', 'title' => 'Fee', 'product_type' => 'consumable',
-            'amount_cents' => 999, 'currency' => 'CAD', 'active' => true,
+            'sku'          => 'hockey_listing_fee',
+            'title'        => 'Fee',
+            'product_type' => 'consumable',
+            'amount_cents' => 999,
+            'currency'     => 'CAD',
+            'active'       => true,
         ]);
         config(['services.hockey_listing.fee_sku' => 'hockey_listing_fee']);
     }
@@ -52,7 +62,7 @@ class HockeyListingPaymentTest extends TestCase
 
     public function test_adult_initiate_returns_sku_and_amount(): void
     {
-        $owner = $this->makeUser();
+        $owner   = $this->makeUser();
         $listing = $this->draftListing($owner);
 
         $this->initiate($owner, $listing)
@@ -63,8 +73,8 @@ class HockeyListingPaymentTest extends TestCase
 
     public function test_child_initiate_creates_parent_request(): void
     {
-        $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $parent  = $this->makeUser();
+        $child   = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
         $listing = $this->draftListing($child);
 
         $this->initiate($child, $listing)
@@ -77,9 +87,9 @@ class HockeyListingPaymentTest extends TestCase
 
     public function test_adult_confirm_publishes_listing_and_is_idempotent(): void
     {
-        $owner = $this->makeUser();
+        $owner   = $this->makeUser();
         $listing = $this->draftListing($owner);
-        $h = $this->authAs($owner);
+        $h       = $this->authAs($owner);
 
         $this->initiate($owner, $listing)->assertStatus(201);
 
@@ -90,13 +100,13 @@ class HockeyListingPaymentTest extends TestCase
 
         // replay same receipt -> idempotent, still exactly one success txn
         $this->withHeaders($h)->postJson("/api/v4/hockey-listings/{$listing->id}/confirm-payment", $body)->assertStatus(200);
-        $this->assertSame(1, \App\Models\V4PaymentTransaction::where('status', 'success')->count());
+        $this->assertSame(1, V4PaymentTransaction::where('status', 'success')->count());
     }
 
     public function test_only_parent_can_confirm_child_request(): void
     {
-        $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $parent  = $this->makeUser();
+        $child   = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
         $listing = $this->draftListing($child);
         $this->initiate($child, $listing)->assertStatus(201);
 
@@ -116,7 +126,7 @@ class HockeyListingPaymentTest extends TestCase
     public function test_fee_disabled_publishes_adult_listing_without_payment_request(): void
     {
         HockeyListingPaymentService::setFeeEnabled(false);
-        $owner = $this->makeUser();
+        $owner   = $this->makeUser();
         $listing = $this->draftListing($owner);
 
         $this->initiate($owner, $listing)
@@ -133,8 +143,8 @@ class HockeyListingPaymentTest extends TestCase
     public function test_fee_disabled_publishes_child_listing_without_parent_request(): void
     {
         HockeyListingPaymentService::setFeeEnabled(false);
-        $parent = $this->makeUser();
-        $child = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
+        $parent  = $this->makeUser();
+        $child   = $this->makeUser(['is_child' => true, 'parent_id' => $parent->id]);
         $listing = $this->draftListing($child);
 
         $this->initiate($child, $listing)

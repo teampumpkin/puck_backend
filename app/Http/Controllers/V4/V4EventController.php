@@ -10,6 +10,7 @@ use App\Models\V4EventMember;
 use App\Models\V4EventType;
 use App\Models\V4User;
 use App\Services\NotificationService;
+use App\Services\Payments\EventPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -33,7 +34,7 @@ class V4EventController extends Controller
      */
     public function feeStatus(): JsonResponse
     {
-        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => \App\Services\Payments\EventPaymentService::feeEnabled()]]);
+        return response()->json(['success' => true, 'data' => ['platform_fee_enabled' => EventPaymentService::feeEnabled()]]);
     }
 
     public function store(Request $request): JsonResponse
@@ -54,27 +55,27 @@ class V4EventController extends Controller
                 'venue' => 'nullable|string',
                 'latitude' => 'nullable|numeric',
                 'longitude' => 'nullable|numeric',
-                'age_min' => 'nullable|integer',
-                'age_max' => 'nullable|integer',
-                'age_division' => 'nullable|string',
-                'cost_person_cents' => 'nullable|integer|min:0',
+                'age_min'               => 'nullable|integer',
+                'age_max'               => 'nullable|integer',
+                'age_division'          => 'nullable|string',
+                'cost_person_cents'     => 'nullable|integer|min:0',
                 'special_qualification' => 'nullable|string',
-                'coordinator_name' => 'nullable|string|min:2|max:100',
-                'business_name' => 'nullable|string|min:2|max:150',
-                'contact_email' => 'nullable|email|max:255',
-                'contact_phone' => 'nullable|string|regex:/^[0-9+\-()\s]{8,20}$/',
-                'website_url' => 'nullable|url|max:255',
-                'social_links' => 'nullable|array',
-                'scout_leagues' => 'nullable|array',
-                'positions' => 'nullable|array',
-                'birth_years' => 'nullable|array',
-                'league' => 'nullable|array',
-                'league.*' => 'string',
-                'team' => 'nullable|array',
-                'team.*' => 'string',
-                'media' => 'nullable|array|max:10',
-                'media.*' => 'file|max:102400',
-                'media_types' => 'nullable|array',
+                'coordinator_name'      => 'nullable|string|min:2|max:100',
+                'business_name'         => 'nullable|string|min:2|max:150',
+                'contact_email'         => 'nullable|email|max:255',
+                'contact_phone'         => 'nullable|string|regex:/^[0-9+\-()\s]{8,20}$/',
+                'website_url'           => 'nullable|url|max:255',
+                'social_links'          => 'nullable|array',
+                'scout_leagues'         => 'nullable|array',
+                'positions'             => 'nullable|array',
+                'birth_years'           => 'nullable|array',
+                'league'                => 'nullable|array',
+                'league.*'              => 'string',
+                'team'                  => 'nullable|array',
+                'team.*'                => 'string',
+                'media'                 => 'nullable|array|max:10',
+                'media.*'               => 'file|max:102400',
+                'media_types'           => 'nullable|array',
                 'thumbnails' => 'nullable|array',
                 'thumbnails.*' => 'nullable|image|max:10240',
             ]);
@@ -95,11 +96,11 @@ class V4EventController extends Controller
                     $thumbUrl = Storage::disk('s3')->url($thumb->store("events/{$event->id}/thumbs", 's3'));
                 }
                 V4EventMedia::create([
-                    'event_id' => $event->id,
-                    'media_type' => $type,
-                    'url' => Storage::disk('s3')->url($path),
+                    'event_id'      => $event->id,
+                    'media_type'    => $type,
+                    'url'           => Storage::disk('s3')->url($path),
                     'thumbnail_url' => $thumbUrl,
-                    'sort_order' => $i,
+                    'sort_order'    => $i,
                 ]);
             }
             DB::commit();
@@ -107,7 +108,7 @@ class V4EventController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Event saved as draft.',
-                'data' => $this->formatEvent($event->fresh('media')),
+                'data'    => $this->formatEvent($event->fresh('media')),
             ], 201);
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()], 422);
@@ -118,7 +119,7 @@ class V4EventController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create event.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -207,7 +208,7 @@ class V4EventController extends Controller
 
     public function myEvents(Request $request): JsonResponse
     {
-        $user = Auth::guard('v4api')->user();
+        $user   = Auth::guard('v4api')->user();
         $status = $request->input('status', 'ongoing');
         // Hide events still awaiting platform-fee payment (pending_payment /
         // payment_requested) from both tabs: My Events only lists live events.
@@ -226,7 +227,7 @@ class V4EventController extends Controller
         // pagination stable when two rows share a created_at.
         [$col, $dir] = match ($request->input('sort', 'created_desc')) {
             'created_asc' => ['created_at', 'asc'],
-            default => ['created_at', 'desc'],
+            default       => ['created_at', 'desc'],
         };
 
         return $this->paginatedResponse(
@@ -236,10 +237,10 @@ class V4EventController extends Controller
 
     public function show(Request $request, V4Event $event): JsonResponse
     {
-        $user = Auth::guard('v4api')->user();
-        $data = $this->formatEvent($event->load('media'));
-        $data['is_owner'] = $event->user_id === $user->id;
-        $data['is_joined'] = $event->latestActionFor($user->id) === V4EventMember::ACTION_JOIN;
+        $user                 = Auth::guard('v4api')->user();
+        $data                 = $this->formatEvent($event->load('media'));
+        $data['is_owner']     = $event->user_id === $user->id;
+        $data['is_joined']    = $event->latestActionFor($user->id) === V4EventMember::ACTION_JOIN;
         $data['joined_count'] = $event->attendeeCount();
 
         return response()->json(['success' => true, 'data' => $data]);
@@ -256,19 +257,19 @@ class V4EventController extends Controller
         $userId = optional(Auth::guard('v4api')->user())->id;
 
         return response()->json([
-            'success' => true,
-            'data' => collect($page->items())->map(function ($e) use ($userId) {
-                $d = $this->formatEvent($e->load('media'));
-                $d['is_owner'] = $userId !== null && $e->user_id === $userId;
+            'success'    => true,
+            'data'       => collect($page->items())->map(function ($e) use ($userId) {
+                $d              = $this->formatEvent($e->load('media'));
+                $d['is_owner']  = $userId !== null && $e->user_id === $userId;
                 $d['is_joined'] = $userId !== null
                     && $e->latestActionFor($userId) === V4EventMember::ACTION_JOIN;
 
                 return $d;
             })->all(),
             'pagination' => [
-                'current_page' => $page->currentPage(),
-                'per_page' => $page->perPage(),
-                'total' => $page->total(),
+                'current_page'   => $page->currentPage(),
+                'per_page'       => $page->perPage(),
+                'total'          => $page->total(),
                 'has_more_pages' => $page->hasMorePages(),
             ],
         ]);
@@ -285,46 +286,46 @@ class V4EventController extends Controller
         $this->assertOwner($event, $user);
         try {
             $validated = $request->validate([
-                'event_type' => ['sometimes', 'string', Rule::in(V4EventType::activeNames())],
-                'name' => 'sometimes|string|max:255',
-                'description' => 'sometimes|string',
-                'start_at' => 'sometimes|date',
-                'end_at' => 'sometimes|date|after_or_equal:start_at',
+                'event_type'            => ['sometimes', 'string', Rule::in(V4EventType::activeNames())],
+                'name'                  => 'sometimes|string|max:255',
+                'description'           => 'sometimes|string',
+                'start_at'              => 'sometimes|date',
+                'end_at'                => 'sometimes|date|after_or_equal:start_at',
                 'registration_deadline' => 'nullable|date|before_or_equal:start_at',
-                'payment_deadline' => 'nullable|date|before_or_equal:start_at',
-                'country' => 'sometimes|string',
-                'province' => 'sometimes|string',
-                'city' => 'sometimes|string',
-                'venue' => 'nullable|string',
-                'latitude' => 'nullable|numeric',
-                'longitude' => 'nullable|numeric',
-                'age_min' => 'nullable|integer',
-                'age_max' => 'nullable|integer',
-                'age_division' => 'nullable|string',
-                'cost_person_cents' => 'nullable|integer|min:0',
+                'payment_deadline'      => 'nullable|date|before_or_equal:start_at',
+                'country'               => 'sometimes|string',
+                'province'              => 'sometimes|string',
+                'city'                  => 'sometimes|string',
+                'venue'                 => 'nullable|string',
+                'latitude'              => 'nullable|numeric',
+                'longitude'             => 'nullable|numeric',
+                'age_min'               => 'nullable|integer',
+                'age_max'               => 'nullable|integer',
+                'age_division'          => 'nullable|string',
+                'cost_person_cents'     => 'nullable|integer|min:0',
                 'special_qualification' => 'nullable|string',
-                'coordinator_name' => 'nullable|string|min:2|max:100',
-                'business_name' => 'nullable|string|min:2|max:150',
-                'contact_email' => 'nullable|email|max:255',
-                'contact_phone' => 'nullable|string|regex:/^[0-9+\-()\s]{8,20}$/',
-                'website_url' => 'nullable|url|max:255',
-                'social_links' => 'nullable|array',
-                'scout_leagues' => 'nullable|array',
-                'positions' => 'nullable|array',
-                'birth_years' => 'nullable|array',
-                'league' => 'nullable|array',
-                'league.*' => 'string',
-                'team' => 'nullable|array',
-                'team.*' => 'string',
-                'add_media' => 'nullable|array',
-                'add_media.*' => 'file|max:102400',
-                'add_media_types' => 'nullable|array',
-                'add_thumbnails' => 'nullable|array',
-                'add_thumbnails.*' => 'nullable|image|max:10240',
-                'remove_media_ids' => 'nullable|array',
+                'coordinator_name'      => 'nullable|string|min:2|max:100',
+                'business_name'         => 'nullable|string|min:2|max:150',
+                'contact_email'         => 'nullable|email|max:255',
+                'contact_phone'         => 'nullable|string|regex:/^[0-9+\-()\s]{8,20}$/',
+                'website_url'           => 'nullable|url|max:255',
+                'social_links'          => 'nullable|array',
+                'scout_leagues'         => 'nullable|array',
+                'positions'             => 'nullable|array',
+                'birth_years'           => 'nullable|array',
+                'league'                => 'nullable|array',
+                'league.*'              => 'string',
+                'team'                  => 'nullable|array',
+                'team.*'                => 'string',
+                'add_media'             => 'nullable|array',
+                'add_media.*'           => 'file|max:102400',
+                'add_media_types'       => 'nullable|array',
+                'add_thumbnails'        => 'nullable|array',
+                'add_thumbnails.*'      => 'nullable|image|max:10240',
+                'remove_media_ids'      => 'nullable|array',
             ]);
 
-            $keep = $event->media()->whereNotIn('id', (array) $request->input('remove_media_ids', []))->count();
+            $keep   = $event->media()->whereNotIn('id', (array) $request->input('remove_media_ids', []))->count();
             $adding = count((array) $request->file('add_media', []));
             if ($keep + $adding > 10) {
                 return response()->json(['success' => false, 'message' => 'Media limit is 10.'], 422);
@@ -336,18 +337,18 @@ class V4EventController extends Controller
                 $event->media()->whereIn('id', $ids)->delete();
             }
             foreach ((array) $request->file('add_media', []) as $i => $file) {
-                $type = $request->input("add_media_types.$i", 'image');
-                $path = $file->store("events/{$event->id}", 's3');
+                $type     = $request->input("add_media_types.$i", 'image');
+                $path     = $file->store("events/{$event->id}", 's3');
                 $thumbUrl = null;
                 if ($type === 'video' && ($thumb = $request->file("add_thumbnails.$i"))) {
                     $thumbUrl = Storage::disk('s3')->url($thumb->store("events/{$event->id}/thumbs", 's3'));
                 }
                 V4EventMedia::create([
-                    'event_id' => $event->id,
-                    'media_type' => $type,
-                    'url' => Storage::disk('s3')->url($path),
+                    'event_id'      => $event->id,
+                    'media_type'    => $type,
+                    'url'           => Storage::disk('s3')->url($path),
                     'thumbnail_url' => $thumbUrl,
-                    'sort_order' => ((int) $event->media()->max('sort_order')) + 1,
+                    'sort_order'    => ((int) $event->media()->max('sort_order')) + 1,
                 ]);
             }
             DB::commit();
@@ -360,8 +361,11 @@ class V4EventController extends Controller
             report($e);
             Log::error('Event update failed', ['e' => $e->getMessage()]);
 
-            return response()->json(['success' => false, 'message' => 'Failed to update event.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update event.',
+                'error'                            => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
         }
     }
 
@@ -371,8 +375,8 @@ class V4EventController extends Controller
         $this->assertOwner($event, $user);
         $validated = $request->validate(['reason' => 'required|string|max:1000']);
         $event->update([
-            'status' => V4Event::STATUS_CANCELLED,
-            'cancelled_at' => now(),
+            'status'        => V4Event::STATUS_CANCELLED,
+            'cancelled_at'  => now(),
             'cancel_reason' => $validated['reason'],
         ]);
         NotifyEventMembers::dispatch($event->id, 'event_cancelled', $validated['reason']);
@@ -385,7 +389,7 @@ class V4EventController extends Controller
         $user = Auth::guard('v4api')->user();
         $this->assertOwner($event, $user);
         $validated = $request->validate(['reason' => 'nullable|string|max:1000']);
-        $reason = $validated['reason'] ?? null;
+        $reason    = $validated['reason'] ?? null;
         $event->update(['delete_reason' => $reason]);
         NotifyEventMembers::dispatch($event->id, 'event_deleted', $reason);
         $event->delete();
@@ -410,8 +414,10 @@ class V4EventController extends Controller
         // Deadline is date-only (midnight); registration stays open through the
         // whole deadline day, closed only once that day is past. No explicit
         // deadline → the end-day check above governs.
-        if ($event->registration_deadline
-            && $event->registration_deadline->lt(now()->startOfDay())) {
+        if (
+            $event->registration_deadline
+            && $event->registration_deadline->lt(now()->startOfDay())
+        ) {
             return response()->json(['success' => false, 'message' => 'Registration is closed.'], 409);
         }
 
@@ -438,7 +444,9 @@ class V4EventController extends Controller
         }
 
         return response()->json(['success' => true, 'data' => [
-            'member_state' => 'joined', 'is_joined' => true, 'joined_count' => $event->attendeeCount(),
+            'member_state' => 'joined',
+            'is_joined' => true,
+            'joined_count' => $event->attendeeCount(),
         ]]);
     }
 
@@ -454,13 +462,15 @@ class V4EventController extends Controller
         V4EventMember::create(['event_id' => $event->id, 'user_id' => $user->id, 'action' => V4EventMember::ACTION_LEAVE]);
 
         return response()->json(['success' => true, 'data' => [
-            'member_state' => 'left', 'is_joined' => false, 'joined_count' => $event->attendeeCount(),
+            'member_state' => 'left',
+            'is_joined' => false,
+            'joined_count' => $event->attendeeCount(),
         ]]);
     }
 
     public function members(Request $request, V4Event $event): JsonResponse
     {
-        $user = Auth::guard('v4api')->user();
+        $user    = Auth::guard('v4api')->user();
         $isAdmin = ($user->role ?? null) === 'admin';
         if ($event->user_id !== $user->id && ! $isAdmin) {
             return response()->json(['success' => false, 'message' => 'Forbidden.'], 403);
@@ -475,44 +485,44 @@ class V4EventController extends Controller
     public function formatEvent(V4Event $e): array
     {
         return [
-            'id' => $e->id,
-            'event_type' => $e->event_type,
-            'name' => $e->name,
-            'description' => $e->description,
-            'status' => $e->status,
-            'start_at' => $e->start_at,
-            'end_at' => $e->end_at,
+            'id'                    => $e->id,
+            'event_type'            => $e->event_type,
+            'name'                  => $e->name,
+            'description'           => $e->description,
+            'status'                => $e->status,
+            'start_at'              => $e->start_at,
+            'end_at'                => $e->end_at,
             'registration_deadline' => $e->registration_deadline,
-            'payment_deadline' => $e->payment_deadline,
-            'country' => $e->country,
-            'province' => $e->province,
-            'city' => $e->city,
-            'venue' => $e->venue,
-            'latitude' => $e->latitude,
-            'longitude' => $e->longitude,
-            'age_min' => $e->age_min,
-            'age_max' => $e->age_max,
-            'age_division' => $e->age_division,
-            'cost_person_cents' => $e->cost_person_cents,
-            'cost_person_currency' => $e->cost_person_currency,
-            'scout_leagues' => $e->scout_leagues ?? [],
-            'positions' => $e->positions ?? [],
-            'birth_years' => $e->birth_years ?? [],
-            'league' => $e->league ?? [],
-            'team' => $e->team ?? [],
+            'payment_deadline'      => $e->payment_deadline,
+            'country'               => $e->country,
+            'province'              => $e->province,
+            'city'                  => $e->city,
+            'venue'                 => $e->venue,
+            'latitude'              => $e->latitude,
+            'longitude'             => $e->longitude,
+            'age_min'               => $e->age_min,
+            'age_max'               => $e->age_max,
+            'age_division'          => $e->age_division,
+            'cost_person_cents'     => $e->cost_person_cents,
+            'cost_person_currency'  => $e->cost_person_currency,
+            'scout_leagues'         => $e->scout_leagues ?? [],
+            'positions'             => $e->positions ?? [],
+            'birth_years'           => $e->birth_years ?? [],
+            'league'                => $e->league ?? [],
+            'team'                  => $e->team ?? [],
             'special_qualification' => $e->special_qualification,
-            'coordinator_name' => $e->coordinator_name,
-            'business_name' => $e->business_name,
-            'contact_email' => $e->contact_email,
-            'contact_phone' => $e->contact_phone,
-            'website_url' => $e->website_url,
-            'social_links' => $e->social_links ?? [],
-            'media' => $e->media->map(fn ($m) => [
-                'id' => $m->id,
-                'media_type' => $m->media_type,
-                'url' => $m->url,
+            'coordinator_name'      => $e->coordinator_name,
+            'business_name'         => $e->business_name,
+            'contact_email'         => $e->contact_email,
+            'contact_phone'         => $e->contact_phone,
+            'website_url'           => $e->website_url,
+            'social_links'          => $e->social_links ?? [],
+            'media'                 => $e->media->map(fn($m) => [
+                'id'            => $m->id,
+                'media_type'    => $m->media_type,
+                'url'           => $m->url,
                 'thumbnail_url' => $m->thumbnail_url,
-                'sort_order' => $m->sort_order,
+                'sort_order'    => $m->sort_order,
             ])->all(),
         ];
     }

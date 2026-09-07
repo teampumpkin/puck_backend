@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\V4EventAdminController;
+use App\Http\Controllers\Admin\V4EventTypeAdminController;
 use App\Http\Controllers\API\Admin\AdminEvaluatorController;
 use App\Http\Controllers\API\Admin\AdminPlayerController;
 use App\Http\Controllers\API\Admin\AdminScoutController;
@@ -561,24 +563,24 @@ Route::prefix('v4')->group(function () {
 
             // Events (Admin)
             Route::prefix('events')->group(function () {
-                Route::get('stats', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'stats']);
-                Route::get('platform-fee', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'getFeeSetting']);
-                Route::put('platform-fee', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'setFeeSetting']);
-                Route::get('/', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'index']);
-                Route::get('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'show']);
-                Route::get('{id}/members', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'members']);
-                Route::put('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'update']);
-                Route::post('{id}/cancel', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'cancel']);
-                Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'destroy']);
-                Route::post('{id}/restore', [\App\Http\Controllers\Admin\V4EventAdminController::class, 'restore']);
+                Route::get('stats', [V4EventAdminController::class, 'stats']);
+                Route::get('platform-fee', [V4EventAdminController::class, 'getFeeSetting']);
+                Route::put('platform-fee', [V4EventAdminController::class, 'setFeeSetting']);
+                Route::get('/', [V4EventAdminController::class, 'index']);
+                Route::get('{id}', [V4EventAdminController::class, 'show']);
+                Route::get('{id}/members', [V4EventAdminController::class, 'members']);
+                Route::put('{id}', [V4EventAdminController::class, 'update']);
+                Route::post('{id}/cancel', [V4EventAdminController::class, 'cancel']);
+                Route::delete('{id}', [V4EventAdminController::class, 'destroy']);
+                Route::post('{id}/restore', [V4EventAdminController::class, 'restore']);
             });
 
             // Event Types (Admin, editable lookup)
             Route::prefix('event-types')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'index']);
-                Route::post('/', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'store']);
-                Route::put('{id}', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'update']);
-                Route::delete('{id}', [\App\Http\Controllers\Admin\V4EventTypeAdminController::class, 'destroy']);
+                Route::get('/', [V4EventTypeAdminController::class, 'index']);
+                Route::post('/', [V4EventTypeAdminController::class, 'store']);
+                Route::put('{id}', [V4EventTypeAdminController::class, 'update']);
+                Route::delete('{id}', [V4EventTypeAdminController::class, 'destroy']);
             });
         });
     });
@@ -934,6 +936,8 @@ Route::prefix('v4')->group(function () {
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
+            Route::post('{listing}/share', [V4ShareLinkController::class, 'shareListing']);
+            Route::delete('{listing}/share', [V4ShareLinkController::class, 'revokeListingShare']);
         });
 
         // Events (index + types are registered publicly above)
@@ -947,6 +951,8 @@ Route::prefix('v4')->group(function () {
             Route::post('{event}/join', [V4EventController::class, 'join']);
             Route::post('{event}/leave', [V4EventController::class, 'leave']);
             Route::get('{event}/members', [V4EventController::class, 'members']);
+            Route::post('{event}/share', [V4ShareLinkController::class, 'shareEvent']);
+            Route::delete('{event}/share', [V4ShareLinkController::class, 'revokeEventShare']);
             Route::post('{event}/initiate-payment', [V4EventPaymentController::class, 'initiatePayment']);
             Route::post('{event}/confirm-payment', [V4EventPaymentController::class, 'confirmPayment']);
             Route::post('{event}/reject-payment', [V4EventPaymentController::class, 'rejectPayment']);
