@@ -38,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
         // morphMap (NOT enforceMorphMap — existing polymorphic rows store FQCNs and must keep resolving)
         Relation::morphMap([
             'portfolio' => V4PlayerPortfolio::class,
+            'event' => \App\Models\V4Event::class,
+            'hockey_listing' => \App\Models\V4HockeyListing::class,
         ]);
 
         if (env('APP_DOMAIN') === '' || empty(env('APP_DOMAIN'))) {

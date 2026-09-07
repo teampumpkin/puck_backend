@@ -934,6 +934,8 @@ Route::prefix('v4')->group(function () {
             Route::put('{listing}', [V4HockeyListingController::class, 'update']);
             Route::delete('{listing}', [V4HockeyListingController::class, 'destroy']);
             Route::patch('{listing}/mark-sold', [V4HockeyListingController::class, 'markSold']);
+            Route::post('{listing}/share', [V4ShareLinkController::class, 'shareListing']);
+            Route::delete('{listing}/share', [V4ShareLinkController::class, 'revokeListingShare']);
         });
 
         // Events (index + types are registered publicly above)
@@ -947,6 +949,8 @@ Route::prefix('v4')->group(function () {
             Route::post('{event}/join', [V4EventController::class, 'join']);
             Route::post('{event}/leave', [V4EventController::class, 'leave']);
             Route::get('{event}/members', [V4EventController::class, 'members']);
+            Route::post('{event}/share', [V4ShareLinkController::class, 'shareEvent']);
+            Route::delete('{event}/share', [V4ShareLinkController::class, 'revokeEventShare']);
             Route::post('{event}/initiate-payment', [V4EventPaymentController::class, 'initiatePayment']);
             Route::post('{event}/confirm-payment', [V4EventPaymentController::class, 'confirmPayment']);
             Route::post('{event}/reject-payment', [V4EventPaymentController::class, 'rejectPayment']);
