@@ -52,6 +52,22 @@ class NearbyRadiusTest extends TestCase
         int $sellRadius,
         string $name = 'Bauer Vapor'
     ): V4HockeyListing {
+        return $this->listingAtPoint(
+            $owner,
+            self::BUYER_LAT + ($milesNorth / 69.0),
+            self::BUYER_LNG,
+            $sellRadius,
+            $name
+        );
+    }
+
+    private function listingAtPoint(
+        V4User $owner,
+        float $lat,
+        float $lng,
+        int $sellRadius = 500,
+        string $name = 'Bauer Vapor'
+    ): V4HockeyListing {
         return V4HockeyListing::create([
             'user_id' => $owner->id,
             'name' => $name,
@@ -60,8 +76,8 @@ class NearbyRadiusTest extends TestCase
             'currency' => 'CAD',
             'category' => HockeyListingCategories::PLAYER_STICKS,
             'condition' => HockeyListingConditions::USED_GOOD,
-            'latitude' => self::BUYER_LAT + ($milesNorth / 69.0),
-            'longitude' => self::BUYER_LNG,
+            'latitude' => $lat,
+            'longitude' => $lng,
             'city' => 'Toronto',
             'country' => 'Canada',
             'sell_radius' => $sellRadius,
@@ -137,5 +153,24 @@ class NearbyRadiusTest extends TestCase
         $this->assertCount(2, $data);
         $this->assertArrayHasKey('distance_miles', $data[0]);
         $this->assertLessThan($data[1]['distance_miles'], $data[0]['distance_miles']);
+    }
+
+    /**
+     * The bounding box is only a cheap prefilter; it has to stay a strict
+     * superset of the haversine that follows it. This listing sits 499.8 miles
+     * from the buyer — inside a 500-mile radius — but near the circle's eastern
+     * tangent, where an unpadded box is ~0.7% too narrow and drops it before the
+     * haversine ever runs. Delete the 1.02 margin in nearby() and this fails.
+     */
+    public function test_listing_near_the_east_tangent_is_not_clipped_by_the_bounding_box(): void
+    {
+        $seller = $this->makeUser();
+        $listing = $this->listingAtPoint($seller, 43.882092, self::BUYER_LNG + 10.018);
+
+        $data = $this->nearby(['radius' => 500])->json('data');
+
+        $this->assertCount(1, $data);
+        $this->assertSame($listing->id, $data[0]['id']);
+        $this->assertLessThan(500, $data[0]['distance_miles']);
     }
 }
