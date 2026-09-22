@@ -475,9 +475,14 @@ class V4HockeyListingController extends Controller
             // Bounding box pre-filter using indexes. Driven by the buyer's own
             // radius, so a 10-mile search scans a 10-mile box rather than the
             // 500-mile box the old seller-radius query always needed.
-            // The 1.02 margin keeps this box a strict superset of the haversine
-            // below: the flat 69.0 miles/degree scaling falls ~0.7% short of the
-            // true circle, so without it the box clips listings inside the radius.
+            // The 1.02 margin compensates for the flat 69.0 miles/degree scaling
+            // undershooting the true haversine circle (roughly a tenth of a
+            // percent at Toronto's latitude for a 500-mile radius; still just
+            // ~1.01 even at Iqaluit). That keeps the box a superset of the
+            // circle for realistic latitudes/radii, but the required ratio
+            // climbs at extreme latitude (~1.02 at 70N, ~1.114 at 80N), so
+            // this is not a strict superset guarantee everywhere. Load-bearing
+            // margin — do not remove it as dead slack.
             $latDelta = ($radius / 69.0) * 1.02;
             // cos() reaches 0 at the poles; clamp so the divisor can never be 0.
             $cosLat = max(cos(deg2rad($lat)), 0.01);
