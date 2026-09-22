@@ -464,16 +464,21 @@ class V4HockeyListingController extends Controller
                 'categories' => 'nullable|array',
                 'categories.*' => 'required|string|in:' . implode(',', HockeyListingCategories::all()),
                 'per_page' => 'nullable|integer|min:1|max:50',
+                'radius' => 'required|integer|min:1|max:500',
             ]);
 
             $lat = $validated['latitude'];
             $lng = $validated['longitude'];
+            $radius = (int) $validated['radius'];
             $perPage = max(1, min((int) ($validated['per_page'] ?? 12), 50));
 
-            // Bounding box pre-filter using indexes (500 miles max covers all realistic sell_radius values)
-            $maxMiles = 500;
-            $latDelta = $maxMiles / 69.0;
-            $lngDelta = $maxMiles / (69.0 * cos(deg2rad($lat)));
+            // Bounding box pre-filter using indexes. Driven by the buyer's own
+            // radius, so a 10-mile search scans a 10-mile box rather than the
+            // 500-mile box the old seller-radius query always needed.
+            $latDelta = $radius / 69.0;
+            // cos() reaches 0 at the poles; clamp so the divisor can never be 0.
+            $cosLat = max(cos(deg2rad($lat)), 0.01);
+            $lngDelta = $radius / (69.0 * $cosLat);
 
             $haversine = '(3958.8 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
 
@@ -481,10 +486,9 @@ class V4HockeyListingController extends Controller
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
-                ->whereNotNull('sell_radius')
                 ->whereBetween('latitude', [$lat - $latDelta, $lat + $latDelta])
                 ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta])
-                ->whereRaw("$haversine <= sell_radius", [$lat, $lng, $lat])
+                ->whereRaw("$haversine <= ?", [$lat, $lng, $lat, $radius])
                 ->selectRaw("*, $haversine AS distance_miles", [$lat, $lng, $lat])
                 ->orderBy('distance_miles')
                 ->orderByDesc('listed_at')
