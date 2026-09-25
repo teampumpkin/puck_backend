@@ -488,7 +488,9 @@ class V4HockeyListingController extends Controller
             $cosLat = max(cos(deg2rad($lat)), 0.01);
             $lngDelta = ($radius / (69.0 * $cosLat)) * 1.02;
 
-            $haversine = '(3958.8 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
+            $haversine = '(3958.8 * acos(least(1.0, greatest(-1.0, '
+                . 'cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) '
+                . '+ sin(radians(?)) * sin(radians(latitude))))))';
 
             $query = V4HockeyListing::active()
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])

@@ -173,4 +173,32 @@ class NearbyRadiusTest extends TestCase
         $this->assertSame($listing->id, $data[0]['id']);
         $this->assertLessThan(500, $data[0]['distance_miles']);
     }
+
+    /**
+     * The dot product handed to acos() is mathematically within [-1, 1], but
+     * when the buyer stands exactly on a listing it rounds to
+     * 1.0000000000000002 in IEEE754. Postgres answers acos(x > 1) with 22003
+     * "input is out of range" rather than NaN, and the failure lands in the
+     * pagination count(*), so the whole request 500s before any row is read.
+     *
+     * The coordinate matters: most coincident points are fine, and roughly 2%
+     * of decimal(10,7) pairs overflow. This one does — verified by reverting
+     * the clamp, at which point this test fails with SQLSTATE[22003].
+     *
+     * A near-coincident variant (the same point offset by 1e-9) was tried and
+     * dropped: it passes against the unclamped query, so it guards nothing.
+     */
+    public function test_a_buyer_standing_exactly_on_a_listing_does_not_error(): void
+    {
+        $lat = 28.704059039;
+        $lng = 77.10249014;
+        $this->listingAtPoint($this->makeUser(), $lat, $lng);
+
+        $response = $this->nearby(['latitude' => $lat, 'longitude' => $lng, 'radius' => 1]);
+
+        $response->assertOk();
+        $this->assertSame(1, $response->json('pagination.total'));
+        $this->assertEqualsWithDelta(0.0, (float) $response->json('data.0.distance_miles'), 0.0001);
+    }
+
 }
