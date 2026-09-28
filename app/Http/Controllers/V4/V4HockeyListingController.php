@@ -464,27 +464,41 @@ class V4HockeyListingController extends Controller
                 'categories' => 'nullable|array',
                 'categories.*' => 'required|string|in:' . implode(',', HockeyListingCategories::all()),
                 'per_page' => 'nullable|integer|min:1|max:50',
+                'radius' => 'required|integer|min:1|max:500',
             ]);
 
             $lat = $validated['latitude'];
             $lng = $validated['longitude'];
+            $radius = (int) $validated['radius'];
             $perPage = max(1, min((int) ($validated['per_page'] ?? 12), 50));
 
-            // Bounding box pre-filter using indexes (500 miles max covers all realistic sell_radius values)
-            $maxMiles = 500;
-            $latDelta = $maxMiles / 69.0;
-            $lngDelta = $maxMiles / (69.0 * cos(deg2rad($lat)));
+            // Bounding box pre-filter using indexes. Driven by the buyer's own
+            // radius, so a 10-mile search scans a 10-mile box rather than the
+            // 500-mile box the old seller-radius query always needed.
+            // The 1.02 margin compensates for the flat 69.0 miles/degree scaling
+            // undershooting the true haversine circle (roughly a tenth of a
+            // percent at Toronto's latitude for a 500-mile radius; still just
+            // ~1.01 even at Iqaluit). That keeps the box a superset of the
+            // circle for realistic latitudes/radii, but the required ratio
+            // climbs at extreme latitude (~1.02 at 70N, ~1.114 at 80N), so
+            // this is not a strict superset guarantee everywhere. Load-bearing
+            // margin — do not remove it as dead slack.
+            $latDelta = ($radius / 69.0) * 1.02;
+            // cos() reaches 0 at the poles; clamp so the divisor can never be 0.
+            $cosLat = max(cos(deg2rad($lat)), 0.01);
+            $lngDelta = ($radius / (69.0 * $cosLat)) * 1.02;
 
-            $haversine = '(3958.8 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude))))';
+            $haversine = '(3958.8 * acos(least(1.0, greatest(-1.0, '
+                . 'cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) '
+                . '+ sin(radians(?)) * sin(radians(latitude))))))';
 
             $query = V4HockeyListing::active()
                 ->with(['images', 'user:' . SellerInfoDTO::selectColumns()])
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
-                ->whereNotNull('sell_radius')
                 ->whereBetween('latitude', [$lat - $latDelta, $lat + $latDelta])
                 ->whereBetween('longitude', [$lng - $lngDelta, $lng + $lngDelta])
-                ->whereRaw("$haversine <= sell_radius", [$lat, $lng, $lat])
+                ->whereRaw("$haversine <= ?", [$lat, $lng, $lat, $radius])
                 ->selectRaw("*, $haversine AS distance_miles", [$lat, $lng, $lat])
                 ->orderBy('distance_miles')
                 ->orderByDesc('listed_at')
