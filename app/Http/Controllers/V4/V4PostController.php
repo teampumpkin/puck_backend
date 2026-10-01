@@ -78,6 +78,9 @@ class V4PostController extends Controller
                         }
                     },
                 ],
+                'media.*.width'       => 'nullable|integer|min:1|max:10000',
+                'media.*.height'      => 'nullable|integer|min:1|max:10000',
+                'media.*.duration_ms' => 'nullable|integer|min:0',
             ]);
 
             // --------------------------
@@ -111,6 +114,8 @@ class V4PostController extends Controller
                 $mimeType     = $file->getClientMimeType();
                 $fileSize     = $file->getSize();
 
+                [$width, $height] = $this->resolveDimensions($item, $file);
+
                 $fileName = $item['type'] . '_' . Str::uuid() . '_' . time() . '.' . $extension;
                 $folder   = $item['type'] === 'image' ? "posts/images/{$post->id}" : "posts/videos/{$post->id}";
 
@@ -127,6 +132,9 @@ class V4PostController extends Controller
                         'original_name' => $originalName,
                         'file_size'     => $fileSize,
                         'storage_path'  => $path,
+                        'width'         => $width,
+                        'height'        => $height,
+                        'duration_ms'   => isset($item['duration_ms']) ? (int) $item['duration_ms'] : null,
                     ],
                 ]);
             }
@@ -167,6 +175,37 @@ class V4PostController extends Controller
                 'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    /**
+     * Display dimensions (after rotation). Client values win; images without
+     * them fall back to getimagesize, swapped for EXIF orientations 5-8.
+     * Videos without client values stay null (no server-side probing).
+     */
+    private function resolveDimensions(array $item, $file): array
+    {
+        if (! empty($item['width']) && ! empty($item['height'])) {
+            return [(int) $item['width'], (int) $item['height']];
+        }
+
+        if ($item['type'] !== 'image') {
+            return [null, null];
+        }
+
+        $size = @getimagesize($file->getRealPath());
+        if (! $size) {
+            return [null, null];
+        }
+
+        [$width, $height] = $size;
+        if (function_exists('exif_read_data')) {
+            $exif = @exif_read_data($file->getRealPath());
+            if (in_array($exif['Orientation'] ?? 1, [5, 6, 7, 8], true)) {
+                [$width, $height] = [$height, $width];
+            }
+        }
+
+        return [$width, $height];
     }
 
     public function getPostStats(Request $request): JsonResponse
@@ -372,7 +411,7 @@ class V4PostController extends Controller
             $post = V4Post::where('id', $postId)
                 ->with([
                     'user:id,profile_photo,first_name,last_name,role',
-                    'media:id,post_id,type,url',
+                    'media' => fn ($query) => $query->withDimensions(),
                     'likedByAuthUser',
                     'comments' => function ($query) {
                         $query->latest()->limit(1); // ✅ Only latest comment
