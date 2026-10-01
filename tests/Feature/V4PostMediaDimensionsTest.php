@@ -87,6 +87,15 @@ class V4PostMediaDimensionsTest extends TestCase
         $this->assertSame(0, V4PostMedia::count());
     }
 
+    public function test_oversized_duration_is_rejected_so_feed_int_cast_cannot_overflow(): void
+    {
+        $this->upload($this->makeUser(), [[
+            'type' => 'video', 'file' => UploadedFile::fake()->create('clip.mp4', 100, 'video/mp4'),
+            'duration_ms' => 3000000000, // > Postgres int max (2147483647)
+        ]])->assertStatus(422);
+        $this->assertSame(0, V4PostMedia::count());
+    }
+
     public function test_post_and_feed_responses_expose_dimensions_but_not_meta(): void
     {
         $user = $this->makeUser();

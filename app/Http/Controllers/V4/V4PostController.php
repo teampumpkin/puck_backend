@@ -80,7 +80,7 @@ class V4PostController extends Controller
                 ],
                 'media.*.width'       => 'nullable|integer|min:1|max:10000',
                 'media.*.height'      => 'nullable|integer|min:1|max:10000',
-                'media.*.duration_ms' => 'nullable|integer|min:0',
+                'media.*.duration_ms' => 'nullable|integer|min:0|max:86400000', // ≤ 24h; read back with a Postgres ::int cast
             ]);
 
             // --------------------------
