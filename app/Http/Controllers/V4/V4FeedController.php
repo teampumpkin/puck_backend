@@ -63,7 +63,7 @@ class V4FeedController extends Controller
             // Fetch posts
             $posts = V4Post::with([
                 'user:id,profile_photo,first_name,last_name,role',
-                'media:id,post_id,type,url',
+                'media' => fn ($query) => $query->withDimensions(),
                 'likedByAuthUser',
             ])
                 ->whereIn('user_id', $userIds)
@@ -143,7 +143,7 @@ class V4FeedController extends Controller
             // Fetch posts of the given user only
             $posts = V4Post::with([
                 'user:id,profile_photo,first_name,last_name,role',
-                'media:id,post_id,type,url',
+                'media' => fn ($query) => $query->withDimensions(),
                 'likedByAuthUser',
             ])
                 ->where('user_id', $userId)
