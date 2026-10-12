@@ -74,6 +74,15 @@ class AdminEvaluationRequestsTest extends TestCase
             ->assertOk();
     }
 
+    public function test_list_survives_deleted_player(): void
+    {
+        $player = $this->user('player');
+        [$sub] = $this->submission($player);
+        $player->delete();
+
+        $this->list()->assertOk()->assertJsonPath('data.0.playerId', null);
+    }
+
     public function test_detail_survives_soft_deleted_marketplace_item(): void
     {
         [$sub, $item] = $this->submission($this->user('player'));

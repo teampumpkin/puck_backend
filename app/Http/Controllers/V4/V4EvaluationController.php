@@ -3130,11 +3130,11 @@ class V4EvaluationController extends Controller
             $data = $data->merge($submissions->map(function ($submission) {
                 $result = [
                     'id' => $submission->id,
-                    'playerId' => $submission->player->id,
-                    'playerName' => $submission->player->name,
-                    'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem?->type,
-                    'purchaseDate' => $submission->paymentRequest->paymentTransaction?->updated_at,
-                    'price' => $submission->paymentRequest->amount_cents,
+                    'playerId' => $submission->player?->id,
+                    'playerName' => $submission->player?->name,
+                    'type' => $submission->paymentRequest?->inAppPurchase?->marketplaceItem?->type,
+                    'purchaseDate' => $submission->paymentRequest?->paymentTransaction?->updated_at,
+                    'price' => $submission->paymentRequest?->amount_cents,
                     'updated_at' => $submission->updated_at,
                 ];
 
@@ -3194,8 +3194,8 @@ class V4EvaluationController extends Controller
                 }
 
                 if ($submission->evaluatorAssignment != null) {
-                    $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
-                    $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
+                    $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator?->id;
+                    $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator?->name;
                     $result['status'] = $submission->status;
                 } else if ($submission->consultationRequests->isNotEmpty()) {
                     $latestConsultationRequest = $submission->consultationRequests->first();
@@ -3209,8 +3209,8 @@ class V4EvaluationController extends Controller
                             'adminNotes' => $latestConsultationRequest->admin_notes,
                             'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
                         ];
-                        $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
-                        $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                        $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator?->id;
+                        $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator?->id;
                         if ($latestConsultationRequest->status == V4ConsultationRequest::STATUS_PENDING) {
                             $result['status'] = 'request_' . $latestConsultationRequest->status;
                         } else {
@@ -3310,11 +3310,11 @@ class V4EvaluationController extends Controller
             // Prepare the response data
             $result = [
                 'id' => $submission->id,
-                'playerId' => $submission->player->id,
-                'playerName' => $submission->player->name,
-                'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem?->type,
-                'purchaseDate' => $submission->paymentRequest->paymentTransaction?->updated_at,
-                'price' => $submission->paymentRequest->amount_cents,
+                'playerId' => $submission->player?->id,
+                'playerName' => $submission->player?->name,
+                'type' => $submission->paymentRequest?->inAppPurchase?->marketplaceItem?->type,
+                'purchaseDate' => $submission->paymentRequest?->paymentTransaction?->updated_at,
+                'price' => $submission->paymentRequest?->amount_cents,
                 'updated_at' => $submission->updated_at,
             ];
 
@@ -3376,8 +3376,8 @@ class V4EvaluationController extends Controller
 
             // Include evaluator details if assigned
             if ($submission->evaluatorAssignment != null) {
-                $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator->id;
-                $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator->name;
+                $result['assignedEvaluatorId'] = $submission->evaluatorAssignment->evaluator?->id;
+                $result['assignedEvaluatorName'] = $submission->evaluatorAssignment->evaluator?->name;
                 $result['status'] = $submission->status;
             } else if ($submission->consultationRequests->isNotEmpty()) {
                 $latestConsultationRequest = $submission->consultationRequests->first();
@@ -3391,8 +3391,8 @@ class V4EvaluationController extends Controller
                         'adminNotes' => $latestConsultationRequest->admin_notes,
                         'evaluatorNotes' => $latestConsultationRequest->evaluator_notes,
                     ];
-                    $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator->id;
-                    $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator->id;
+                    $result['assignedEvaluatorId'] = $latestConsultationRequest->evaluator?->id;
+                    $result['assignedEvaluatorName'] = $latestConsultationRequest->evaluator?->id;
                     if ($latestConsultationRequest->status == V4ConsultationRequest::STATUS_PENDING) {
                         $result['status'] = 'request_' . $latestConsultationRequest->status;
                     } else {
@@ -3489,11 +3489,11 @@ class V4EvaluationController extends Controller
             // Prepare the response data
             $result = [
                 'id' => $submission->id,
-                'playerId' => $submission->player->id,
-                'playerName' => $submission->player->name,
-                'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem?->type,
-                'purchaseDate' => $submission->paymentRequest->paymentTransaction?->updated_at,
-                'price' => $submission->paymentRequest->amount_cents,
+                'playerId' => $submission->player?->id,
+                'playerName' => $submission->player?->name,
+                'type' => $submission->paymentRequest?->inAppPurchase?->marketplaceItem?->type,
+                'purchaseDate' => $submission->paymentRequest?->paymentTransaction?->updated_at,
+                'price' => $submission->paymentRequest?->amount_cents,
                 'updated_at' => $submission->updated_at,
             ];
 
