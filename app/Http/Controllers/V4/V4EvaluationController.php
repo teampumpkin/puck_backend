@@ -3133,7 +3133,7 @@ class V4EvaluationController extends Controller
                     'playerId' => $submission->player->id,
                     'playerName' => $submission->player->name,
                     'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
-                    'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
+                    'purchaseDate' => $submission->paymentRequest->paymentTransaction?->updated_at,
                     'price' => $submission->paymentRequest->amount_cents,
                     'updated_at' => $submission->updated_at,
                 ];
@@ -3313,7 +3313,7 @@ class V4EvaluationController extends Controller
                 'playerId' => $submission->player->id,
                 'playerName' => $submission->player->name,
                 'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
-                'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
+                'purchaseDate' => $submission->paymentRequest->paymentTransaction?->updated_at,
                 'price' => $submission->paymentRequest->amount_cents,
                 'updated_at' => $submission->updated_at,
             ];
@@ -3492,7 +3492,7 @@ class V4EvaluationController extends Controller
                 'playerId' => $submission->player->id,
                 'playerName' => $submission->player->name,
                 'type' => $submission->paymentRequest->inAppPurchase->marketplaceItem->type,
-                'purchaseDate' => $submission->paymentRequest->paymentTransaction->updated_at,
+                'purchaseDate' => $submission->paymentRequest->paymentTransaction?->updated_at,
                 'price' => $submission->paymentRequest->amount_cents,
                 'updated_at' => $submission->updated_at,
             ];

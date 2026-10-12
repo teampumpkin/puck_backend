@@ -68,7 +68,8 @@ class V4InAppPurchase extends Model
 
     public function marketplaceItem()
     {
-        return $this->hasOne(V4Marketplace::class, 'in_app_purchase_id');
+        // Read for past purchases: a since-retired (soft-deleted) item must still resolve.
+        return $this->hasOne(V4Marketplace::class, 'in_app_purchase_id')->withTrashed();
     }
 
     // 🔹 Helper for validation
