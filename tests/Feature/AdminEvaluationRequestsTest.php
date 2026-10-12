@@ -59,6 +59,21 @@ class AdminEvaluationRequestsTest extends TestCase
             ->assertJsonPath('data.0.purchaseDate', null);
     }
 
+    public function test_orphan_fee_submission_does_not_break_lists(): void
+    {
+        // Older app builds recorded event/listing fees through process-payment,
+        // leaving submissions whose IAP has no marketplace item at all.
+        $player = $this->user('player');
+        [$sub, $item] = $this->submission($player);
+        $item->forceDelete();
+
+        $this->list()->assertOk()->assertJsonPath('data.0.type', null);
+
+        $this->withHeaders(['Authorization' => 'Bearer ' . auth('v4api')->login($player)])
+            ->getJson("/api/v4/orders/{$player->id}")
+            ->assertOk();
+    }
+
     public function test_detail_survives_soft_deleted_marketplace_item(): void
     {
         [$sub, $item] = $this->submission($this->user('player'));

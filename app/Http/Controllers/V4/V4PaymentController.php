@@ -67,6 +67,12 @@ class V4PaymentController extends Controller
                 return response()->json(['success' => false, 'message' => 'In-app purchase not found or inactive'], 404);
             }
 
+            // The app's generic purchase listener (older builds) also posts event and
+            // listing fees here. Keep recording the payment as before, but only
+            // marketplace products get an evaluation submission: orphan ones broke the
+            // admin requests list (PHP-LARAVEL-1R).
+            $isEvaluationProduct = $inAppPurchase->marketplaceItem()->exists();
+
             $payerId = $user->id;
             $playerId = $validated['player_id'] ?? $payerId;
             $player = V4User::find($playerId);
@@ -156,7 +162,7 @@ class V4PaymentController extends Controller
 
                     // Create evaluation submission entry outside transaction
                     try {
-                        $submission = EvaluationSubmission::create([
+                        $submission = !$isEvaluationProduct ? null : EvaluationSubmission::create([
                             'player_id' => $playerId,
                             'payment_request_id' => $latestPayment->id,
                             'status' => EvaluationSubmission::STATUS_PENDING,
@@ -170,7 +176,7 @@ class V4PaymentController extends Controller
                                 'title' => $inAppPurchase->title,
                                 'payment_request_id' => $latestPayment->id,
                                 'payment_transaction_id' => $transaction->id,
-                                'submission_id' => $submission->id,
+                                'submission_id' => $submission?->id,
                             ],
                         ], 201);
                     } catch (Exception $submissionError) {
@@ -253,7 +259,7 @@ class V4PaymentController extends Controller
 
                     // Create evaluation submission entry outside transaction
                     try {
-                        $submission = EvaluationSubmission::create([
+                        $submission = !$isEvaluationProduct ? null : EvaluationSubmission::create([
                             'player_id' => $playerId,
                             'payment_request_id' => $latestPayment->id,
                             'status' => EvaluationSubmission::STATUS_PENDING,
@@ -267,7 +273,7 @@ class V4PaymentController extends Controller
                                 'title' => $inAppPurchase->title,
                                 'payment_request_id' => $latestPayment->id,
                                 'payment_transaction_id' => $transaction->id,
-                                'submission_id' => $submission->id,
+                                'submission_id' => $submission?->id,
                             ],
                         ], 201);
                     } catch (Exception $submissionError) {
@@ -357,7 +363,7 @@ class V4PaymentController extends Controller
 
                     // Create evaluation submission entry outside transaction
                     try {
-                        $submission = EvaluationSubmission::create([
+                        $submission = !$isEvaluationProduct ? null : EvaluationSubmission::create([
                             'player_id' => $playerId,
                             'payment_request_id' => $paymentRequest->id,
                             'status' => EvaluationSubmission::STATUS_PENDING,
@@ -371,7 +377,7 @@ class V4PaymentController extends Controller
                                 'title' => $inAppPurchase->title,
                                 'payment_request_id' => $paymentRequest->id,
                                 'payment_transaction_id' => $transaction->id,
-                                'submission_id' => $submission->id,
+                                'submission_id' => $submission?->id,
                             ],
                         ], 201);
                     } catch (Exception $submissionError) {
@@ -645,7 +651,7 @@ class V4PaymentController extends Controller
 
             // Transform data if needed
             $ordersData = $orders->map(function ($order) {
-                $payload = $order->paymentRequest->paymentTransaction->payload;
+                $payload = $order->paymentRequest->paymentTransaction?->payload;
 
                 $payloadData = json_decode($payload, true);
 
@@ -660,7 +666,7 @@ class V4PaymentController extends Controller
 
                 return [
                     'id' => $order->id,
-                    'type' => $order->paymentRequest->inAppPurchase->marketplaceItem->type,
+                    'type' => $order->paymentRequest->inAppPurchase->marketplaceItem?->type,
                     'status' => $order->status,
                     'created_at' => $order->created_at,
                     'payload' => !empty($payloadData) ? $payloadData : null,
