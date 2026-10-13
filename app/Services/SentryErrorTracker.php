@@ -8,30 +8,9 @@ use Throwable;
 
 class SentryErrorTracker implements ErrorTrackerInterface
 {
-    public function __construct()
-    {
-        // Ensure Sentry is initialized
-        $this->ensureSentryInitialized();
-    }
+    // No \Sentry\init() here: sentry-laravel already initializes the SDK, and
+    // re-initializing replaced its client and re-enabled PHP deprecation reporting.
 
-    /**
-     * Ensure Sentry SDK is properly initialized
-     */
-    private function ensureSentryInitialized(): void
-    {
-        if (!function_exists('sentry_capture_exception')) {
-            $dsn = config('sentry.dsn');
-            if ($dsn) {
-                \Sentry\init([
-                    'dsn' => $dsn,
-                    'environment' => config('sentry.environment'),
-                    'sample_rate' => config('sentry.sample_rate', 1.0),
-                    'traces_sample_rate' => config('sentry.traces_sample_rate'),
-                    'send_default_pii' => config('sentry.send_default_pii', false),
-                ]);
-            }
-        }
-    }
     /**
      * Capture and log an exception to Sentry
      *
