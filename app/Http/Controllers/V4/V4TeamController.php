@@ -712,7 +712,10 @@ class V4TeamController extends Controller
                 'user_id' => 'required|integer|exists:v4_users,id',
             ]);
 
-            $user = V4User::with(['academyProfile'])->findOrFail($userId);
+            $user = V4User::with(['academyProfile'])->find($userId);
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not found'], 404);
+            }
             if ($user->role == 'player' || $user->role == 'scout' || $user->role == 'coach' || $user->role == 'adviser') {
 
                 $teams = V4Team::with(['members', 'academy.members'])
@@ -730,9 +733,10 @@ class V4TeamController extends Controller
                     'data' => $teams
                 ]);
             } else if ($user->role == 'academy') {
-                $teams = V4Team::with(['members', 'academy.members'])
-                    ->where('academy_id', $user->academyProfile->academy->id)
-                    ->get();
+                $academyId = $user->academyProfile?->academy?->id;
+                $teams = $academyId
+                    ? V4Team::with(['members', 'academy.members'])->where('academy_id', $academyId)->get()
+                    : collect();
 
                 return response()->json([
                     'success' => true,
@@ -740,11 +744,12 @@ class V4TeamController extends Controller
                     'data' => $teams
                 ]);
             } else {
-
+                // Other roles can't belong to teams; the app prefetches for any viewed profile.
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Coming soon',
-                ], 500);
+                    'success' => true,
+                    'message' => 'Fetched Teams',
+                    'data' => [],
+                ]);
             }
         } catch (ValidationException $e) {
 
