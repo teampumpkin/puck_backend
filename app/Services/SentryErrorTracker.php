@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\ErrorTrackerInterface;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class SentryErrorTracker implements ErrorTrackerInterface
@@ -40,6 +41,11 @@ class SentryErrorTracker implements ErrorTrackerInterface
      */
     public function captureException(Throwable $exception, array $context = []): void
     {
+        // 422 user-input errors are expected responses, not bugs.
+        if ($exception instanceof ValidationException) {
+            return;
+        }
+
         try {
             \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($context) {
                 // Set environment from ENVIRONMENT variable
